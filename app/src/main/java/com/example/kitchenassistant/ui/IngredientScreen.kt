@@ -2,7 +2,10 @@ package com.example.kitchenassistant.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -27,6 +30,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
@@ -74,10 +78,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
@@ -85,7 +91,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.model.Ingredient
 import com.example.kitchenassistant.viewmodel.IngredientViewModel
@@ -142,7 +150,9 @@ fun IngredientScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding() // respect the system navigation bar inset
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        // Tapping this bar is "outside the manual add form" too.
+                        .clearFocusOnTap(focusManager),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Disabled until there's something in the fridge to search with. Starring is
@@ -166,25 +176,31 @@ fun IngredientScreen(
         }
     ) { padding ->
         val listState = rememberLazyListState()
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-        ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
                 .pointerInput(Unit) {
                     // Clear focus on any tap that isn't consumed by a child composable.
                     // This dismisses the keyboard and exits count-edit mode.
                     detectTapGestures(onTap = { focusManager.clearFocus() })
-                },
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                }
         ) {
-            // The add-ingredient form is always pinned at the top of the list.
-            item(key = "add_form") {
+            // Quick-add row and the manual add form are fixed above the scrollable fridge
+            // list below, so they never scroll out of view.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Quick-add thumbnails for common vegetables and meats.
+                QuickAddRow(
+                    onQuickAdd = { name -> viewModel.quickAddIngredient(name) },
+                    // Tapping a thumbnail is "outside the manual add form" too.
+                    modifier = Modifier.clearFocusOnTap(focusManager)
+                )
+
                 AddIngredientCard(
                     searchQuery = searchQuery,
                     suggestions = suggestions,
@@ -207,41 +223,160 @@ fun IngredientScreen(
                 )
             }
 
-            // Only render the section header and list when there is at least one ingredient.
-            if (ingredients.isNotEmpty()) {
-                item(key = "header_ingredients") {
-                    Text(
-                        "My Fridge",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
-                    )
+            // The fridge list gets the remaining vertical space and scrolls on its own,
+            // independent of the fixed quick-add row and add form above it.
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Only render the section header and list when there is at least one ingredient.
+                    if (ingredients.isNotEmpty()) {
+                        item(key = "header_ingredients") {
+                            Text(
+                                "My Fridge",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+                            )
+                        }
+                        // Each ingredient gets a stable key (its UUID) so Compose can animate
+                        // additions/removals correctly and avoid unnecessary recomposition.
+                        items(ingredients, key = { it.id }) { ingredient ->
+                            Box(
+                                // Tapping an ingredient card is "outside the manual add form" too.
+                                modifier = Modifier.clearFocusOnTap(focusManager)
+                            ) {
+                                IngredientItem(
+                                    ingredient = ingredient,
+                                    dateFormat = dateFormat,
+                                    onDelete = { viewModel.removeIngredient(ingredient.id) },
+                                    onToggleStar = { viewModel.togglePrioritized(ingredient.id) },
+                                    // onToggleExclude = { viewModel.toggleExclude(ingredient.id) },
+                                    onSetExpirationDate = { viewModel.setExpirationDate(ingredient.id, it) },
+                                    onIncrement = { viewModel.incrementCount(ingredient.id) },
+                                    onDecrement = { viewModel.decrementCount(ingredient.id) },
+                                    onSetCount = { viewModel.setCount(ingredient.id, it) }
+                                )
+                            }
+                        }
+                    }
                 }
-                // Each ingredient gets a stable key (its UUID) so Compose can animate
-                // additions/removals correctly and avoid unnecessary recomposition.
-                items(ingredients, key = { it.id }) { ingredient ->
-                    IngredientItem(
-                        ingredient = ingredient,
-                        dateFormat = dateFormat,
-                        onDelete = { viewModel.removeIngredient(ingredient.id) },
-                        onToggleStar = { viewModel.togglePrioritized(ingredient.id) },
-                        // onToggleExclude = { viewModel.toggleExclude(ingredient.id) },
-                        onSetExpirationDate = { viewModel.setExpirationDate(ingredient.id, it) },
-                        onIncrement = { viewModel.incrementCount(ingredient.id) },
-                        onDecrement = { viewModel.decrementCount(ingredient.id) },
-                        onSetCount = { viewModel.setCount(ingredient.id, it) }
-                    )
-                }
+                LazyListScrollbar(
+                    state = listState,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .width(6.dp)
+                )
             }
         }
-        LazyListScrollbar(
-            state = listState,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(6.dp)
+    }
+}
+
+/**
+ * Clears the currently focused element the instant a tap begins anywhere within this
+ * composable's bounds — even when a descendant (a Button, a Card, etc.) goes on to consume
+ * the event itself. Detected at [PointerEventPass.Initial], which runs before any child gets
+ * a chance to consume the touch, so it fires reliably for taps on other clickable elements
+ * (quick-add thumbnails, ingredient cards, the bottom bar) and not just on empty space.
+ *
+ * Used to collapse the manual add form's expiration/quantity/Add row whenever the user
+ * interacts with anything outside it.
+ */
+private fun Modifier.clearFocusOnTap(focusManager: FocusManager): Modifier = pointerInput(focusManager) {
+    awaitEachGesture {
+        awaitFirstDown(pass = PointerEventPass.Initial)
+        focusManager.clearFocus()
+    }
+}
+
+/** A single quick-add entry: display name plus an emoji stand-in for a thumbnail image. */
+private data class QuickAddItem(val name: String, val emoji: String)
+
+/**
+ * The most commonly used vegetables and meats, offered as one-tap shortcuts so the user doesn't
+ * have to type + select from autocomplete for everyday items. Names are simple, singular nouns
+ * so they head-match broadly under [com.example.kitchenassistant.data.IngredientMatcher].
+ */
+private val QUICK_ADD_ITEMS = listOf(
+    QuickAddItem("Carrot", "🥕"),
+    QuickAddItem("Tomato", "🍅"),
+    QuickAddItem("Onion", "🧅"),
+    QuickAddItem("Broccoli", "🥦"),
+    QuickAddItem("Potato", "🥔"),
+    QuickAddItem("Bell Pepper", "🫑"),
+    QuickAddItem("Garlic", "🧄"),
+    QuickAddItem("Lettuce", "🥬"),
+    QuickAddItem("Cucumber", "🥒"),
+    QuickAddItem("Mushroom", "🍄"),
+    QuickAddItem("Corn", "🌽"),
+    QuickAddItem("Avocado", "🥑"),
+    QuickAddItem("Chicken", "🍗"),
+    QuickAddItem("Beef", "🥩"),
+    QuickAddItem("Bacon", "🥓"),
+    QuickAddItem("Fish", "🐟"),
+    QuickAddItem("Shrimp", "🦐"),
+    QuickAddItem("Egg", "🥚"),
+)
+
+/**
+ * Horizontally scrollable row of thumbnail shortcuts for common vegetables and meats.
+ * Tapping a thumbnail adds that ingredient to the fridge at a default quantity of 1.
+ *
+ * @param onQuickAdd Called with the ingredient name when a thumbnail is tapped.
+ */
+@Composable
+private fun QuickAddRow(onQuickAdd: (String) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(
+            "Quick Add",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 4.dp)
         )
-        } // end Box
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            QUICK_ADD_ITEMS.forEach { item ->
+                QuickAddThumbnail(item = item, onClick = { onQuickAdd(item.name) })
+            }
+        }
+    }
+}
+
+/** A single tappable thumbnail (emoji in a rounded square) with its name label below. */
+@Composable
+private fun QuickAddThumbnail(item: QuickAddItem, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(64.dp)
+            .clickable(onClick = onClick)
+            .padding(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(item.emoji, fontSize = 24.sp)
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            item.name,
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -281,6 +416,10 @@ private fun AddIngredientCard(
     // Local quantity counter; starts at 1 and resets after each successful add.
     var count by remember { mutableIntStateOf(1) }
 
+    // Used to drop focus from the name field after Add is tapped, which collapses the
+    // expiration/quantity/Add row back down.
+    val focusManager = LocalFocusManager.current
+
     var showMonthYearPicker by remember { mutableStateOf(false) }
 
     if (showMonthYearPicker) {
@@ -298,6 +437,11 @@ private fun AddIngredientCard(
 
     // TextFieldValue lets us control cursor position in addition to the text content.
     var textFieldValue by remember { mutableStateOf(TextFieldValue()) }
+
+    // Whether the name field currently has focus. The expiration date, quantity, and Add
+    // button are only shown while focused, so the card stays compact until the user starts
+    // entering an ingredient.
+    var isFieldFocused by remember { mutableStateOf(false) }
 
     // Sync the local TextFieldValue when searchQuery changes externally (e.g. reset to ""
     // after the user taps Add). Skipped when the text is already in sync to avoid
@@ -328,6 +472,7 @@ private fun AddIngredientCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .onFocusChanged { focusState ->
+                                isFieldFocused = focusState.isFocused
                                 // Move cursor to end when the field is tapped.
                                 if (focusState.isFocused) {
                                     val text = textFieldValue.text
@@ -384,7 +529,9 @@ private fun AddIngredientCard(
                 }
             }
 
-            // Bottom row: expiration date selector | quantity stepper | Add button
+            // Bottom row: expiration date selector | quantity stepper | Add button.
+            // Hidden until the name field is focused so the card stays compact at rest.
+            if (isFieldFocused) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -450,11 +597,13 @@ private fun AddIngredientCard(
                         onAdd(count, selectedUnit)
                         count = 1
                         selectedUnit = "units"
+                        focusManager.clearFocus() // collapses this row back down
                     },
                     enabled = isQueryValid
                 ) {
                     Text("Add")
                 }
+            }
             }
         }
     }

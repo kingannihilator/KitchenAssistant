@@ -119,6 +119,23 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
         _isQueryValid.value = false
     }
 
+    /**
+     * Adds one unit of [name] to the fridge, used by the quick-add thumbnails.
+     *
+     * If an ingredient with this name (case-insensitive) is already in the fridge, its count is
+     * incremented instead of creating a duplicate row — repeated taps on the same thumbnail build
+     * up quantity rather than spawning a new card each time. Otherwise behaves like [addIngredient]
+     * with no expiration date and a count of 1.
+     */
+    fun quickAddIngredient(name: String) {
+        val existing = _ingredients.value.firstOrNull { it.name.equals(name, ignoreCase = true) }
+        if (existing != null) {
+            incrementCount(existing.id)
+        } else {
+            addIngredient(name, expirationDate = null, count = 1)
+        }
+    }
+
     /** Removes the ingredient with the given [id] from the list. */
     fun removeIngredient(id: String) {
         _ingredients.update { it.filter { ing -> ing.id != id } }
