@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__ide__getDiagnostics",
+      "Bash(sqlite3 \"/c/Users/Anthony/AndroidStudioProjects/KitchenAssistant/app/src/main/assets/recipes_test.db\" \".tables\")",
+      "Bash(sqlite3 \"/c/Users/Anthony/AndroidStudioProjects/KitchenAssistant/app/src/main/assets/recipes_test.db\" \".schema\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Anthony\\\\AndroidStudioProjects\\\\KitchenAssistant\" -Recurse -Filter \"*.kt\")",
+      "Bash(Select-Object -First 30 FullName)",
+      "PowerShell(.\\\\gradlew.bat compileDebugKotlin --console=plain)",
+      "Bash(sqlite3 *)"
+    ]
+  }
+}
