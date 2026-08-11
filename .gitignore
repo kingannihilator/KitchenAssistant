@@ -13,3 +13,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# The recipe corpus is ~620MB — past GitHub's 100MB hard limit for a single file.
+# It is regenerated outside this repo; see README.md for how to obtain it.
+# ingredients.db (0.3MB) and recipes_test.db (1.4MB) stay tracked on purpose.
+/app/src/main/assets/recipes.db
+/recipes.db
