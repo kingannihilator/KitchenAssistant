@@ -40,6 +40,25 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         // scoring in chunks (see chunkByLiteralSize).
         private const val MAX_LITERAL_CHARS = 350_000
 
+        // --- Underparsed-recipe mitigation switch ---
+        //
+        // A known bug in the current corpus-generation pipeline (outside this repo) sometimes
+        // collapses several ingredients into one raw `ingredients` line with no separator the
+        // parser recognizes (e.g. "Whole pork tenderloin Onions, sliced Tomatoes, sliced Bacon
+        // strips Seasonings" parsed down to just "pork tenderloin onion" — tomato, bacon, and
+        // seasoning silently dropped from matching). Those recipes then look trivially complete
+        // to anyone with just the one surviving ingredient and rank as false 100% matches.
+        //
+        // SUPPRESS_UNDERPARSED_RECIPES filters them out via loadUnderparsedRecipeIds below, the
+        // same way loadUnparseableRecipeIds already filters `parse_ok = 0` recipes. It's a
+        // reversible, app-side mitigation, not a real fix — the lost ingredients aren't
+        // recovered, just hidden from ranking. Flip this to false once the upstream corpus is
+        // regenerated with the line-collapsing bug fixed; a cleanly parsed corpus won't trip this
+        // heuristic anyway, so leaving it on is harmless, but the whole mitigation (this flag,
+        // loadUnderparsedRecipeIds, and its call site in scoreRecipes) can be deleted once it's
+        // confirmed unnecessary.
+        const val SUPPRESS_UNDERPARSED_RECIPES = true
+
         /**
          * Renders [values] as a SQL string literal list. Values come from the database itself, but
          * the quote doubling still matters — canonicals like "confectioner's sugar" exist.
@@ -232,6 +251,9 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     /** Recipes whose ingredient list the corpus failed to parse; cached for the session. */
     private var unparseableRecipeIds: Set<Int>? = null
 
+    /** Recipes flagged by [loadUnderparsedRecipeIds]; cached for the session. */
+    private var underparsedRecipeIds: Set<Int>? = null
+
     fun searchRecipes(fridgeIngredients: List<String>, prioritizedIngredients: List<String> = emptyList()) {
         // RecipeScreen re-runs this on every navigation back from the detail screen (it's the same
         // ViewModel instance the whole activity lifetime, since there's no back-stack scoping). Skip
@@ -322,8 +344,13 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         matchedCanonicals: Set<String>,
         prioritizedCanonicals: Set<String>
     ): List<RecipeMatch> {
-        val junkIds = unparseableRecipeIds ?: loadUnparseableRecipeIds(database).also {
+        var junkIds = unparseableRecipeIds ?: loadUnparseableRecipeIds(database).also {
             unparseableRecipeIds = it
+        }
+        if (SUPPRESS_UNDERPARSED_RECIPES) {
+            junkIds = junkIds + (underparsedRecipeIds ?: loadUnderparsedRecipeIds(database).also {
+                underparsedRecipeIds = it
+            })
         }
 
         val chunks = chunkByLiteralSize(matchedCanonicals)
@@ -412,6 +439,52 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         return ids
     }
 
+    /**
+     * Recipes where the longest raw ingredient line is suspiciously long (8+ words) but the whole
+     * recipe only yielded 2 or fewer distinct canonicals — the signature of [SUPPRESS_UNDERPARSED_RECIPES]'s
+     * target bug: a multi-ingredient line the corpus's parser couldn't split, collapsed down to
+     * almost nothing usable for matching. Verified against the real corpus (2,248 of 333k recipes,
+     * ~0.7%) rather than guessed; sampled results were dominated by genuine parser failures —
+     * run-on ingredient lines, recipe-intro prose mistaken for an ingredient, garbled truncation —
+     * not legitimate long single-ingredient names, though a few of those are an accepted false
+     * positive here (same precision-over-recall tradeoff [loadUnparseableRecipeIds] already makes).
+     *
+     * Deliberately doesn't try to re-split or re-parse the line — see the conversation this was
+     * added from for why that was tried and abandoned (too imprecise on this corpus's mix of
+     * brand names, inconsistent Title Case, and stray non-ingredient text). This only decides
+     * whether to trust the recipe's existing parse, not what its ingredients actually are.
+     */
+    private fun loadUnderparsedRecipeIds(database: SQLiteDatabase): Set<Int> {
+        val ids = HashSet<Int>(4096)
+        try {
+            database.rawQuery(
+                """
+                WITH line_len AS (
+                    SELECT recipe_id,
+                           MAX(LENGTH(text) - LENGTH(REPLACE(TRIM(text), ' ', '')) + 1) AS max_words
+                    FROM ingredients
+                    WHERE is_heading = 0 AND text IS NOT NULL AND TRIM(text) != ''
+                    GROUP BY recipe_id
+                ),
+                canon AS (
+                    SELECT recipe_id, COUNT(DISTINCT canonical) AS canon_total
+                    FROM clean_ingredients
+                    GROUP BY recipe_id
+                )
+                SELECT line_len.recipe_id
+                FROM line_len LEFT JOIN canon ON line_len.recipe_id = canon.recipe_id
+                WHERE line_len.max_words >= 8 AND COALESCE(canon.canon_total, 0) <= 2
+                """.trimIndent(),
+                null
+            ).use { cursor ->
+                while (cursor.moveToNext()) ids.add(cursor.getInt(0))
+            }
+        } catch (e: SQLiteException) {
+            Log.w(TAG, "Could not evaluate underparsed-recipe heuristic — skipping it", e)
+        }
+        return ids
+    }
+
     /** Loads titles, categories and ingredient lists for the recipes that will actually be shown. */
     private fun hydrate(database: SQLiteDatabase, topMatches: List<RecipeMatch>): List<Recipe> {
         if (topMatches.isEmpty()) return emptyList()
@@ -489,9 +562,30 @@ private const val RATIO_PRIOR = 2
  * A bare `matched / total` puts every trivial one-ingredient recipe at a perfect 1.0, ahead of a
  * genuine 9-of-10 match. Adding a prior to the denominator measured a drop from 142 to 25 trivial
  * recipes in the first 200 results for a three-item fridge, and from 28 to 2 garbled ones.
+ *
+ * Deliberately NOT what [matchTier] ranks by: the smoothing that fixes trivial-recipe inflation
+ * also lets a large recipe missing several ingredients (e.g. 3/4, smoothed 0.50) outscore a small
+ * complete one (e.g. 2/2, smoothed 0.50, tied, or worse for very small totals) — which would rank
+ * an "you're missing an ingredient" card above a "you have everything" one. [matchTier] is ranked
+ * first specifically to rule that out; this smoothed score only breaks ties within a tier.
  */
 private fun ratioScore(matched: Int, total: Int): Float =
     if (total <= 0) 0f else matched.toFloat() / (total + RATIO_PRIOR)
+
+/**
+ * The match-tier bucket a recipe falls into, on the same *unsmoothed* ratio the recipe card uses
+ * to pick its color in [com.example.kitchenassistant.ui.RecipeScreen] (`RecipeCard`) — so a card
+ * can never be colored green while a blue one sits above it in the list.
+ */
+private fun matchTier(matched: Int, total: Int): Int {
+    if (total <= 0) return 0
+    val ratio = matched.toFloat() / total
+    return when {
+        ratio >= 1f -> 2   // 100% match — green
+        ratio >= 0.75f -> 1 // partial match — blue
+        else -> 0
+    }
+}
 
 /**
  * Display ordering, and the counterpart to [matchOrder] — the two must agree, since the cut to
@@ -502,11 +596,13 @@ private fun ratioScore(matched: Int, total: Int): Float =
  */
 private val recipeOrder = compareByDescending<Recipe> { it.isFavorite }
     .thenByDescending { it.prioritizedCount }
+    .thenByDescending { matchTier(it.matchedCount, it.totalCount) }
     .thenByDescending { ratioScore(it.matchedCount, it.totalCount) }
     .thenByDescending { it.matchedCount }
     .thenBy { it.title }
 
 /** [recipeOrder] applied to raw scores, for the cut to MAX_RESULTS. */
 private val matchOrder = compareByDescending<RecipeMatch> { it.prioritized }
+    .thenByDescending { matchTier(it.matched, it.total) }
     .thenByDescending { ratioScore(it.matched, it.total) }
     .thenByDescending { it.matched }

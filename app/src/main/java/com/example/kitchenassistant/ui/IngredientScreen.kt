@@ -297,29 +297,33 @@ private fun Modifier.clearFocusOnTap(focusManager: FocusManager): Modifier = poi
 private data class QuickAddItem(val name: String, val emoji: String)
 
 /**
- * The most commonly used vegetables and meats, offered as one-tap shortcuts so the user doesn't
- * have to type + select from autocomplete for everyday items. Names are simple, singular nouns
- * so they head-match broadly under [com.example.kitchenassistant.data.IngredientMatcher].
+ * Primary/defining ingredients, offered as one-tap shortcuts so the user doesn't have to type +
+ * select from autocomplete for everyday items. Ordered most-common-first rather than
+ * alphabetically or by category, so the ingredients people reach for most often don't require
+ * scrolling the row. Names are simple, singular nouns so they head-match broadly under
+ * [com.example.kitchenassistant.data.IngredientMatcher].
  */
 private val QUICK_ADD_ITEMS = listOf(
-    QuickAddItem("Carrot", "🥕"),
-    QuickAddItem("Tomato", "🍅"),
-    QuickAddItem("Onion", "🧅"),
-    QuickAddItem("Broccoli", "🥦"),
-    QuickAddItem("Potato", "🥔"),
-    QuickAddItem("Bell Pepper", "🫑"),
-    QuickAddItem("Garlic", "🧄"),
-    QuickAddItem("Lettuce", "🥬"),
-    QuickAddItem("Cucumber", "🥒"),
-    QuickAddItem("Mushroom", "🍄"),
-    QuickAddItem("Corn", "🌽"),
-    QuickAddItem("Avocado", "🥑"),
-    QuickAddItem("Chicken", "🍗"),
-    QuickAddItem("Beef", "🥩"),
-    QuickAddItem("Bacon", "🥓"),
-    QuickAddItem("Fish", "🐟"),
-    QuickAddItem("Shrimp", "🦐"),
     QuickAddItem("Egg", "🥚"),
+    QuickAddItem("Onion", "🧅"),
+    QuickAddItem("Tomato", "🍅"),
+    QuickAddItem("Cheese", "🧀"),
+    QuickAddItem("Garlic", "🧄"),
+    QuickAddItem("Chicken", "🍗"),
+    QuickAddItem("Potato", "🥔"),
+    QuickAddItem("Carrot", "🥕"),
+    QuickAddItem("Beef", "🥩"),
+    QuickAddItem("Rice", "🍚"),
+    QuickAddItem("Pork", "🍖"),
+    QuickAddItem("Mushroom", "🍄"),
+    QuickAddItem("Beans", "🫘"),
+    QuickAddItem("Lemon", "🍋"),
+    QuickAddItem("Shrimp", "🦐"),
+    QuickAddItem("Pasta", "🍝"),
+    QuickAddItem("Cabbage", "🥬"),
+    QuickAddItem("Bell Pepper", "🫑"),
+    QuickAddItem("Spinach", "🍃"),
+    QuickAddItem("Corn", "🌽"),
 )
 
 /**
