@@ -12,5 +12,11 @@ data class Recipe(
     val totalCount: Int,
     /** How many of the user's starred ingredients this recipe uses; drives the ranking boost. */
     val prioritizedCount: Int = 0,
+    /**
+     * How many of this recipe's `DEFINING`-tier ingredients (its namesake, e.g. "garlic" in
+     * "Garlic Chicken") the fridge supplies. New-corpus only -- always 0 for recipes from the old
+     * corpus, which has no tier concept, so it's a no-op there rather than needing a branch.
+     */
+    val definingMatchedCount: Int = 0,
     val isFavorite: Boolean = false
 )

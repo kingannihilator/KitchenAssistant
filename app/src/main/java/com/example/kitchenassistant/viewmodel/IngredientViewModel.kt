@@ -84,13 +84,23 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
      */
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
-        _isQueryValid.value = allIngredients.any { it.equals(query, ignoreCase = true) }
-        _suggestions.value = if (query.length >= 2) {
+
+        // Matching uses the trimmed query, not the raw one: many IME word-suggestion strips
+        // insert a trailing space when a word is tapped (to prime the next word), so selecting
+        // "chicken" from that strip can leave the field holding "chicken " (with a trailing
+        // space). Left untrimmed, that space makes the plain "chicken" entry fail both an exact
+        // match ("chicken " != "chicken") and a substring match against itself, while multi-word
+        // entries like "chicken fat" still match, since the space just falls before "fat" —
+        // exactly backwards from what the user picked. The field itself keeps the raw text so
+        // the user can keep typing past that space normally.
+        val trimmed = query.trim()
+        _isQueryValid.value = allIngredients.any { it.equals(trimmed, ignoreCase = true) }
+        _suggestions.value = if (trimmed.length >= 2) {
             // Partition into prefix matches and mid-word matches, then concatenate so
             // prefix matches always appear first. Both groups retain their original order.
             val (prefixMatches, midWordMatches) = allIngredients
-                .filter { it.contains(query, ignoreCase = true) }
-                .partition { it.startsWith(query, ignoreCase = true) }
+                .filter { it.contains(trimmed, ignoreCase = true) }
+                .partition { it.startsWith(trimmed, ignoreCase = true) }
             // Within each group, shorter names appear first.
             prefixMatches.sortedBy { it.length } + midWordMatches.sortedBy { it.length }
         } else {

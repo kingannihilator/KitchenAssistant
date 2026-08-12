@@ -432,9 +432,11 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
      * New-corpus counterpart to [scoreRecipes]. `SEASONING`-tier rows are excluded from both the
      * `total` and `matched` counts inside [buildScoreQuerySql] -- the "incorporate tiers into
      * scoring" step discussed when this was designed: a recipe needing salt isn't penalized for a
-     * fridge without salt, and doesn't get credit for one with it either. The resulting
+     * fridge without salt, and doesn't get credit for one with it either. `DEFINING`-tier matches
+     * are separately counted (not excluded from anything) so [recipeOrder]/[matchOrder] can give
+     * them their own ranking boost, the same way starred ingredients already do. The resulting
      * [RecipeMatch] values feed the exact same [matchOrder]/[recipeOrder]/[ratioScore]/[matchTier]
-     * the old corpus uses -- nothing downstream needed to change to make tiers count.
+     * the old corpus uses -- nothing else downstream needed to change to make tiers count.
      */
     private suspend fun scoreRecipesNew(
         dao: NewRecipeDao,
@@ -452,7 +454,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         // Chunks partition the matched set; `total` is NOT chunk-dependent (it's every
         // non-SEASONING ingredient the recipe calls for, computed the same regardless of which
         // chunk is running), so it's taken once per recipe and never summed across chunks — only
-        // matched/prioritized accumulate. Mirrors queryChunk/scoreRecipes' exact reasoning.
+        // matched/prioritized/defining accumulate. Mirrors queryChunk/scoreRecipes' exact reasoning.
         val accumulated = HashMap<Int, RecipeMatch>()
         for (chunk in chunkIntLiterals(matchedIds)) {
             val prioritizedChunk = chunk.filter { it in prioritizedIds }
@@ -461,9 +463,19 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 if (row.recipeId in junkIds) continue
                 val existing = accumulated[row.recipeId]
                 accumulated[row.recipeId] = if (existing == null) {
-                    RecipeMatch(id = row.recipeId, matched = row.matched, total = row.total, prioritized = row.prioritized)
+                    RecipeMatch(
+                        id = row.recipeId,
+                        matched = row.matched,
+                        total = row.total,
+                        prioritized = row.prioritized,
+                        defining = row.defining
+                    )
                 } else {
-                    existing.copy(matched = existing.matched + row.matched, prioritized = existing.prioritized + row.prioritized)
+                    existing.copy(
+                        matched = existing.matched + row.matched,
+                        prioritized = existing.prioritized + row.prioritized,
+                        defining = existing.defining + row.defining
+                    )
                 }
             }
         }
@@ -476,6 +488,12 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         append("COUNT(DISTINCT CASE WHEN tier != 'SEASONING' AND ingredient_id IN (")
         append(matchedChunk.joinToString(","))
         append(") THEN ingredient_id END) AS matched, ")
+        // Defining-tier ingredients the fridge covers -- a subset of `matched` (DEFINING is never
+        // SEASONING, so no tier != 'SEASONING' guard is needed here), used purely for the ranking
+        // boost in recipeOrder/matchOrder, not for the total/matched counts themselves.
+        append("COUNT(DISTINCT CASE WHEN tier = 'DEFINING' AND ingredient_id IN (")
+        append(matchedChunk.joinToString(","))
+        append(") THEN ingredient_id END) AS defining, ")
         if (prioritizedChunk.isNotEmpty()) {
             append("COUNT(DISTINCT CASE WHEN tier != 'SEASONING' AND ingredient_id IN (")
             append(prioritizedChunk.joinToString(","))
@@ -511,7 +529,8 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 ingredients = ingredientTextById[match.id] ?: emptyList(),
                 matchedCount = match.matched,
                 totalCount = match.total,
-                prioritizedCount = match.prioritized
+                prioritizedCount = match.prioritized,
+                definingMatchedCount = match.defining
             )
         }
     }
@@ -813,7 +832,15 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         BundledDatabase.openReadOnly(getApplication(), "recipes.db")
 }
 
-private data class RecipeMatch(val id: Int, val matched: Int, val total: Int, val prioritized: Int)
+private data class RecipeMatch(
+    val id: Int,
+    val matched: Int,
+    val total: Int,
+    val prioritized: Int,
+    /** Defining-tier ingredients matched; new-corpus only, always 0 for the legacy path (which
+     * never sets it, relying on this default) -- see [Recipe.definingMatchedCount]. */
+    val defining: Int = 0
+)
 
 /** Smoothing prior on the match ratio; see [recipeOrder]. */
 private const val RATIO_PRIOR = 2
@@ -855,9 +882,16 @@ private fun matchTier(matched: Int, total: Int): Int {
  *
  * Starred ingredients boost rather than filter: a recipe using two of them outranks one using a
  * single starred ingredient, but recipes using none are still shown.
+ *
+ * `definingMatchedCount` boosts the same way, right after starred ingredients: a recipe where the
+ * fridge covers the dish's namesake ingredient (e.g. garlic in "Garlic Chicken") outranks one at
+ * the same match tier/ratio where it doesn't — new-corpus only, always 0 (a no-op tie) for the old
+ * corpus. Ranked above `matchTier` on purpose, matching how `prioritizedCount` already outranks it:
+ * both are deliberate boosts, not filters, so they get first say over the raw ratio.
  */
 private val recipeOrder = compareByDescending<Recipe> { it.isFavorite }
     .thenByDescending { it.prioritizedCount }
+    .thenByDescending { it.definingMatchedCount }
     .thenByDescending { matchTier(it.matchedCount, it.totalCount) }
     .thenByDescending { ratioScore(it.matchedCount, it.totalCount) }
     .thenByDescending { it.matchedCount }
@@ -865,6 +899,7 @@ private val recipeOrder = compareByDescending<Recipe> { it.isFavorite }
 
 /** [recipeOrder] applied to raw scores, for the cut to MAX_RESULTS. */
 private val matchOrder = compareByDescending<RecipeMatch> { it.prioritized }
+    .thenByDescending { it.defining }
     .thenByDescending { matchTier(it.matched, it.total) }
     .thenByDescending { ratioScore(it.matched, it.total) }
     .thenByDescending { it.matched }

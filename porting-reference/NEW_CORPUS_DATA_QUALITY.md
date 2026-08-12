@@ -107,6 +107,37 @@ known recall gap, not a correctness bug (nothing mismatches, some things just do
 These heads are explicitly skipped (not assigned a category) during the categorization pass rather
 than left ambiguously "not yet categorized."
 
-## Tier distribution (for reference, unaffected by the above)
+## Exact-duplicate recipes (found post-launch, fixed by deletion)
 
-`recipe_ingredients.tier`, whole corpus: DEFINING 23,854 / SEASONING 39,273 / SUPPORTING 121,727.
+Found while testing the app for real: the same recipe ("Natasha's Chicken Burgers") showed up
+twice in one search's results, at two different `recipe_id`s. Checked whether this was isolated —
+it wasn't. Comparing every column (not just title) between the two rows showed them byte-identical,
+including `source_id` (both `1` — so it's not "two sources scraped the same page", the same
+source's own data lists the recipe twice).
+
+Measured across the whole corpus by grouping on byte-identical `instructions_raw` (sufficient on
+its own: `recipe_ingredients`/`recipe_steps` are deterministically parsed *from*
+`instructions_raw`, so identical source text guarantees identical derived rows too — confirmed for
+the sample pair before trusting it as the general signal):
+
+- **1,451 duplicate groups**, covering **4,927 of 19,566 recipes (25.2%)** — some groups had up to
+  11 copies of the same recipe.
+- **3,476 "extra" rows** once each group is collapsed to one canonical entry (the lowest
+  `recipe_id`).
+
+Unlike the blob-name and not-yet-categorized cases above (deliberately *not* deleted — there's
+something to potentially recover or extend later), an exact duplicate has nothing to recover from;
+it's pure redundancy. Deleted via `dedupe_exact_recipes.py` (backs nothing up itself — the usual
+`db-backup/` snapshot was taken first, as with every schema-changing script in this directory).
+Corpus after: **16,090 recipes**, 157,409 `recipe_ingredients` rows (was 184,854), 15,254
+`recipe_steps` rows (was 16,409), zero orphaned child rows, zero remaining duplicate groups.
+Verified fixed live in the app afterward (filtering results for "Natasha" now returns exactly one).
+
+This also means `RecipeViewModel`'s `totalMatchCount` ("Top 500 of *N*") was quietly inflated by
+duplicates before this fix — some of a given search's *N* was the same recipe counted more than
+once.
+
+## Tier distribution (post-dedup; see above for why the corpus shrank)
+
+`recipe_ingredients.tier`, current corpus (16,090 recipes): DEFINING 19,448 / SEASONING 33,014 /
+SUPPORTING 104,947.

@@ -39,7 +39,8 @@ data class NewRecipeMatchRow(
     @ColumnInfo(name = "recipe_id") val recipeId: Int,
     val total: Int,
     val matched: Int,
-    val prioritized: Int
+    val prioritized: Int,
+    val defining: Int
 )
 
 data class RecipeIdRow(@ColumnInfo(name = "recipe_id") val recipeId: Int)

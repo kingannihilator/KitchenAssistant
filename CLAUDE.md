@@ -111,7 +111,9 @@ The four word lists (`PART_WORDS`, `STOPWORDS`, `FRIDGE_CUT`, `BLOCK_MODIFIERS`)
 `RecipeViewModel.searchRecipes`/`loadRecipeDetail` are thin dispatchers: `USE_NEW_RECIPE_DATABASE`
 (a `const val` in `RecipeViewModel`'s companion object) picks between `*Legacy` (the original
 `recipes.db` path described above, completely unmodified) and `*New` (the newer, much smaller
-`recipe_database.sqlite`, ~95MB vs. `recipes.db`'s ~620MB — odunola/foodie, 19,566 recipes). Both
+`recipe_database.sqlite`, ~88MB vs. `recipes.db`'s ~620MB — odunola/foodie, 16,090 recipes after
+`porting-reference/dedupe_exact_recipes.py` removed 3,476 exact-duplicate rows the source dataset
+itself shipped with, see `NEW_CORPUS_DATA_QUALITY.md`). Both
 implementations are fully intact and reachable by flipping the flag; nothing about the legacy path
 was rewritten to make room for the new one. `porting-reference/` (outside the app module, not
 bundled) holds the build scripts, taxonomy-construction scripts, and two write-ups —
