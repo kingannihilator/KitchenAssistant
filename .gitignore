@@ -19,3 +19,17 @@ local.properties
 # ingredients.db (0.3MB) and recipes_test.db (1.4MB) stay tracked on purpose.
 /app/src/main/assets/recipes.db
 /recipes.db
+
+# Backup of the previous (pre-port) recipes.db, kept outside app/ so it's
+# never bundled into an APK build.
+/db-backup/
+
+# The new recipe corpus (odunola/foodie + hand-curated category taxonomy) is ~127MB --
+# also past GitHub's 100MB hard limit. Built/regenerated via the scripts in
+# porting-reference/ (see INGREDIENT_MATCHING_CONCEPTS.md and NEW_CORPUS_DATA_QUALITY.md);
+# the bundled copy is the build output of the porting-reference copy, not a second source.
+/app/src/main/assets/database/recipe_database.sqlite
+/porting-reference/recipe_database.sqlite
+
+# Python bytecode cache from running the porting-reference/ scripts.
+__pycache__/

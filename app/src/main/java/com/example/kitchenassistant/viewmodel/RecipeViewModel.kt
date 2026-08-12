@@ -6,9 +6,13 @@ import android.database.sqlite.SQLiteException
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.sqlite.db.SimpleSQLiteQuery
 import com.example.kitchenassistant.data.BundledDatabase
 import com.example.kitchenassistant.data.CanonicalIndex
 import com.example.kitchenassistant.data.FavoritesRepository
+import com.example.kitchenassistant.data.NewIngredientIndex
+import com.example.kitchenassistant.data.NewRecipeDao
+import com.example.kitchenassistant.data.NewRecipeDatabase
 import com.example.kitchenassistant.model.DetailIngredient
 import com.example.kitchenassistant.model.Recipe
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +63,36 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         // confirmed unnecessary.
         const val SUPPRESS_UNDERPARSED_RECIPES = true
 
+        // --- New-corpus switch ---
+        //
+        // recipe_database.sqlite (odunola/foodie, 19,566 recipes, ~95MB) is a second, smaller
+        // recipe database bundled alongside the original recipes.db (333k recipes, ~620MB) —
+        // see porting-reference/ANDROID_HANDOFF.md and INGREDIENT_MATCHING_CONCEPTS.md for the
+        // full background. USE_NEW_RECIPE_DATABASE selects which one backs search and detail.
+        //
+        // The old-corpus code path (scoreRecipes, hydrate, loadUnparseableRecipeIds,
+        // loadUnderparsedRecipeIds, openRecipesDatabase, CanonicalIndex, and everything gated by
+        // SUPPRESS_UNDERPARSED_RECIPES above) is untouched and fully reachable by flipping this
+        // back to false — searchRecipes/loadRecipeDetail just dispatch to *Legacy or *New based
+        // on this flag, nothing about the old path was rewritten to make room for the new one.
+        const val USE_NEW_RECIPE_DATABASE = true
+
+        // The new corpus's own known data-quality issue (see
+        // porting-reference/NEW_CORPUS_DATA_QUALITY.md): ~2.7% of recipe_ingredients rows point
+        // at a "blob" ingredient name — unparsed raw text, not a clean ingredient. Different bug,
+        // different code than SUPPRESS_UNDERPARSED_RECIPES's target, so it gets its own switch
+        // rather than reusing that one. Suppresses affected recipes from ranking; recovering the
+        // underlying blob names themselves is deferred (see porting-reference/head_categories.json
+        // and the taxonomy-construction docs for where that work picks back up).
+        const val SUPPRESS_BLOB_RECIPES_NEW = true
+
+        // Mirrors the Python BLOB_NAME_LENGTH_THRESHOLD in
+        // porting-reference/extract_ingredient_heads.py — a normalized_name longer than this is
+        // treated as un-stripped raw text rather than a real ingredient name. Kept as the one
+        // source of truth here and threaded into NewRecipeDao/NewIngredientIndex calls, rather
+        // than hardcoded in multiple places.
+        const val BLOB_NAME_LENGTH_THRESHOLD_NEW = 40
+
         /**
          * Renders [values] as a SQL string literal list. Values come from the database itself, but
          * the quote doubling still matters — canonicals like "confectioner's sugar" exist.
@@ -76,6 +110,26 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
             var length = 0
             for (value in values) {
                 val cost = value.length + 3 // quotes and separator
+                if (current.isNotEmpty() && length + cost > MAX_LITERAL_CHARS) {
+                    chunks.add(current)
+                    current = mutableListOf()
+                    length = 0
+                }
+                current.add(value)
+                length += cost
+            }
+            if (current.isNotEmpty()) chunks.add(current)
+            return chunks
+        }
+
+        /** [chunkByLiteralSize]'s counterpart for integer ids (no quoting needed) — used by the
+         * new-corpus scoring path, where the matched set is ingredient_ids, not canonical names. */
+        private fun chunkIntLiterals(values: Collection<Int>): List<List<Int>> {
+            val chunks = mutableListOf<List<Int>>()
+            var current = mutableListOf<Int>()
+            var length = 0
+            for (value in values) {
+                val cost = value.toString().length + 1 // separator
                 if (current.isNotEmpty() && length + cost > MAX_LITERAL_CHARS) {
                     chunks.add(current)
                     current = mutableListOf()
@@ -171,6 +225,42 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     private var lastDetailRecipeId: Int? = null
 
     fun loadRecipeDetail(recipeId: Int) {
+        if (USE_NEW_RECIPE_DATABASE) loadRecipeDetailNew(recipeId) else loadRecipeDetailLegacy(recipeId)
+    }
+
+    private fun loadRecipeDetailNew(recipeId: Int) {
+        if (recipeId == lastDetailRecipeId &&
+            (_detailIngredients.value.isNotEmpty() || _detailDirections.value.isNotEmpty())
+        ) {
+            return
+        }
+        lastDetailRecipeId = recipeId
+
+        _isLoadingDetail.value = true
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dao = newRecipeDao()
+
+                _detailIngredients.value = dao.getIngredientLines(recipeId).map { row ->
+                    DetailIngredient(line = row.originalText, canonical = row.normalizedName)
+                }
+
+                _detailDirections.value = dao.getSteps(recipeId).mapNotNull { step ->
+                    val instruction = step.instruction.trim().takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                    val title = step.stepTitle?.trim()
+                    if (title.isNullOrEmpty()) instruction else "$title: $instruction"
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "loadRecipeDetailNew failed for recipeId=$recipeId", e)
+                _detailIngredients.value = emptyList()
+                _detailDirections.value = emptyList()
+            } finally {
+                _isLoadingDetail.value = false
+            }
+        }
+    }
+
+    private fun loadRecipeDetailLegacy(recipeId: Int) {
         // Same reasoning as searchRecipes: RecipeDetailScreen re-mounts (and re-fires its
         // LaunchedEffect) every time it's navigated to, including re-opening a recipe you already
         // viewed this session. Skip the reload if we already have this recipe's details cached.
@@ -254,7 +344,179 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     /** Recipes flagged by [loadUnderparsedRecipeIds]; cached for the session. */
     private var underparsedRecipeIds: Set<Int>? = null
 
+    /** Recipes with a blob ingredient row in the new corpus; cached for the session. Counterpart
+     * to [unparseableRecipeIds]/[underparsedRecipeIds] above, for [SUPPRESS_BLOB_RECIPES_NEW]. */
+    private var blobRecipeIdsNew: Set<Int>? = null
+
+    private fun newRecipeDao(): NewRecipeDao = NewRecipeDatabase.getInstance(getApplication()).newRecipeDao()
+
     fun searchRecipes(fridgeIngredients: List<String>, prioritizedIngredients: List<String> = emptyList()) {
+        if (USE_NEW_RECIPE_DATABASE) {
+            searchRecipesNew(fridgeIngredients, prioritizedIngredients)
+        } else {
+            searchRecipesLegacy(fridgeIngredients, prioritizedIngredients)
+        }
+    }
+
+    private fun searchRecipesNew(fridgeIngredients: List<String>, prioritizedIngredients: List<String> = emptyList()) {
+        // Same re-run guard as searchRecipesLegacy -- see its comment for why.
+        if (fridgeIngredients == lastFridgeIngredients &&
+            prioritizedIngredients == lastPrioritizedIngredients &&
+            _recipes.value.isNotEmpty()
+        ) {
+            return
+        }
+        lastFridgeIngredients = fridgeIngredients
+        lastPrioritizedIngredients = prioritizedIngredients
+
+        _filterQuery.value = ""
+        _isLoading.value = true
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dao = newRecipeDao()
+                val fridgeSet = fridgeIngredients.filter { it.isNotBlank() }.distinct()
+                val prioritizedSet = prioritizedIngredients.filter { it.isNotBlank() }.distinct()
+
+                val results = run {
+                    if (fridgeSet.isEmpty()) {
+                        _totalMatchCount.value = 0
+                        return@run emptyList<Recipe>()
+                    }
+
+                    // Resolve the fridge to the set of ingredient_ids it can supply. Same
+                    // IngredientMatcher rule as the old corpus, plus category expansion for
+                    // cross-head cases (fridge "beef" also reaching "ribeye"/"chuck") -- see
+                    // NewIngredientIndex's class doc.
+                    val index = NewIngredientIndex.get(dao, BLOB_NAME_LENGTH_THRESHOLD_NEW)
+                    val matchedIds = index.matching(fridgeSet)
+                    if (matchedIds.isEmpty()) {
+                        _totalMatchCount.value = 0
+                        return@run emptyList<Recipe>()
+                    }
+                    // Intersected with the matched set for the same reason as the old corpus:
+                    // starring only ever boosts ingredients you actually have.
+                    val prioritizedIds =
+                        if (prioritizedSet.isEmpty()) emptySet()
+                        else index.matching(prioritizedSet) intersect matchedIds
+
+                    val scored = scoreRecipesNew(dao, matchedIds, prioritizedIds)
+                    if (scored.isEmpty()) {
+                        _totalMatchCount.value = 0
+                        return@run emptyList<Recipe>()
+                    }
+
+                    _totalMatchCount.value = scored.size
+
+                    // Same two-stage ranking as the old corpus (matchOrder, then recipeOrder once
+                    // favorites are known) -- both are already source-agnostic, no changes needed.
+                    val ranked = scored.sortedWith(matchOrder)
+                    val favoriteIds = _favoriteIds.value
+                    val topMatches = (ranked.take(MAX_RESULTS) + ranked.filter { it.id in favoriteIds })
+                        .distinctBy { it.id }
+
+                    hydrateNew(dao, topMatches)
+                }
+
+                _recipes.value = results
+            } catch (e: Exception) {
+                Log.e(TAG, "searchRecipesNew failed", e)
+                _recipes.value = emptyList()
+                _totalMatchCount.value = 0
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * New-corpus counterpart to [scoreRecipes]. `SEASONING`-tier rows are excluded from both the
+     * `total` and `matched` counts inside [buildScoreQuerySql] -- the "incorporate tiers into
+     * scoring" step discussed when this was designed: a recipe needing salt isn't penalized for a
+     * fridge without salt, and doesn't get credit for one with it either. The resulting
+     * [RecipeMatch] values feed the exact same [matchOrder]/[recipeOrder]/[ratioScore]/[matchTier]
+     * the old corpus uses -- nothing downstream needed to change to make tiers count.
+     */
+    private suspend fun scoreRecipesNew(
+        dao: NewRecipeDao,
+        matchedIds: Set<Int>,
+        prioritizedIds: Set<Int>
+    ): List<RecipeMatch> {
+        val junkIds = if (SUPPRESS_BLOB_RECIPES_NEW) {
+            blobRecipeIdsNew ?: dao.getBlobRecipeIds(BLOB_NAME_LENGTH_THRESHOLD_NEW).toSet().also {
+                blobRecipeIdsNew = it
+            }
+        } else {
+            emptySet()
+        }
+
+        // Chunks partition the matched set; `total` is NOT chunk-dependent (it's every
+        // non-SEASONING ingredient the recipe calls for, computed the same regardless of which
+        // chunk is running), so it's taken once per recipe and never summed across chunks — only
+        // matched/prioritized accumulate. Mirrors queryChunk/scoreRecipes' exact reasoning.
+        val accumulated = HashMap<Int, RecipeMatch>()
+        for (chunk in chunkIntLiterals(matchedIds)) {
+            val prioritizedChunk = chunk.filter { it in prioritizedIds }
+            val rows = dao.scoreChunk(SimpleSQLiteQuery(buildScoreQuerySql(chunk, prioritizedChunk)))
+            for (row in rows) {
+                if (row.recipeId in junkIds) continue
+                val existing = accumulated[row.recipeId]
+                accumulated[row.recipeId] = if (existing == null) {
+                    RecipeMatch(id = row.recipeId, matched = row.matched, total = row.total, prioritized = row.prioritized)
+                } else {
+                    existing.copy(matched = existing.matched + row.matched, prioritized = existing.prioritized + row.prioritized)
+                }
+            }
+        }
+        return accumulated.values.toList()
+    }
+
+    private fun buildScoreQuerySql(matchedChunk: List<Int>, prioritizedChunk: List<Int>): String = buildString {
+        append("SELECT recipe_id, ")
+        append("COUNT(DISTINCT CASE WHEN tier != 'SEASONING' THEN ingredient_id END) AS total, ")
+        append("COUNT(DISTINCT CASE WHEN tier != 'SEASONING' AND ingredient_id IN (")
+        append(matchedChunk.joinToString(","))
+        append(") THEN ingredient_id END) AS matched, ")
+        if (prioritizedChunk.isNotEmpty()) {
+            append("COUNT(DISTINCT CASE WHEN tier != 'SEASONING' AND ingredient_id IN (")
+            append(prioritizedChunk.joinToString(","))
+            append(") THEN ingredient_id END) AS prioritized")
+        } else {
+            append("0 AS prioritized")
+        }
+        append(" FROM recipe_ingredients GROUP BY recipe_id HAVING matched > 0")
+    }
+
+    /** New-corpus counterpart to [hydrate]. `servings`/`categories` are always empty -- this
+     * corpus build has no data in those columns for any recipe (confirmed, not assumed; see
+     * `porting-reference/NEW_CORPUS_DATA_QUALITY.md`). */
+    private suspend fun hydrateNew(dao: NewRecipeDao, topMatches: List<RecipeMatch>): List<Recipe> {
+        if (topMatches.isEmpty()) return emptyList()
+        val recipeIds = topMatches.map { it.id }
+
+        val titleById = dao.getRecipesByIds(recipeIds).associate { it.recipeId to it.title }
+
+        val ingredientTextById = mutableMapOf<Int, MutableList<String>>()
+        for (row in dao.getIngredientTextForRecipes(recipeIds)) {
+            ingredientTextById.getOrPut(row.recipeId) { mutableListOf() }.add(row.originalText.lowercase())
+        }
+
+        // sortedRecipes re-sorts with the same ordering once favorites are known.
+        return topMatches.mapNotNull { match ->
+            val title = titleById[match.id] ?: return@mapNotNull null
+            Recipe(
+                id = match.id,
+                title = title,
+                servings = null,
+                categories = emptyList(),
+                ingredients = ingredientTextById[match.id] ?: emptyList(),
+                matchedCount = match.matched,
+                totalCount = match.total,
+                prioritizedCount = match.prioritized
+            )
+        }
+    }
+
+    private fun searchRecipesLegacy(fridgeIngredients: List<String>, prioritizedIngredients: List<String> = emptyList()) {
         // RecipeScreen re-runs this on every navigation back from the detail screen (it's the same
         // ViewModel instance the whole activity lifetime, since there's no back-stack scoping). Skip
         // the multi-second DB scan when the fridge/prioritized sets haven't changed since last time

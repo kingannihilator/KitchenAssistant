@@ -1,0 +1,7099 @@
+{
+  "_readme": "Hand-curated (LLM-assigned, human-reviewable) ingredient category taxonomy for the new corpus. Keyed by algorithmic head (see extract_ingredient_heads.py / ingredient_heads_ranked.json). Each entry is one of: (1) a plain {category_path: [...]} applying to every ingredient name under that head; (2) {rules: [{contains_any: [...], category_path: [...]}], default_category_path: [...]} for heads whose head word alone doesn't determine category (e.g. 'pepper' spans both a spice and a vegetable), rules evaluated in order against the lowercased ingredient name, first match wins, default_category_path used if none match; (3) {alias_of: '<other head>'} for a head that is not itself a real ingredient identity -- typically a non-noun form (participle/adjective) of another head's ingredient, e.g. 'juiced' aliasing 'juice' ('lemon, juiced' and 'lemon juice' are the same ingredient). Resolvers must follow alias_of before applying rules. Excluded heads (parser artifacts, not real ingredients at all) are marked explicitly with excluded:true rather than omitted, so it's clear they were considered.",
+  "as": {
+    "excluded": true,
+    "reason": "Parser artifact from '...or as needed' trailing clauses, not an ingredient. See NEW_CORPUS_DATA_QUALITY.md addendum."
+  },
+  "more": {
+    "excluded": true,
+    "reason": "Parser artifact from '...or more' trailing clauses, not an ingredient. See NEW_CORPUS_DATA_QUALITY.md addendum."
+  },
+  "if": {
+    "excluded": true,
+    "reason": "Parser artifact from '...or more if needed' trailing clauses, not an ingredient. See NEW_CORPUS_DATA_QUALITY.md addendum."
+  },
+  "pepper": {
+    "rules": [
+      {
+        "contains_any": [
+          "bell"
+        ],
+        "category_path": [
+          "Produce",
+          "Pepper",
+          "Bell"
+        ]
+      },
+      {
+        "contains_any": [
+          "chili",
+          "chile",
+          "jalape",
+          "poblano",
+          "serrano",
+          "habanero",
+          "anaheim",
+          "cubanelle",
+          "banana pepper"
+        ],
+        "category_path": [
+          "Produce",
+          "Pepper",
+          "Chili"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Spices",
+      "Pepper"
+    ],
+    "note": "Head 'pepper' spans black/white/cayenne peppercorn (spice) and bell/chili peppers (vegetable) -- genuinely different foods sharing one string head."
+  },
+  "salt": {
+    "category_path": [
+      "Spices",
+      "Salt"
+    ]
+  },
+  "sugar": {
+    "rules": [
+      {
+        "contains_any": [
+          "brown"
+        ],
+        "category_path": [
+          "Baking",
+          "Sugar",
+          "Brown"
+        ]
+      },
+      {
+        "contains_any": [
+          "powder",
+          "confection",
+          "icing"
+        ],
+        "category_path": [
+          "Baking",
+          "Sugar",
+          "Powdered"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Sugar",
+      "White"
+    ]
+  },
+  "oil": {
+    "category_path": [
+      "Oils",
+      "Cooking Oil"
+    ],
+    "note": "Not split by variety (olive/vegetable/sesame/...) -- existing head-matching already resolves these correctly within one head; splitting adds no matching value here."
+  },
+  "onion": {
+    "category_path": [
+      "Produce",
+      "Onion"
+    ]
+  },
+  "butter": {
+    "rules": [
+      {
+        "contains_any": [
+          "peanut"
+        ],
+        "category_path": [
+          "Condiments",
+          "Nut Butter",
+          "Peanut Butter"
+        ]
+      },
+      {
+        "contains_any": [
+          "almond butter"
+        ],
+        "category_path": [
+          "Condiments",
+          "Nut Butter",
+          "Almond Butter"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Dairy",
+      "Butter"
+    ]
+  },
+  "powder": {
+    "rules": [
+      {
+        "contains_any": [
+          "baking powder"
+        ],
+        "category_path": [
+          "Baking",
+          "Leavening",
+          "Baking Powder"
+        ]
+      },
+      {
+        "contains_any": [
+          "garlic"
+        ],
+        "category_path": [
+          "Spices",
+          "Garlic Powder"
+        ]
+      },
+      {
+        "contains_any": [
+          "onion"
+        ],
+        "category_path": [
+          "Spices",
+          "Onion Powder"
+        ]
+      },
+      {
+        "contains_any": [
+          "chili",
+          "curry"
+        ],
+        "category_path": [
+          "Spices",
+          "Spice Blend"
+        ]
+      },
+      {
+        "contains_any": [
+          "cocoa",
+          "cacao"
+        ],
+        "category_path": [
+          "Baking",
+          "Cocoa Powder"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Spices",
+      "Powder"
+    ],
+    "note": "Grab-bag head: baking powder (leavening) vs spice powders (garlic/onion/chili/curry) vs cocoa powder (baking) are unrelated foods."
+  },
+  "egg": {
+    "category_path": [
+      "Dairy & Eggs",
+      "Egg"
+    ]
+  },
+  "flour": {
+    "rules": [
+      {
+        "contains_any": [
+          "almond flour"
+        ],
+        "category_path": [
+          "Baking",
+          "Flour",
+          "Almond"
+        ]
+      },
+      {
+        "contains_any": [
+          "whole wheat",
+          "wheat flour"
+        ],
+        "category_path": [
+          "Baking",
+          "Flour",
+          "Whole Wheat"
+        ]
+      },
+      {
+        "contains_any": [
+          "gluten-free",
+          "gluten free"
+        ],
+        "category_path": [
+          "Baking",
+          "Flour",
+          "Gluten-Free"
+        ]
+      },
+      {
+        "contains_any": [
+          "bread flour"
+        ],
+        "category_path": [
+          "Baking",
+          "Flour",
+          "Bread"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Flour",
+      "All-Purpose"
+    ]
+  },
+  "cheese": {
+    "rules": [
+      {
+        "contains_any": [
+          "cream cheese"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Cream Cheese"
+        ]
+      },
+      {
+        "contains_any": [
+          "parmesan",
+          "parmigiano"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Parmesan"
+        ]
+      },
+      {
+        "contains_any": [
+          "cheddar"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Cheddar"
+        ]
+      },
+      {
+        "contains_any": [
+          "mozzarella"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Mozzarella"
+        ]
+      },
+      {
+        "contains_any": [
+          "feta"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Feta"
+        ]
+      },
+      {
+        "contains_any": [
+          "ricotta"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Ricotta"
+        ]
+      },
+      {
+        "contains_any": [
+          "monterey jack",
+          "jack cheese"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Monterey Jack"
+        ]
+      },
+      {
+        "contains_any": [
+          "goat cheese",
+          "chevre"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Goat Cheese"
+        ]
+      },
+      {
+        "contains_any": [
+          "swiss"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Swiss"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Dairy",
+      "Cheese",
+      "Other"
+    ]
+  },
+  "water": {
+    "category_path": [
+      "Pantry",
+      "Water"
+    ]
+  },
+  "garlic": {
+    "category_path": [
+      "Produce",
+      "Garlic"
+    ]
+  },
+  "milk": {
+    "rules": [
+      {
+        "contains_any": [
+          "coconut milk"
+        ],
+        "category_path": [
+          "Dairy & Alternatives",
+          "Milk",
+          "Coconut"
+        ]
+      },
+      {
+        "contains_any": [
+          "almond milk",
+          "oat milk",
+          "soy milk",
+          "cashew milk"
+        ],
+        "category_path": [
+          "Dairy & Alternatives",
+          "Milk",
+          "Plant-Based"
+        ]
+      },
+      {
+        "contains_any": [
+          "condensed milk"
+        ],
+        "category_path": [
+          "Baking",
+          "Milk",
+          "Condensed"
+        ]
+      },
+      {
+        "contains_any": [
+          "evaporated milk"
+        ],
+        "category_path": [
+          "Baking",
+          "Milk",
+          "Evaporated"
+        ]
+      },
+      {
+        "contains_any": [
+          "buttermilk"
+        ],
+        "category_path": [
+          "Dairy & Alternatives",
+          "Milk",
+          "Buttermilk"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Dairy & Alternatives",
+      "Milk",
+      "Dairy Milk"
+    ]
+  },
+  "sauce": {
+    "rules": [
+      {
+        "contains_any": [
+          "soy sauce"
+        ],
+        "category_path": [
+          "Condiments",
+          "Sauce",
+          "Soy Sauce"
+        ]
+      },
+      {
+        "contains_any": [
+          "tomato sauce",
+          "spaghetti sauce",
+          "marinara"
+        ],
+        "category_path": [
+          "Pantry",
+          "Sauce",
+          "Tomato Sauce"
+        ]
+      },
+      {
+        "contains_any": [
+          "hot sauce",
+          "hot pepper sauce"
+        ],
+        "category_path": [
+          "Condiments",
+          "Sauce",
+          "Hot Sauce"
+        ]
+      },
+      {
+        "contains_any": [
+          "fish sauce"
+        ],
+        "category_path": [
+          "Condiments",
+          "Sauce",
+          "Fish Sauce"
+        ]
+      },
+      {
+        "contains_any": [
+          "worcestershire"
+        ],
+        "category_path": [
+          "Condiments",
+          "Sauce",
+          "Worcestershire"
+        ]
+      },
+      {
+        "contains_any": [
+          "oyster sauce"
+        ],
+        "category_path": [
+          "Condiments",
+          "Sauce",
+          "Oyster Sauce"
+        ]
+      },
+      {
+        "contains_any": [
+          "bbq",
+          "barbeque",
+          "barbecue"
+        ],
+        "category_path": [
+          "Condiments",
+          "Sauce",
+          "BBQ Sauce"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Condiments",
+      "Sauce",
+      "Other"
+    ]
+  },
+  "extract": {
+    "rules": [
+      {
+        "contains_any": [
+          "vanilla"
+        ],
+        "category_path": [
+          "Baking",
+          "Extract",
+          "Vanilla"
+        ]
+      },
+      {
+        "contains_any": [
+          "almond"
+        ],
+        "category_path": [
+          "Baking",
+          "Extract",
+          "Almond"
+        ]
+      },
+      {
+        "contains_any": [
+          "lemon"
+        ],
+        "category_path": [
+          "Baking",
+          "Extract",
+          "Lemon"
+        ]
+      },
+      {
+        "contains_any": [
+          "peppermint",
+          "mint"
+        ],
+        "category_path": [
+          "Baking",
+          "Extract",
+          "Peppermint"
+        ]
+      },
+      {
+        "contains_any": [
+          "maple"
+        ],
+        "category_path": [
+          "Baking",
+          "Extract",
+          "Maple"
+        ]
+      },
+      {
+        "contains_any": [
+          "orange"
+        ],
+        "category_path": [
+          "Baking",
+          "Extract",
+          "Orange"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Extract",
+      "Other"
+    ],
+    "note": "Split by flavor deliberately, unlike 'oil' -- extract flavors are not interchangeable in a recipe, so collapsing them to one leaf would be a real precision loss if this ever backs matching."
+  },
+  "juice": {
+    "rules": [
+      {
+        "contains_any": [
+          "lemon"
+        ],
+        "category_path": [
+          "Produce",
+          "Juice",
+          "Lemon Juice"
+        ]
+      },
+      {
+        "contains_any": [
+          "lime"
+        ],
+        "category_path": [
+          "Produce",
+          "Juice",
+          "Lime Juice"
+        ]
+      },
+      {
+        "contains_any": [
+          "orange"
+        ],
+        "category_path": [
+          "Produce",
+          "Juice",
+          "Orange Juice"
+        ]
+      },
+      {
+        "contains_any": [
+          "pineapple"
+        ],
+        "category_path": [
+          "Produce",
+          "Juice",
+          "Pineapple Juice"
+        ]
+      },
+      {
+        "contains_any": [
+          "apple"
+        ],
+        "category_path": [
+          "Produce",
+          "Juice",
+          "Apple Juice"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Juice",
+      "Other"
+    ]
+  },
+  "cinnamon": {
+    "category_path": [
+      "Spices",
+      "Cinnamon"
+    ]
+  },
+  "cream": {
+    "rules": [
+      {
+        "contains_any": [
+          "sour cream"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cream",
+          "Sour Cream"
+        ]
+      },
+      {
+        "contains_any": [
+          "heavy cream",
+          "heavy whipping cream",
+          "whipping cream"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cream",
+          "Heavy Cream"
+        ]
+      },
+      {
+        "contains_any": [
+          "half-and-half",
+          "half and half"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cream",
+          "Half and Half"
+        ]
+      },
+      {
+        "contains_any": [
+          "whipped cream"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cream",
+          "Whipped Cream"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Dairy",
+      "Cream",
+      "Other"
+    ]
+  },
+  "vinegar": {
+    "rules": [
+      {
+        "contains_any": [
+          "apple cider vinegar",
+          "cider vinegar"
+        ],
+        "category_path": [
+          "Condiments",
+          "Vinegar",
+          "Apple Cider"
+        ]
+      },
+      {
+        "contains_any": [
+          "balsamic"
+        ],
+        "category_path": [
+          "Condiments",
+          "Vinegar",
+          "Balsamic"
+        ]
+      },
+      {
+        "contains_any": [
+          "rice vinegar",
+          "rice wine vinegar"
+        ],
+        "category_path": [
+          "Condiments",
+          "Vinegar",
+          "Rice Vinegar"
+        ]
+      },
+      {
+        "contains_any": [
+          "red wine vinegar",
+          "white wine vinegar"
+        ],
+        "category_path": [
+          "Condiments",
+          "Vinegar",
+          "Wine Vinegar"
+        ]
+      },
+      {
+        "contains_any": [
+          "white vinegar",
+          "distilled white vinegar"
+        ],
+        "category_path": [
+          "Condiments",
+          "Vinegar",
+          "White Vinegar"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Condiments",
+      "Vinegar",
+      "Other"
+    ]
+  },
+  "broth": {
+    "rules": [
+      {
+        "contains_any": [
+          "chicken broth"
+        ],
+        "category_path": [
+          "Pantry",
+          "Broth",
+          "Chicken Broth"
+        ]
+      },
+      {
+        "contains_any": [
+          "beef broth"
+        ],
+        "category_path": [
+          "Pantry",
+          "Broth",
+          "Beef Broth"
+        ]
+      },
+      {
+        "contains_any": [
+          "vegetable broth"
+        ],
+        "category_path": [
+          "Pantry",
+          "Broth",
+          "Vegetable Broth"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Broth",
+      "Other"
+    ],
+    "note": "IngredientMatcher already correctly keeps 'chicken broth' from matching fridge 'chicken' (different head noun) -- this taxonomy entry doesn't change that, it's purely additive for category-based browsing/matching."
+  },
+  "tomato": {
+    "category_path": [
+      "Produce",
+      "Tomato"
+    ]
+  },
+  "parsley": {
+    "category_path": [
+      "Herbs",
+      "Parsley"
+    ]
+  },
+  "soda": {
+    "rules": [
+      {
+        "contains_any": [
+          "baking soda",
+          "bicarbonate"
+        ],
+        "category_path": [
+          "Baking",
+          "Leavening",
+          "Baking Soda"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Beverages",
+      "Soda"
+    ]
+  },
+  "carrot": {
+    "category_path": [
+      "Produce",
+      "Carrot"
+    ]
+  },
+  "seed": {
+    "rules": [
+      {
+        "contains_any": [
+          "chia"
+        ],
+        "category_path": [
+          "Pantry",
+          "Seed",
+          "Chia"
+        ]
+      },
+      {
+        "contains_any": [
+          "sesame"
+        ],
+        "category_path": [
+          "Pantry",
+          "Seed",
+          "Sesame"
+        ]
+      },
+      {
+        "contains_any": [
+          "flax"
+        ],
+        "category_path": [
+          "Pantry",
+          "Seed",
+          "Flax"
+        ]
+      },
+      {
+        "contains_any": [
+          "poppy"
+        ],
+        "category_path": [
+          "Pantry",
+          "Seed",
+          "Poppy"
+        ]
+      },
+      {
+        "contains_any": [
+          "cumin seed"
+        ],
+        "category_path": [
+          "Spices",
+          "Cumin"
+        ]
+      },
+      {
+        "contains_any": [
+          "mustard seed"
+        ],
+        "category_path": [
+          "Spices",
+          "Mustard Seed"
+        ]
+      },
+      {
+        "contains_any": [
+          "sunflower"
+        ],
+        "category_path": [
+          "Pantry",
+          "Seed",
+          "Sunflower"
+        ]
+      },
+      {
+        "contains_any": [
+          "hemp"
+        ],
+        "category_path": [
+          "Pantry",
+          "Seed",
+          "Hemp"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Seed",
+      "Other"
+    ]
+  },
+  "chicken": {
+    "category_path": [
+      "Meat",
+      "Chicken"
+    ],
+    "note": "Cuts (breast/thigh/wing/whole) already unify under this head via PART_WORDS, so no 3rd level needed for the cuts seen in this batch. Known separate gap: 'chicken tender(s)' -- head 'tender', not 'chicken', since 'tender' isn't in PART_WORDS. Route any 'tender'-headed entries here when encountered."
+  },
+  "celery": {
+    "category_path": [
+      "Produce",
+      "Celery"
+    ]
+  },
+  "spray": {
+    "category_path": [
+      "Pantry",
+      "Cooking Spray"
+    ]
+  },
+  "thyme": {
+    "category_path": [
+      "Herbs",
+      "Thyme"
+    ]
+  },
+  "ginger": {
+    "category_path": [
+      "Produce",
+      "Ginger"
+    ]
+  },
+  "paprika": {
+    "category_path": [
+      "Spices",
+      "Paprika"
+    ]
+  },
+  "seasoning": {
+    "rules": [
+      {
+        "contains_any": [
+          "italian seasoning"
+        ],
+        "category_path": [
+          "Spices",
+          "Spice Blend",
+          "Italian"
+        ]
+      },
+      {
+        "contains_any": [
+          "cajun"
+        ],
+        "category_path": [
+          "Spices",
+          "Spice Blend",
+          "Cajun"
+        ]
+      },
+      {
+        "contains_any": [
+          "creole"
+        ],
+        "category_path": [
+          "Spices",
+          "Spice Blend",
+          "Creole"
+        ]
+      },
+      {
+        "contains_any": [
+          "taco seasoning"
+        ],
+        "category_path": [
+          "Spices",
+          "Spice Blend",
+          "Taco"
+        ]
+      },
+      {
+        "contains_any": [
+          "poultry seasoning"
+        ],
+        "category_path": [
+          "Spices",
+          "Spice Blend",
+          "Poultry"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Spices",
+      "Spice Blend",
+      "Other"
+    ]
+  },
+  "potato": {
+    "rules": [
+      {
+        "contains_any": [
+          "sweet potato"
+        ],
+        "category_path": [
+          "Produce",
+          "Potato",
+          "Sweet Potato"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Potato",
+      "Regular"
+    ]
+  },
+  "nutmeg": {
+    "category_path": [
+      "Spices",
+      "Nutmeg"
+    ]
+  },
+  "beef": {
+    "category_path": [
+      "Meat",
+      "Beef"
+    ],
+    "note": "Base node for the cross-head beef unification -- steak/ribeye/chuck/ground-beef-headed entries (different string heads) get routed here too as they're encountered further down the list."
+  },
+  "bean": {
+    "rules": [
+      {
+        "contains_any": [
+          "black bean"
+        ],
+        "category_path": [
+          "Produce",
+          "Bean",
+          "Black Bean"
+        ]
+      },
+      {
+        "contains_any": [
+          "kidney bean"
+        ],
+        "category_path": [
+          "Produce",
+          "Bean",
+          "Kidney Bean"
+        ]
+      },
+      {
+        "contains_any": [
+          "garbanzo",
+          "chickpea"
+        ],
+        "category_path": [
+          "Produce",
+          "Bean",
+          "Garbanzo Bean"
+        ]
+      },
+      {
+        "contains_any": [
+          "pinto bean"
+        ],
+        "category_path": [
+          "Produce",
+          "Bean",
+          "Pinto Bean"
+        ]
+      },
+      {
+        "contains_any": [
+          "refried bean"
+        ],
+        "category_path": [
+          "Produce",
+          "Bean",
+          "Refried Bean"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Bean",
+      "Other"
+    ]
+  },
+  "cumin": {
+    "category_path": [
+      "Spices",
+      "Cumin"
+    ]
+  },
+  "syrup": {
+    "rules": [
+      {
+        "contains_any": [
+          "maple syrup",
+          "maple"
+        ],
+        "category_path": [
+          "Pantry",
+          "Syrup",
+          "Maple Syrup"
+        ]
+      },
+      {
+        "contains_any": [
+          "corn syrup"
+        ],
+        "category_path": [
+          "Pantry",
+          "Syrup",
+          "Corn Syrup"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Syrup",
+      "Other"
+    ]
+  },
+  "oregano": {
+    "category_path": [
+      "Herbs",
+      "Oregano"
+    ]
+  },
+  "juiced": {
+    "alias_of": "juice",
+    "note": "'juiced' (a participle, not a noun) is not a real ingredient identity -- 'lemon, juiced' and 'lemon juice' are the same ingredient reached via two different algorithmic heads. Rather than duplicate juice's rules under this awkward key, this head is an explicit alias: resolve_ingredient_categories.py follows alias_of to the 'juice' entry. Found instance of the exact cross-head gap this taxonomy exists to fix."
+  },
+  "rice": {
+    "rules": [
+      {
+        "contains_any": [
+          "brown rice"
+        ],
+        "category_path": [
+          "Grains",
+          "Rice",
+          "Brown Rice"
+        ]
+      },
+      {
+        "contains_any": [
+          "basmati"
+        ],
+        "category_path": [
+          "Grains",
+          "Rice",
+          "Basmati Rice"
+        ]
+      },
+      {
+        "contains_any": [
+          "arborio"
+        ],
+        "category_path": [
+          "Grains",
+          "Rice",
+          "Arborio Rice"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Grains",
+      "Rice",
+      "White Rice"
+    ]
+  },
+  "mustard": {
+    "category_path": [
+      "Condiments",
+      "Mustard"
+    ]
+  },
+  "mix": {
+    "rules": [
+      {
+        "contains_any": [
+          "cake mix"
+        ],
+        "category_path": [
+          "Baking",
+          "Mix",
+          "Cake Mix"
+        ]
+      },
+      {
+        "contains_any": [
+          "pudding mix"
+        ],
+        "category_path": [
+          "Baking",
+          "Mix",
+          "Pudding Mix"
+        ]
+      },
+      {
+        "contains_any": [
+          "taco seasoning mix",
+          "seasoning mix"
+        ],
+        "category_path": [
+          "Spices",
+          "Spice Blend",
+          "Other"
+        ]
+      },
+      {
+        "contains_any": [
+          "soup mix"
+        ],
+        "category_path": [
+          "Pantry",
+          "Mix",
+          "Soup Mix"
+        ]
+      },
+      {
+        "contains_any": [
+          "coleslaw",
+          "salad mix"
+        ],
+        "category_path": [
+          "Produce",
+          "Mix",
+          "Coleslaw Mix"
+        ]
+      },
+      {
+        "contains_any": [
+          "dressing mix"
+        ],
+        "category_path": [
+          "Condiments",
+          "Mix",
+          "Dressing Mix"
+        ]
+      },
+      {
+        "contains_any": [
+          "baking mix"
+        ],
+        "category_path": [
+          "Baking",
+          "Mix",
+          "Baking Mix"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Mix",
+      "Other"
+    ],
+    "note": "Heavy grab-bag head -- taco/cake/soup/pudding/coleslaw/dressing mixes are unrelated products that only share the word 'mix'."
+  },
+  "mayonnaise": {
+    "category_path": [
+      "Condiments",
+      "Mayonnaise"
+    ]
+  },
+  "mushroom": {
+    "rules": [
+      {
+        "contains_any": [
+          "portobello"
+        ],
+        "category_path": [
+          "Produce",
+          "Mushroom",
+          "Portobello"
+        ]
+      },
+      {
+        "contains_any": [
+          "shiitake"
+        ],
+        "category_path": [
+          "Produce",
+          "Mushroom",
+          "Shiitake"
+        ]
+      },
+      {
+        "contains_any": [
+          "cremini",
+          "crimini",
+          "baby bella"
+        ],
+        "category_path": [
+          "Produce",
+          "Mushroom",
+          "Cremini"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Mushroom",
+      "Button"
+    ]
+  },
+  "basil": {
+    "category_path": [
+      "Herbs",
+      "Basil"
+    ]
+  },
+  "cilantro": {
+    "category_path": [
+      "Herbs",
+      "Cilantro"
+    ]
+  },
+  "chip": {
+    "rules": [
+      {
+        "contains_any": [
+          "chocolate chip"
+        ],
+        "category_path": [
+          "Baking",
+          "Chocolate Chip"
+        ]
+      },
+      {
+        "contains_any": [
+          "tortilla chip"
+        ],
+        "category_path": [
+          "Snacks",
+          "Tortilla Chip"
+        ]
+      },
+      {
+        "contains_any": [
+          "butterscotch chip"
+        ],
+        "category_path": [
+          "Baking",
+          "Butterscotch Chip"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Chip",
+      "Other"
+    ]
+  },
+  "cube": {
+    "rules": [
+      {
+        "contains_any": [
+          "ice cube"
+        ],
+        "category_path": [
+          "Pantry",
+          "Ice"
+        ]
+      },
+      {
+        "contains_any": [
+          "chicken"
+        ],
+        "category_path": [
+          "Pantry",
+          "Bouillon",
+          "Chicken"
+        ]
+      },
+      {
+        "contains_any": [
+          "beef"
+        ],
+        "category_path": [
+          "Pantry",
+          "Bouillon",
+          "Beef"
+        ]
+      },
+      {
+        "contains_any": [
+          "vegetable"
+        ],
+        "category_path": [
+          "Pantry",
+          "Bouillon",
+          "Vegetable"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Bouillon",
+      "Other"
+    ],
+    "note": "'Knorr cubes'/'bouillon cubes' route to the same Bouillon nodes as the 'bouillon' head below."
+  },
+  "flake": {
+    "rules": [
+      {
+        "contains_any": [
+          "pepper flake"
+        ],
+        "category_path": [
+          "Spices",
+          "Pepper"
+        ]
+      },
+      {
+        "contains_any": [
+          "parsley"
+        ],
+        "category_path": [
+          "Herbs",
+          "Parsley"
+        ]
+      },
+      {
+        "contains_any": [
+          "coconut"
+        ],
+        "category_path": [
+          "Pantry",
+          "Coconut"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Flake",
+      "Other"
+    ]
+  },
+  "honey": {
+    "category_path": [
+      "Pantry",
+      "Honey"
+    ]
+  },
+  "wine": {
+    "category_path": [
+      "Pantry",
+      "Wine"
+    ],
+    "note": "Not split red/white -- head-matching already handles this fine within one head, same reasoning as 'oil'."
+  },
+  "paste": {
+    "rules": [
+      {
+        "contains_any": [
+          "tomato paste"
+        ],
+        "category_path": [
+          "Pantry",
+          "Paste",
+          "Tomato Paste"
+        ]
+      },
+      {
+        "contains_any": [
+          "garlic paste"
+        ],
+        "category_path": [
+          "Produce",
+          "Garlic"
+        ]
+      },
+      {
+        "contains_any": [
+          "ginger paste"
+        ],
+        "category_path": [
+          "Produce",
+          "Ginger"
+        ]
+      },
+      {
+        "contains_any": [
+          "almond paste"
+        ],
+        "category_path": [
+          "Baking",
+          "Almond Paste"
+        ]
+      },
+      {
+        "contains_any": [
+          "chile paste",
+          "chili paste"
+        ],
+        "category_path": [
+          "Condiments",
+          "Chili Paste"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Paste",
+      "Other"
+    ]
+  },
+  "crumb": {
+    "rules": [
+      {
+        "contains_any": [
+          "graham cracker"
+        ],
+        "category_path": [
+          "Baking",
+          "Crumb",
+          "Graham Cracker Crumb"
+        ]
+      },
+      {
+        "contains_any": [
+          "bread crumb",
+          "breadcrumb",
+          "panko"
+        ],
+        "category_path": [
+          "Baking",
+          "Crumb",
+          "Bread Crumb"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Crumb",
+      "Other"
+    ]
+  },
+  "bay": {
+    "category_path": [
+      "Herbs",
+      "Bay Leaf"
+    ]
+  },
+  "yeast": {
+    "category_path": [
+      "Baking",
+      "Leavening",
+      "Yeast"
+    ]
+  },
+  "cornstarch": {
+    "category_path": [
+      "Baking",
+      "Cornstarch"
+    ]
+  },
+  "chunk": {
+    "rules": [
+      {
+        "contains_any": [
+          "mango"
+        ],
+        "category_path": [
+          "Produce",
+          "Mango"
+        ]
+      },
+      {
+        "contains_any": [
+          "banana"
+        ],
+        "category_path": [
+          "Produce",
+          "Banana"
+        ]
+      },
+      {
+        "contains_any": [
+          "pineapple"
+        ],
+        "category_path": [
+          "Produce",
+          "Pineapple"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Chunk",
+      "Other"
+    ],
+    "note": "Describes a cut form, not identity -- the real ingredient is embedded in the name (same class of gap as 'juiced'/'frying'), so routed to the base fruit's own category via keyword rules."
+  },
+  "thawed": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
+  },
+  "walnut": {
+    "category_path": [
+      "Pantry",
+      "Nut",
+      "Walnut"
+    ]
+  },
+  "oat": {
+    "category_path": [
+      "Grains",
+      "Oat"
+    ]
+  },
+  "apple": {
+    "category_path": [
+      "Produce",
+      "Apple"
+    ]
+  },
+  "pecan": {
+    "category_path": [
+      "Pantry",
+      "Nut",
+      "Pecan"
+    ]
+  },
+  "soup": {
+    "rules": [
+      {
+        "contains_any": [
+          "cream of mushroom"
+        ],
+        "category_path": [
+          "Pantry",
+          "Condensed Soup",
+          "Cream of Mushroom"
+        ]
+      },
+      {
+        "contains_any": [
+          "cream of chicken"
+        ],
+        "category_path": [
+          "Pantry",
+          "Condensed Soup",
+          "Cream of Chicken"
+        ]
+      },
+      {
+        "contains_any": [
+          "cream of celery"
+        ],
+        "category_path": [
+          "Pantry",
+          "Condensed Soup",
+          "Cream of Celery"
+        ]
+      },
+      {
+        "contains_any": [
+          "tomato soup"
+        ],
+        "category_path": [
+          "Pantry",
+          "Condensed Soup",
+          "Tomato"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Condensed Soup",
+      "Other"
+    ]
+  },
+  "bacon": {
+    "category_path": [
+      "Meat",
+      "Pork",
+      "Bacon"
+    ]
+  },
+  "rosemary": {
+    "category_path": [
+      "Herbs",
+      "Rosemary"
+    ]
+  },
+  "zest": {
+    "rules": [
+      {
+        "contains_any": [
+          "lemon"
+        ],
+        "category_path": [
+          "Produce",
+          "Zest",
+          "Lemon Zest"
+        ]
+      },
+      {
+        "contains_any": [
+          "orange"
+        ],
+        "category_path": [
+          "Produce",
+          "Zest",
+          "Orange Zest"
+        ]
+      },
+      {
+        "contains_any": [
+          "lime"
+        ],
+        "category_path": [
+          "Produce",
+          "Zest",
+          "Lime Zest"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Zest",
+      "Other"
+    ]
+  },
+  "halved": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
+  },
+  "filling": {
+    "rules": [
+      {
+        "contains_any": [
+          "cherry"
+        ],
+        "category_path": [
+          "Baking",
+          "Pie Filling",
+          "Cherry"
+        ]
+      },
+      {
+        "contains_any": [
+          "apple"
+        ],
+        "category_path": [
+          "Baking",
+          "Pie Filling",
+          "Apple"
+        ]
+      },
+      {
+        "contains_any": [
+          "pumpkin"
+        ],
+        "category_path": [
+          "Baking",
+          "Pie Filling",
+          "Pumpkin"
+        ]
+      },
+      {
+        "contains_any": [
+          "cheesecake"
+        ],
+        "category_path": [
+          "Baking",
+          "Pie Filling",
+          "Cheesecake"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Pie Filling",
+      "Other"
+    ]
+  },
+  "crushed": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized. Also note: 'crushed' is itself missing from STOPWORDS (chopped/minced/sliced/diced/etc. are all there, crushed is not) -- a small, separate gap worth fixing alongside 'as'/'more'/'if' if IngredientMatcher's word lists are ever revisited."
+  },
+  "raisin": {
+    "category_path": [
+      "Pantry",
+      "Dried Fruit",
+      "Raisin"
+    ]
+  },
+  "stock": {
+    "rules": [
+      {
+        "contains_any": [
+          "chicken"
+        ],
+        "category_path": [
+          "Pantry",
+          "Broth",
+          "Chicken Broth"
+        ]
+      },
+      {
+        "contains_any": [
+          "beef"
+        ],
+        "category_path": [
+          "Pantry",
+          "Broth",
+          "Beef Broth"
+        ]
+      },
+      {
+        "contains_any": [
+          "vegetable"
+        ],
+        "category_path": [
+          "Pantry",
+          "Broth",
+          "Vegetable Broth"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Broth",
+      "Other"
+    ],
+    "note": "'Stock' and 'broth' are functionally interchangeable in recipes -- routed to the same category nodes as the 'broth' head (batch 1) rather than a parallel 'Stock' tree."
+  },
+  "pasta": {
+    "category_path": [
+      "Grains",
+      "Pasta"
+    ]
+  },
+  "clove": {
+    "category_path": [
+      "Spices",
+      "Clove"
+    ],
+    "note": "Whole clove the spice -- garlic cloves are already stripped to head 'garlic' via PART_WORDS, so this head only ever sees the spice."
+  },
+  "crust": {
+    "rules": [
+      {
+        "contains_any": [
+          "graham"
+        ],
+        "category_path": [
+          "Baking",
+          "Crust",
+          "Graham Cracker Crust"
+        ]
+      },
+      {
+        "contains_any": [
+          "pie"
+        ],
+        "category_path": [
+          "Baking",
+          "Crust",
+          "Pie Crust"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Crust",
+      "Other"
+    ]
+  },
+  "spinach": {
+    "category_path": [
+      "Produce",
+      "Spinach"
+    ]
+  },
+  "pork": {
+    "category_path": [
+      "Meat",
+      "Pork"
+    ],
+    "note": "Base node for pork-cut cross-head unification (roast/ham/sausage/bacon route here)."
+  },
+  "yogurt": {
+    "category_path": [
+      "Dairy",
+      "Yogurt"
+    ]
+  },
+  "sausage": {
+    "rules": [
+      {
+        "contains_any": [
+          "turkey sausage"
+        ],
+        "category_path": [
+          "Meat",
+          "Turkey",
+          "Sausage"
+        ]
+      },
+      {
+        "contains_any": [
+          "chicken sausage"
+        ],
+        "category_path": [
+          "Meat",
+          "Chicken",
+          "Sausage"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Meat",
+      "Pork",
+      "Sausage"
+    ]
+  },
+  "strawberry": {
+    "category_path": [
+      "Produce",
+      "Berry",
+      "Strawberry"
+    ]
+  },
+  "ketchup": {
+    "category_path": [
+      "Condiments",
+      "Ketchup"
+    ]
+  },
+  "inch": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized. Here specifically a leaked unit-of-measurement word ('cut into 1-inch pieces'), not even a prep participle."
+  },
+  "removed": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
+  },
+  "topping": {
+    "rules": [
+      {
+        "contains_any": [
+          "crumb"
+        ],
+        "category_path": [
+          "Baking",
+          "Topping",
+          "Crumb Topping"
+        ]
+      },
+      {
+        "contains_any": [
+          "whipped"
+        ],
+        "category_path": [
+          "Pantry",
+          "Topping",
+          "Whipped Topping"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Topping",
+      "Other"
+    ]
+  },
+  "coconut": {
+    "category_path": [
+      "Pantry",
+      "Coconut"
+    ]
+  },
+  "quartered": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
+  },
+  "tortilla": {
+    "category_path": [
+      "Grains",
+      "Tortilla"
+    ]
+  },
+  "cucumber": {
+    "category_path": [
+      "Produce",
+      "Cucumber"
+    ]
+  },
+  "corn": {
+    "category_path": [
+      "Produce",
+      "Corn"
+    ]
+  },
+  "pea": {
+    "category_path": [
+      "Produce",
+      "Pea"
+    ]
+  },
+  "cabbage": {
+    "category_path": [
+      "Produce",
+      "Cabbage"
+    ]
+  },
+  "spice": {
+    "rules": [
+      {
+        "contains_any": [
+          "pumpkin pie spice"
+        ],
+        "category_path": [
+          "Spices",
+          "Spice Blend",
+          "Pumpkin Pie Spice"
+        ]
+      },
+      {
+        "contains_any": [
+          "apple pie spice"
+        ],
+        "category_path": [
+          "Spices",
+          "Spice Blend",
+          "Apple Pie Spice"
+        ]
+      },
+      {
+        "contains_any": [
+          "pickling spice"
+        ],
+        "category_path": [
+          "Spices",
+          "Spice Blend",
+          "Pickling Spice"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Spices",
+      "Spice Blend",
+      "Other"
+    ]
+  },
+  "turkey": {
+    "category_path": [
+      "Meat",
+      "Turkey"
+    ]
+  },
+  "almond": {
+    "category_path": [
+      "Pantry",
+      "Nut",
+      "Almond"
+    ]
+  },
+  "noodle": {
+    "category_path": [
+      "Grains",
+      "Noodle"
+    ]
+  },
+  "margarine": {
+    "category_path": [
+      "Dairy & Alternatives",
+      "Margarine"
+    ]
+  },
+  "puree": {
+    "rules": [
+      {
+        "contains_any": [
+          "pumpkin"
+        ],
+        "category_path": [
+          "Produce",
+          "Puree",
+          "Pumpkin Puree"
+        ]
+      },
+      {
+        "contains_any": [
+          "tomato"
+        ],
+        "category_path": [
+          "Produce",
+          "Puree",
+          "Tomato Puree"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Puree",
+      "Other"
+    ]
+  },
+  "frying": {
+    "alias_of": "oil",
+    "note": "Every example is '[some] oil for frying' -- 'for' is dropped as a RECIPE_ONLY_STOPWORD, leaving 'frying' as the surviving non-part-word, so this is really just oil. Same class of gap as 'juiced'->'juice'."
+  },
+  "banana": {
+    "category_path": [
+      "Produce",
+      "Banana"
+    ]
+  },
+  "olive": {
+    "rules": [
+      {
+        "contains_any": [
+          "black olive"
+        ],
+        "category_path": [
+          "Produce",
+          "Olive",
+          "Black Olive"
+        ]
+      },
+      {
+        "contains_any": [
+          "green olive",
+          "kalamata"
+        ],
+        "category_path": [
+          "Produce",
+          "Olive",
+          "Green Olive"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Olive",
+      "Other"
+    ]
+  },
+  "buttermilk": {
+    "category_path": [
+      "Dairy & Alternatives",
+      "Milk",
+      "Buttermilk"
+    ],
+    "note": "Matches the 'buttermilk' rule already present under the 'milk' head (batch 1) -- same real ingredient, reached directly here since 'buttermilk' is itself a distinct head."
+  },
+  "lemon": {
+    "category_path": [
+      "Produce",
+      "Lemon"
+    ]
+  },
+  "dressing": {
+    "rules": [
+      {
+        "contains_any": [
+          "ranch"
+        ],
+        "category_path": [
+          "Condiments",
+          "Dressing",
+          "Ranch"
+        ]
+      },
+      {
+        "contains_any": [
+          "italian"
+        ],
+        "category_path": [
+          "Condiments",
+          "Dressing",
+          "Italian"
+        ]
+      },
+      {
+        "contains_any": [
+          "thousand island"
+        ],
+        "category_path": [
+          "Condiments",
+          "Dressing",
+          "Thousand Island"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Condiments",
+      "Dressing",
+      "Other"
+    ]
+  },
+  "shortening": {
+    "category_path": [
+      "Baking",
+      "Shortening"
+    ]
+  },
+  "pitted": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
+  },
+  "blueberry": {
+    "category_path": [
+      "Produce",
+      "Berry",
+      "Blueberry"
+    ]
+  },
+  "cranberry": {
+    "category_path": [
+      "Produce",
+      "Berry",
+      "Cranberry"
+    ]
+  },
+  "zucchini": {
+    "category_path": [
+      "Produce",
+      "Zucchini"
+    ]
+  },
+  "bread": {
+    "category_path": [
+      "Grains",
+      "Bread"
+    ]
+  },
+  "allspice": {
+    "category_path": [
+      "Spices",
+      "Allspice"
+    ]
+  },
+  "roast": {
+    "rules": [
+      {
+        "contains_any": [
+          "beef",
+          "chuck",
+          "prime rib",
+          "rump"
+        ],
+        "category_path": [
+          "Meat",
+          "Beef"
+        ]
+      },
+      {
+        "contains_any": [
+          "pork"
+        ],
+        "category_path": [
+          "Meat",
+          "Pork"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Meat",
+      "Beef"
+    ],
+    "note": "Key cross-head unification instance: 'beef chuck roast'/'pork butt roast' would otherwise have no relation to the 'beef'/'pork' heads at all."
+  },
+  "broccoli": {
+    "category_path": [
+      "Produce",
+      "Broccoli"
+    ]
+  },
+  "salsa": {
+    "category_path": [
+      "Condiments",
+      "Salsa"
+    ]
+  },
+  "dough": {
+    "rules": [
+      {
+        "contains_any": [
+          "cookie"
+        ],
+        "category_path": [
+          "Baking",
+          "Dough",
+          "Cookie Dough"
+        ]
+      },
+      {
+        "contains_any": [
+          "biscuit"
+        ],
+        "category_path": [
+          "Baking",
+          "Dough",
+          "Biscuit Dough"
+        ]
+      },
+      {
+        "contains_any": [
+          "crescent"
+        ],
+        "category_path": [
+          "Baking",
+          "Dough",
+          "Crescent Roll Dough"
+        ]
+      },
+      {
+        "contains_any": [
+          "pizza"
+        ],
+        "category_path": [
+          "Baking",
+          "Dough",
+          "Pizza Dough"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Dough",
+      "Other"
+    ]
+  },
+  "wedge": {
+    "rules": [
+      {
+        "contains_any": [
+          "lemon"
+        ],
+        "category_path": [
+          "Produce",
+          "Lemon"
+        ]
+      },
+      {
+        "contains_any": [
+          "lime"
+        ],
+        "category_path": [
+          "Produce",
+          "Lime"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Wedge",
+      "Other"
+    ]
+  },
+  "strip": {
+    "rules": [
+      {
+        "contains_any": [
+          "bacon"
+        ],
+        "category_path": [
+          "Meat",
+          "Pork",
+          "Bacon"
+        ]
+      },
+      {
+        "contains_any": [
+          "bell pepper",
+          "pepper"
+        ],
+        "category_path": [
+          "Produce",
+          "Pepper",
+          "Bell"
+        ]
+      },
+      {
+        "contains_any": [
+          "tortilla"
+        ],
+        "category_path": [
+          "Grains",
+          "Tortilla"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Strip",
+      "Other"
+    ]
+  },
+  "mint": {
+    "category_path": [
+      "Herbs",
+      "Mint"
+    ]
+  },
+  "turmeric": {
+    "category_path": [
+      "Spices",
+      "Turmeric"
+    ]
+  },
+  "steak": {
+    "rules": [
+      {
+        "contains_any": [
+          "salmon",
+          "tuna",
+          "halibut",
+          "swordfish",
+          "fish"
+        ],
+        "category_path": [
+          "Seafood",
+          "Fish"
+        ]
+      },
+      {
+        "contains_any": [
+          "pork"
+        ],
+        "category_path": [
+          "Meat",
+          "Pork"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Meat",
+      "Beef"
+    ],
+    "note": "Key cross-head unification instance: 'flank steak'/'filet mignon'/'flat iron steak' would otherwise have no relation to the 'beef' head at all -- exactly the T-bone/ribeye gap this taxonomy was built to fix."
+  },
+  "ham": {
+    "category_path": [
+      "Meat",
+      "Pork",
+      "Ham"
+    ]
+  },
+  "shallot": {
+    "category_path": [
+      "Produce",
+      "Shallot"
+    ]
+  },
+  "chocolate": {
+    "rules": [
+      {
+        "contains_any": [
+          "white chocolate"
+        ],
+        "category_path": [
+          "Baking",
+          "Chocolate",
+          "White"
+        ]
+      },
+      {
+        "contains_any": [
+          "dark chocolate"
+        ],
+        "category_path": [
+          "Baking",
+          "Chocolate",
+          "Dark"
+        ]
+      },
+      {
+        "contains_any": [
+          "semisweet",
+          "semi-sweet"
+        ],
+        "category_path": [
+          "Baking",
+          "Chocolate",
+          "Semisweet"
+        ]
+      },
+      {
+        "contains_any": [
+          "bittersweet"
+        ],
+        "category_path": [
+          "Baking",
+          "Chocolate",
+          "Bittersweet"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Chocolate",
+      "Other"
+    ]
+  },
+  "coriander": {
+    "category_path": [
+      "Spices",
+      "Coriander"
+    ]
+  },
+  "deveined": {
+    "alias_of": "shrimp",
+    "note": "Every example is 'shrimp, peeled and deveined' -- deveining is a shrimp-specific prep term, so this head is really just shrimp."
+  },
+  "molasses": {
+    "category_path": [
+      "Pantry",
+      "Molasses"
+    ]
+  },
+  "pineapple": {
+    "category_path": [
+      "Produce",
+      "Pineapple"
+    ]
+  },
+  "chive": {
+    "category_path": [
+      "Herbs",
+      "Chive"
+    ]
+  },
+  "bouillon": {
+    "rules": [
+      {
+        "contains_any": [
+          "chicken"
+        ],
+        "category_path": [
+          "Pantry",
+          "Bouillon",
+          "Chicken"
+        ]
+      },
+      {
+        "contains_any": [
+          "beef"
+        ],
+        "category_path": [
+          "Pantry",
+          "Bouillon",
+          "Beef"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Bouillon",
+      "Other"
+    ]
+  },
+  "squash": {
+    "rules": [
+      {
+        "contains_any": [
+          "butternut"
+        ],
+        "category_path": [
+          "Produce",
+          "Squash",
+          "Butternut"
+        ]
+      },
+      {
+        "contains_any": [
+          "acorn"
+        ],
+        "category_path": [
+          "Produce",
+          "Squash",
+          "Acorn"
+        ]
+      },
+      {
+        "contains_any": [
+          "spaghetti"
+        ],
+        "category_path": [
+          "Produce",
+          "Squash",
+          "Spaghetti"
+        ]
+      },
+      {
+        "contains_any": [
+          "yellow"
+        ],
+        "category_path": [
+          "Produce",
+          "Squash",
+          "Yellow"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Squash",
+      "Other"
+    ]
+  },
+  "avocado": {
+    "category_path": [
+      "Produce",
+      "Avocado"
+    ]
+  },
+  "lettuce": {
+    "category_path": [
+      "Produce",
+      "Lettuce"
+    ]
+  },
+  "cornmeal": {
+    "category_path": [
+      "Baking",
+      "Cornmeal"
+    ]
+  },
+  "rum": {
+    "category_path": [
+      "Beverages",
+      "Liquor",
+      "Rum"
+    ]
+  },
+  "dill": {
+    "category_path": [
+      "Herbs",
+      "Dill"
+    ]
+  },
+  "lentil": {
+    "category_path": [
+      "Produce",
+      "Lentil"
+    ]
+  },
+  "crumbled": {
+    "rules": [
+      {
+        "contains_any": [
+          "bacon"
+        ],
+        "category_path": [
+          "Meat",
+          "Pork",
+          "Bacon"
+        ]
+      },
+      {
+        "contains_any": [
+          "feta"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Feta"
+        ]
+      },
+      {
+        "contains_any": [
+          "blue cheese"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Other"
+        ]
+      },
+      {
+        "contains_any": [
+          "goat cheese"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Goat Cheese"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "lime": {
+    "category_path": [
+      "Produce",
+      "Lime"
+    ]
+  },
+  "blend": {
+    "rules": [
+      {
+        "contains_any": [
+          "cheese"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Other"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Blend",
+      "Other"
+    ]
+  },
+  "sage": {
+    "category_path": [
+      "Herbs",
+      "Sage"
+    ]
+  },
+  "nut": {
+    "rules": [
+      {
+        "contains_any": [
+          "pine nut"
+        ],
+        "category_path": [
+          "Pantry",
+          "Nut",
+          "Pine Nut"
+        ]
+      },
+      {
+        "contains_any": [
+          "pistachio"
+        ],
+        "category_path": [
+          "Pantry",
+          "Nut",
+          "Pistachio"
+        ]
+      },
+      {
+        "contains_any": [
+          "macadamia"
+        ],
+        "category_path": [
+          "Pantry",
+          "Nut",
+          "Macadamia"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Nut",
+      "Other"
+    ]
+  },
+  "liqueur": {
+    "category_path": [
+      "Beverages",
+      "Liqueur"
+    ]
+  },
+  "cherry": {
+    "rules": [
+      {
+        "contains_any": [
+          "maraschino"
+        ],
+        "category_path": [
+          "Produce",
+          "Cherry",
+          "Maraschino"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Cherry",
+      "Fresh"
+    ]
+  },
+  "broken": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
+  },
+  "orange": {
+    "category_path": [
+      "Produce",
+      "Orange"
+    ]
+  },
+  "lamb": {
+    "category_path": [
+      "Meat",
+      "Lamb"
+    ]
+  },
+  "shrimp": {
+    "category_path": [
+      "Seafood",
+      "Shrimp"
+    ]
+  },
+  "chilled": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
+  },
+  "stick": {
+    "rules": [
+      {
+        "contains_any": [
+          "cinnamon"
+        ],
+        "category_path": [
+          "Spices",
+          "Cinnamon"
+        ]
+      },
+      {
+        "contains_any": [
+          "celery"
+        ],
+        "category_path": [
+          "Produce",
+          "Celery"
+        ]
+      },
+      {
+        "contains_any": [
+          "carrot"
+        ],
+        "category_path": [
+          "Produce",
+          "Carrot"
+        ]
+      },
+      {
+        "contains_any": [
+          "butter"
+        ],
+        "category_path": [
+          "Dairy",
+          "Butter"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Stick",
+      "Other"
+    ]
+  },
+  "tartar": {
+    "category_path": [
+      "Baking",
+      "Cream of Tartar"
+    ]
+  },
+  "peppercorn": {
+    "category_path": [
+      "Spices",
+      "Pepper"
+    ]
+  },
+  "half": {
+    "category_path": [
+      "Dairy",
+      "Cream",
+      "Half and Half"
+    ],
+    "note": "All distinct names are 'half-and-half' the dairy product -- matches the rule already in the 'cream' head (batch 1)."
+  },
+  "cake": {
+    "rules": [
+      {
+        "contains_any": [
+          "crab cake"
+        ],
+        "category_path": [
+          "Seafood",
+          "Crab"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Cake",
+      "Other"
+    ]
+  },
+  "chile": {
+    "category_path": [
+      "Produce",
+      "Pepper",
+      "Chili"
+    ]
+  },
+  "ghee": {
+    "category_path": [
+      "Dairy",
+      "Ghee"
+    ]
+  },
+  "ice": {
+    "category_path": [
+      "Pantry",
+      "Ice"
+    ]
+  },
+  "mashed": {
+    "rules": [
+      {
+        "contains_any": [
+          "banana"
+        ],
+        "category_path": [
+          "Produce",
+          "Banana"
+        ]
+      },
+      {
+        "contains_any": [
+          "avocado"
+        ],
+        "category_path": [
+          "Produce",
+          "Avocado"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "applesauce": {
+    "category_path": [
+      "Pantry",
+      "Applesauce"
+    ]
+  },
+  "shell": {
+    "rules": [
+      {
+        "contains_any": [
+          "pie shell"
+        ],
+        "category_path": [
+          "Baking",
+          "Crust",
+          "Pie Crust"
+        ]
+      },
+      {
+        "contains_any": [
+          "pasta shell",
+          "manicotti"
+        ],
+        "category_path": [
+          "Grains",
+          "Pasta"
+        ]
+      },
+      {
+        "contains_any": [
+          "taco shell",
+          "tostada"
+        ],
+        "category_path": [
+          "Grains",
+          "Taco Shell"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Shell",
+      "Other"
+    ]
+  },
+  "toasted": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "roughly": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "macaroni": {
+    "category_path": [
+      "Grains",
+      "Pasta",
+      "Macaroni"
+    ]
+  },
+  "beer": {
+    "category_path": [
+      "Beverages",
+      "Beer"
+    ]
+  },
+  "separated": {
+    "alias_of": "egg",
+    "note": "Every example is 'eggs, separated' (yolk from white) -- same class of gap as juiced/frying/deveined."
+  },
+  "glaze": {
+    "category_path": [
+      "Pantry",
+      "Glaze",
+      "Other"
+    ]
+  },
+  "cardamom": {
+    "category_path": [
+      "Spices",
+      "Cardamom"
+    ]
+  },
+  "frosting": {
+    "rules": [
+      {
+        "contains_any": [
+          "cream cheese"
+        ],
+        "category_path": [
+          "Baking",
+          "Frosting",
+          "Cream Cheese"
+        ]
+      },
+      {
+        "contains_any": [
+          "buttercream"
+        ],
+        "category_path": [
+          "Baking",
+          "Frosting",
+          "Buttercream"
+        ]
+      },
+      {
+        "contains_any": [
+          "chocolate"
+        ],
+        "category_path": [
+          "Baking",
+          "Frosting",
+          "Chocolate"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Frosting",
+      "Other"
+    ]
+  },
+  "spaghetti": {
+    "category_path": [
+      "Grains",
+      "Pasta",
+      "Spaghetti"
+    ]
+  },
+  "quinoa": {
+    "category_path": [
+      "Grains",
+      "Quinoa"
+    ]
+  },
+  "granule": {
+    "rules": [
+      {
+        "contains_any": [
+          "chicken bouillon"
+        ],
+        "category_path": [
+          "Pantry",
+          "Bouillon",
+          "Chicken"
+        ]
+      },
+      {
+        "contains_any": [
+          "beef bouillon"
+        ],
+        "category_path": [
+          "Pantry",
+          "Bouillon",
+          "Beef"
+        ]
+      },
+      {
+        "contains_any": [
+          "coffee"
+        ],
+        "category_path": [
+          "Beverages",
+          "Coffee"
+        ]
+      },
+      {
+        "contains_any": [
+          "garlic"
+        ],
+        "category_path": [
+          "Produce",
+          "Garlic"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Granule",
+      "Other"
+    ]
+  },
+  "relish": {
+    "category_path": [
+      "Condiments",
+      "Relish"
+    ]
+  },
+  "salmon": {
+    "category_path": [
+      "Seafood",
+      "Fish",
+      "Salmon"
+    ]
+  },
+  "dusting": {
+    "rules": [
+      {
+        "contains_any": [
+          "sugar",
+          "confectioner"
+        ],
+        "category_path": [
+          "Baking",
+          "Sugar",
+          "Powdered"
+        ]
+      },
+      {
+        "contains_any": [
+          "flour"
+        ],
+        "category_path": [
+          "Baking",
+          "Flour",
+          "All-Purpose"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ],
+    "note": "Describes purpose ('for dusting'), not identity -- same class of gap as juiced/frying, routed to the base ingredient."
+  },
+  "wrapper": {
+    "rules": [
+      {
+        "contains_any": [
+          "wonton"
+        ],
+        "category_path": [
+          "Grains",
+          "Wrapper",
+          "Wonton"
+        ]
+      },
+      {
+        "contains_any": [
+          "egg roll"
+        ],
+        "category_path": [
+          "Grains",
+          "Wrapper",
+          "Egg Roll"
+        ]
+      },
+      {
+        "contains_any": [
+          "rice paper"
+        ],
+        "category_path": [
+          "Grains",
+          "Wrapper",
+          "Rice Paper"
+        ]
+      },
+      {
+        "contains_any": [
+          "spring roll"
+        ],
+        "category_path": [
+          "Grains",
+          "Wrapper",
+          "Spring Roll"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Grains",
+      "Wrapper",
+      "Other"
+    ]
+  },
+  "raspberry": {
+    "category_path": [
+      "Produce",
+      "Berry",
+      "Raspberry"
+    ]
+  },
+  "round": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. No dominant referent (bread rounds, carrot rounds, onion rounds, citrus rounds all appear)."
+  },
+  "undrained": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "kale": {
+    "category_path": [
+      "Produce",
+      "Kale"
+    ]
+  },
+  "date": {
+    "category_path": [
+      "Pantry",
+      "Dried Fruit",
+      "Date"
+    ]
+  },
+  "tuna": {
+    "category_path": [
+      "Seafood",
+      "Fish",
+      "Tuna"
+    ]
+  },
+  "rhubarb": {
+    "category_path": [
+      "Produce",
+      "Rhubarb"
+    ]
+  },
+  "weed": {
+    "alias_of": "dill",
+    "note": "'dill weed' -- always dill."
+  },
+  "green": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Sometimes a color adjective ('apple, red or green'), not a noun at all."
+  },
+  "vegetable": {
+    "category_path": [
+      "Produce",
+      "Mixed Vegetables"
+    ]
+  },
+  "ring": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Mixes food (pineapple/onion rings) and non-food (canning jar rings)."
+  },
+  "crayfish": {
+    "category_path": [
+      "Seafood",
+      "Crayfish"
+    ]
+  },
+  "zested": {
+    "alias_of": "zest",
+    "note": "'lemon, zested' etc. -- same class of gap as juiced/juice."
+  },
+  "marjoram": {
+    "category_path": [
+      "Herbs",
+      "Marjoram"
+    ]
+  },
+  "bonnet": {
+    "category_path": [
+      "Produce",
+      "Pepper",
+      "Chili"
+    ],
+    "note": "'Scotch bonnet' -- a hot chili pepper variety."
+  },
+  "tofu": {
+    "category_path": [
+      "Produce",
+      "Tofu"
+    ]
+  },
+  "cauliflower": {
+    "category_path": [
+      "Produce",
+      "Cauliflower"
+    ]
+  },
+  "scallion": {
+    "category_path": [
+      "Produce",
+      "Onion"
+    ],
+    "note": "Matches how 'Green Onions' already resolves under the 'onion' head (batch 1) -- kept at the same node rather than adding a 3rd level split the 'onion' head itself doesn't have, for consistency."
+  },
+  "marshmallow": {
+    "category_path": [
+      "Pantry",
+      "Marshmallow"
+    ]
+  },
+  "warmed": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "cashew": {
+    "category_path": [
+      "Pantry",
+      "Nut",
+      "Cashew"
+    ]
+  },
+  "peach": {
+    "category_path": [
+      "Produce",
+      "Peach"
+    ]
+  },
+  "sprout": {
+    "rules": [
+      {
+        "contains_any": [
+          "brussels"
+        ],
+        "category_path": [
+          "Produce",
+          "Brussels Sprout"
+        ]
+      },
+      {
+        "contains_any": [
+          "bean sprout"
+        ],
+        "category_path": [
+          "Produce",
+          "Sprout",
+          "Bean Sprout"
+        ]
+      },
+      {
+        "contains_any": [
+          "broccoli sprout"
+        ],
+        "category_path": [
+          "Produce",
+          "Sprout",
+          "Broccoli Sprout"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Sprout",
+      "Other"
+    ]
+  },
+  "coloring": {
+    "category_path": [
+      "Pantry",
+      "Food Coloring"
+    ]
+  },
+  "tahini": {
+    "category_path": [
+      "Condiments",
+      "Tahini"
+    ]
+  },
+  "jam": {
+    "rules": [
+      {
+        "contains_any": [
+          "strawberry"
+        ],
+        "category_path": [
+          "Pantry",
+          "Jam",
+          "Strawberry"
+        ]
+      },
+      {
+        "contains_any": [
+          "apricot"
+        ],
+        "category_path": [
+          "Pantry",
+          "Jam",
+          "Apricot"
+        ]
+      },
+      {
+        "contains_any": [
+          "raspberry"
+        ],
+        "category_path": [
+          "Pantry",
+          "Jam",
+          "Raspberry"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Jam",
+      "Other"
+    ]
+  },
+  "peanut": {
+    "category_path": [
+      "Pantry",
+      "Nut",
+      "Peanut"
+    ]
+  },
+  "artichoke": {
+    "category_path": [
+      "Produce",
+      "Artichoke"
+    ]
+  },
+  "vodka": {
+    "category_path": [
+      "Beverages",
+      "Liquor",
+      "Vodka"
+    ]
+  },
+  "pumpkin": {
+    "category_path": [
+      "Produce",
+      "Pumpkin"
+    ]
+  },
+  "salad": {
+    "category_path": [
+      "Pantry",
+      "Salad",
+      "Other"
+    ]
+  },
+  "masala": {
+    "category_path": [
+      "Spices",
+      "Spice Blend",
+      "Masala"
+    ]
+  },
+  "cooky": {
+    "category_path": [
+      "Baking",
+      "Cookie"
+    ],
+    "note": "Singularize() over-applies its 'ies'->'y' rule to 'cookies' (a plain -s plural, not a true -y/-ies pair like 'party/parties'), yielding head 'cooky'. Another small IngredientMatcher gap, same disposition as as/more/crushed: noted, not fixed here."
+  },
+  "sherry": {
+    "category_path": [
+      "Beverages",
+      "Wine",
+      "Sherry"
+    ]
+  },
+  "mango": {
+    "category_path": [
+      "Produce",
+      "Mango"
+    ]
+  },
+  "berry": {
+    "rules": [
+      {
+        "contains_any": [
+          "allspice"
+        ],
+        "category_path": [
+          "Spices",
+          "Allspice"
+        ]
+      },
+      {
+        "contains_any": [
+          "juniper"
+        ],
+        "category_path": [
+          "Spices",
+          "Juniper Berry"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Berry",
+      "Mixed"
+    ]
+  },
+  "meat": {
+    "category_path": [
+      "Meat",
+      "Other"
+    ]
+  },
+  "meal": {
+    "rules": [
+      {
+        "contains_any": [
+          "flaxseed",
+          "flax seed"
+        ],
+        "category_path": [
+          "Pantry",
+          "Seed",
+          "Flax"
+        ]
+      },
+      {
+        "contains_any": [
+          "matzo"
+        ],
+        "category_path": [
+          "Baking",
+          "Matzo Meal"
+        ]
+      },
+      {
+        "contains_any": [
+          "almond"
+        ],
+        "category_path": [
+          "Pantry",
+          "Nut",
+          "Almond"
+        ]
+      },
+      {
+        "contains_any": [
+          "corn"
+        ],
+        "category_path": [
+          "Baking",
+          "Cornmeal"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Meal",
+      "Other"
+    ]
+  },
+  "lengthwise": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "tequila": {
+    "category_path": [
+      "Beverages",
+      "Liquor",
+      "Tequila"
+    ]
+  },
+  "garnish": {
+    "rules": [
+      {
+        "contains_any": [
+          "parsley"
+        ],
+        "category_path": [
+          "Herbs",
+          "Parsley"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Garnish",
+      "Other"
+    ]
+  },
+  "starch": {
+    "rules": [
+      {
+        "contains_any": [
+          "potato starch"
+        ],
+        "category_path": [
+          "Baking",
+          "Starch",
+          "Potato Starch"
+        ]
+      },
+      {
+        "contains_any": [
+          "corn starch",
+          "cornstarch"
+        ],
+        "category_path": [
+          "Baking",
+          "Cornstarch"
+        ]
+      },
+      {
+        "contains_any": [
+          "arrowroot"
+        ],
+        "category_path": [
+          "Baking",
+          "Starch",
+          "Arrowroot"
+        ]
+      },
+      {
+        "contains_any": [
+          "tapioca"
+        ],
+        "category_path": [
+          "Baking",
+          "Starch",
+          "Tapioca"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Starch",
+      "Other"
+    ]
+  },
+  "plantain": {
+    "category_path": [
+      "Produce",
+      "Plantain"
+    ]
+  },
+  "roll": {
+    "category_path": [
+      "Grains",
+      "Bread",
+      "Roll"
+    ]
+  },
+  "cracker": {
+    "rules": [
+      {
+        "contains_any": [
+          "graham"
+        ],
+        "category_path": [
+          "Baking",
+          "Cracker",
+          "Graham"
+        ]
+      },
+      {
+        "contains_any": [
+          "saltine"
+        ],
+        "category_path": [
+          "Baking",
+          "Cracker",
+          "Saltine"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Cracker",
+      "Other"
+    ]
+  },
+  "cover": {
+    "alias_of": "water",
+    "note": "'water to cover' / 'cold water, to cover' -- always water."
+  },
+  "fish": {
+    "category_path": [
+      "Seafood",
+      "Fish"
+    ]
+  },
+  "pickle": {
+    "category_path": [
+      "Condiments",
+      "Pickle"
+    ]
+  },
+  "caper": {
+    "category_path": [
+      "Condiments",
+      "Caper"
+    ]
+  },
+  "pear": {
+    "category_path": [
+      "Produce",
+      "Pear"
+    ]
+  },
+  "coffee": {
+    "category_path": [
+      "Beverages",
+      "Coffee"
+    ]
+  },
+  "horseradish": {
+    "category_path": [
+      "Condiments",
+      "Horseradish"
+    ]
+  },
+  "bite": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Pure size descriptor ('bite-sized pieces') applied to many unrelated foods."
+  },
+  "crabmeat": {
+    "category_path": [
+      "Seafood",
+      "Crab"
+    ]
+  },
+  "prawn": {
+    "alias_of": "shrimp",
+    "note": "Treated as interchangeable with shrimp for matching purposes."
+  },
+  "yam": {
+    "category_path": [
+      "Produce",
+      "Yam"
+    ]
+  },
+  "brandy": {
+    "category_path": [
+      "Beverages",
+      "Liquor",
+      "Brandy"
+    ]
+  },
+  "gelatin": {
+    "category_path": [
+      "Baking",
+      "Gelatin"
+    ]
+  },
+  "flavoring": {
+    "category_path": [
+      "Pantry",
+      "Flavoring",
+      "Other"
+    ]
+  },
+  "flaked": {
+    "rules": [
+      {
+        "contains_any": [
+          "tuna"
+        ],
+        "category_path": [
+          "Seafood",
+          "Fish",
+          "Tuna"
+        ]
+      },
+      {
+        "contains_any": [
+          "salmon"
+        ],
+        "category_path": [
+          "Seafood",
+          "Fish",
+          "Salmon"
+        ]
+      },
+      {
+        "contains_any": [
+          "crab"
+        ],
+        "category_path": [
+          "Seafood",
+          "Crab"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Seafood",
+      "Fish"
+    ]
+  },
+  "quarter": {
+    "rules": [
+      {
+        "contains_any": [
+          "chicken"
+        ],
+        "category_path": [
+          "Meat",
+          "Chicken"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "cooled": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "liquid": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('with liquid' / 'with the liquid' -- describes canning liquid, not the item itself; embedded ingredient varies too much to route reliably.)"
+  },
+  "chickpea": {
+    "category_path": [
+      "Produce",
+      "Bean",
+      "Garbanzo Bean"
+    ],
+    "note": "Matches the garbanzo/chickpea rule already in the 'bean' head (batch 1)."
+  },
+  "split": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "blackberry": {
+    "category_path": [
+      "Produce",
+      "Berry",
+      "Blackberry"
+    ]
+  },
+  "vanilla": {
+    "category_path": [
+      "Baking",
+      "Extract",
+      "Vanilla"
+    ]
+  },
+  "tortellini": {
+    "category_path": [
+      "Grains",
+      "Pasta",
+      "Tortellini"
+    ]
+  },
+  "peel": {
+    "rules": [
+      {
+        "contains_any": [
+          "lemon"
+        ],
+        "category_path": [
+          "Produce",
+          "Zest",
+          "Lemon Zest"
+        ]
+      },
+      {
+        "contains_any": [
+          "orange"
+        ],
+        "category_path": [
+          "Produce",
+          "Zest",
+          "Orange Zest"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Peel",
+      "Other"
+    ],
+    "note": "'Peel' and 'zest' are the same concept for citrus -- routed to the same nodes as the 'zest' head where applicable."
+  },
+  "tarragon": {
+    "category_path": [
+      "Herbs",
+      "Tarragon"
+    ]
+  },
+  "cereal": {
+    "category_path": [
+      "Pantry",
+      "Cereal"
+    ]
+  },
+  "sifted": {
+    "rules": [
+      {
+        "contains_any": [
+          "flour"
+        ],
+        "category_path": [
+          "Baking",
+          "Flour",
+          "All-Purpose"
+        ]
+      },
+      {
+        "contains_any": [
+          "sugar",
+          "confectioner"
+        ],
+        "category_path": [
+          "Baking",
+          "Sugar",
+          "Powdered"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "icing": {
+    "alias_of": "frosting"
+  },
+  "concentrate": {
+    "rules": [
+      {
+        "contains_any": [
+          "orange"
+        ],
+        "category_path": [
+          "Produce",
+          "Juice",
+          "Orange Juice"
+        ]
+      },
+      {
+        "contains_any": [
+          "lime",
+          "limeade"
+        ],
+        "category_path": [
+          "Produce",
+          "Juice",
+          "Lime Juice"
+        ]
+      },
+      {
+        "contains_any": [
+          "lemon",
+          "lemonade"
+        ],
+        "category_path": [
+          "Produce",
+          "Juice",
+          "Lemon Juice"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Juice",
+      "Other"
+    ]
+  },
+  "radish": {
+    "category_path": [
+      "Produce",
+      "Radish"
+    ]
+  },
+  "popcorn": {
+    "category_path": [
+      "Pantry",
+      "Popcorn"
+    ]
+  },
+  "adjust": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "leek": {
+    "category_path": [
+      "Produce",
+      "Leek"
+    ]
+  },
+  "marinade": {
+    "category_path": [
+      "Condiments",
+      "Marinade",
+      "Other"
+    ]
+  },
+  "scrubbed": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "gnocchi": {
+    "category_path": [
+      "Grains",
+      "Pasta",
+      "Gnocchi"
+    ]
+  },
+  "pie": {
+    "category_path": [
+      "Baking",
+      "Crust",
+      "Pie Crust"
+    ],
+    "note": "Dominant content is pastry/crust for a pie shell, not the pie as a dish."
+  },
+  "whiskey": {
+    "category_path": [
+      "Beverages",
+      "Liquor",
+      "Whiskey"
+    ]
+  },
+  "washed": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "fat": {
+    "excluded": true,
+    "reason": "Too ambiguous to route reliably: sometimes an attribute ('fat-free half-and-half'), sometimes a real product ('bacon fat'), sometimes a prep-state ('trimmed of excess fat'). No single rule captures this safely."
+  },
+  "grape": {
+    "category_path": [
+      "Produce",
+      "Grape"
+    ]
+  },
+  "bun": {
+    "category_path": [
+      "Grains",
+      "Bread",
+      "Bun"
+    ]
+  },
+  "fruit": {
+    "category_path": [
+      "Produce",
+      "Mixed Fruit"
+    ]
+  },
+  "beet": {
+    "category_path": [
+      "Produce",
+      "Beet"
+    ]
+  },
+  "pesto": {
+    "category_path": [
+      "Condiments",
+      "Pesto"
+    ]
+  },
+  "sweetener": {
+    "category_path": [
+      "Pantry",
+      "Sweetener",
+      "Other"
+    ]
+  },
+  "cider": {
+    "category_path": [
+      "Pantry",
+      "Cider"
+    ],
+    "note": "Kept separate from Produce/Juice/Apple Juice -- 'hard apple cider' is alcoholic, so conflating with juice would be wrong some of the time."
+  },
+  "cup": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. A leaked unit-of-measurement word ('strawberries, about 2 cups') -- the real ingredient sits before it and varies too much to route reliably."
+  },
+  "foil": {
+    "excluded": true,
+    "reason": "Not food -- a kitchen supply (aluminum foil)."
+  },
+  "choice": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('sweetener of choice', 'milk of your choice' -- describes user choice, no fixed referent.)"
+  },
+  "spread": {
+    "rules": [
+      {
+        "contains_any": [
+          "chocolate-hazelnut",
+          "chocolate hazelnut"
+        ],
+        "category_path": [
+          "Condiments",
+          "Spread",
+          "Chocolate Hazelnut"
+        ]
+      },
+      {
+        "contains_any": [
+          "cheese spread"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Other"
+        ]
+      },
+      {
+        "contains_any": [
+          "crock",
+          "believe it's not butter"
+        ],
+        "category_path": [
+          "Dairy & Alternatives",
+          "Margarine"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Condiments",
+      "Spread",
+      "Other"
+    ]
+  },
+  "jalapeno": {
+    "category_path": [
+      "Produce",
+      "Pepper",
+      "Chili"
+    ]
+  },
+  "sec": {
+    "category_path": [
+      "Beverages",
+      "Liqueur"
+    ],
+    "note": "'Triple sec' -- an orange liqueur."
+  },
+  "currant": {
+    "category_path": [
+      "Pantry",
+      "Dried Fruit",
+      "Currant"
+    ]
+  },
+  "stew": {
+    "rules": [
+      {
+        "contains_any": [
+          "beef"
+        ],
+        "category_path": [
+          "Meat",
+          "Beef"
+        ]
+      },
+      {
+        "contains_any": [
+          "chicken"
+        ],
+        "category_path": [
+          "Meat",
+          "Chicken"
+        ]
+      },
+      {
+        "contains_any": [
+          "lamb"
+        ],
+        "category_path": [
+          "Meat",
+          "Lamb"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Stew",
+      "Other"
+    ]
+  },
+  "base": {
+    "rules": [
+      {
+        "contains_any": [
+          "chicken"
+        ],
+        "category_path": [
+          "Pantry",
+          "Bouillon",
+          "Chicken"
+        ]
+      },
+      {
+        "contains_any": [
+          "beef"
+        ],
+        "category_path": [
+          "Pantry",
+          "Bouillon",
+          "Beef"
+        ]
+      },
+      {
+        "contains_any": [
+          "garlic"
+        ],
+        "category_path": [
+          "Produce",
+          "Garlic"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Base",
+      "Other"
+    ]
+  },
+  "amino": {
+    "category_path": [
+      "Condiments",
+      "Sauce",
+      "Soy Sauce"
+    ],
+    "note": "Coconut/liquid aminos are soy-sauce alternatives, routed to the same node."
+  },
+  "torn": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "scallop": {
+    "category_path": [
+      "Seafood",
+      "Scallop"
+    ]
+  },
+  "chily": {
+    "category_path": [
+      "Produce",
+      "Pepper",
+      "Chili"
+    ],
+    "note": "singularize() misparse of 'chilies' (parallel to 'cooky'/'cookies') -- same real ingredient as the 'chile'/'pepper' heads."
+  },
+  "herb": {
+    "category_path": [
+      "Herbs",
+      "Mixed Herbs"
+    ]
+  },
+  "pressed": {
+    "alias_of": "garlic",
+    "note": "Every example is 'garlic, pressed'."
+  },
+  "pepperoni": {
+    "category_path": [
+      "Meat",
+      "Pork",
+      "Pepperoni"
+    ]
+  },
+  "patted": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "chestnut": {
+    "category_path": [
+      "Produce",
+      "Water Chestnut"
+    ],
+    "note": "Water chestnut is an aquatic vegetable, not a tree nut -- kept separate from the Pantry/Nut/* leaves."
+  },
+  "lard": {
+    "category_path": [
+      "Pantry",
+      "Lard"
+    ]
+  },
+  "hulled": {
+    "alias_of": "strawberry",
+    "note": "Every example is 'strawberries, hulled'."
+  },
+  "brisket": {
+    "category_path": [
+      "Meat",
+      "Beef"
+    ],
+    "note": "Beef cut (including corned beef brisket) -- cross-head unification instance."
+  },
+  "okra": {
+    "category_path": [
+      "Produce",
+      "Okra"
+    ]
+  },
+  "breadcrumb": {
+    "category_path": [
+      "Baking",
+      "Crumb",
+      "Bread Crumb"
+    ]
+  },
+  "slightly": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "preserve": {
+    "rules": [
+      {
+        "contains_any": [
+          "apricot"
+        ],
+        "category_path": [
+          "Pantry",
+          "Jam",
+          "Apricot"
+        ]
+      },
+      {
+        "contains_any": [
+          "raspberry"
+        ],
+        "category_path": [
+          "Pantry",
+          "Jam",
+          "Raspberry"
+        ]
+      },
+      {
+        "contains_any": [
+          "strawberry"
+        ],
+        "category_path": [
+          "Pantry",
+          "Jam",
+          "Strawberry"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Jam",
+      "Other"
+    ],
+    "note": "Preserves and jam are functionally interchangeable for recipe matching -- routed to the same nodes as the 'jam' head rather than a parallel tree."
+  },
+  "sauerkraut": {
+    "category_path": [
+      "Condiments",
+      "Sauerkraut"
+    ]
+  },
+  "stemmed": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "batter": {
+    "category_path": [
+      "Baking",
+      "Batter",
+      "Other"
+    ]
+  },
+  "watermelon": {
+    "category_path": [
+      "Produce",
+      "Watermelon"
+    ]
+  },
+  "grit": {
+    "category_path": [
+      "Grains",
+      "Grits"
+    ]
+  },
+  "decoration": {
+    "rules": [
+      {
+        "contains_any": [
+          "sugar"
+        ],
+        "category_path": [
+          "Baking",
+          "Sugar",
+          "White"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "crumble": {
+    "rules": [
+      {
+        "contains_any": [
+          "cheese"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Other"
+        ]
+      },
+      {
+        "contains_any": [
+          "beef",
+          "burger",
+          "soy"
+        ],
+        "category_path": [
+          "Pantry",
+          "Meat Substitute",
+          "Other"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Crumble",
+      "Other"
+    ]
+  },
+  "gravy": {
+    "category_path": [
+      "Pantry",
+      "Gravy"
+    ]
+  },
+  "pastry": {
+    "rules": [
+      {
+        "contains_any": [
+          "puff"
+        ],
+        "category_path": [
+          "Baking",
+          "Pastry",
+          "Puff Pastry"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Pastry",
+      "Other"
+    ]
+  },
+  "crab": {
+    "category_path": [
+      "Seafood",
+      "Crab"
+    ]
+  },
+  "germ": {
+    "category_path": [
+      "Baking",
+      "Wheat Germ"
+    ]
+  },
+  "tamari": {
+    "category_path": [
+      "Condiments",
+      "Sauce",
+      "Soy Sauce"
+    ]
+  },
+  "essence": {
+    "rules": [
+      {
+        "contains_any": [
+          "vanilla"
+        ],
+        "category_path": [
+          "Baking",
+          "Extract",
+          "Vanilla"
+        ]
+      },
+      {
+        "contains_any": [
+          "almond"
+        ],
+        "category_path": [
+          "Baking",
+          "Extract",
+          "Almond"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Extract",
+      "Other"
+    ],
+    "note": "'Essence' is the UK-English term for 'extract' -- routed to the same nodes as the 'extract' head."
+  },
+  "mirin": {
+    "category_path": [
+      "Condiments",
+      "Mirin"
+    ]
+  },
+  "tapioca": {
+    "category_path": [
+      "Baking",
+      "Starch",
+      "Tapioca"
+    ]
+  },
+  "pectin": {
+    "category_path": [
+      "Baking",
+      "Pectin"
+    ]
+  },
+  "tender": {
+    "category_path": [
+      "Meat",
+      "Chicken"
+    ],
+    "note": "Confirms the gap flagged in batch 1: 'tender' isn't in PART_WORDS (only 'tenderloin' is), so 'chicken tenders' resolves to head 'tender', not 'chicken'. Routed here directly."
+  },
+  "asparagus": {
+    "category_path": [
+      "Produce",
+      "Asparagus"
+    ]
+  },
+  "bit": {
+    "rules": [
+      {
+        "contains_any": [
+          "bacon"
+        ],
+        "category_path": [
+          "Meat",
+          "Pork",
+          "Bacon"
+        ]
+      },
+      {
+        "contains_any": [
+          "toffee"
+        ],
+        "category_path": [
+          "Baking",
+          "Toffee Bits"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "spear": {
+    "rules": [
+      {
+        "contains_any": [
+          "asparagus"
+        ],
+        "category_path": [
+          "Produce",
+          "Asparagus"
+        ]
+      },
+      {
+        "contains_any": [
+          "pickle"
+        ],
+        "category_path": [
+          "Condiments",
+          "Pickle"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "dripping": {
+    "rules": [
+      {
+        "contains_any": [
+          "bacon"
+        ],
+        "category_path": [
+          "Meat",
+          "Pork",
+          "Bacon"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Drippings",
+      "Other"
+    ]
+  },
+  "tatashe": {
+    "category_path": [
+      "Produce",
+      "Pepper",
+      "Bell"
+    ],
+    "note": "Nigerian-English name for red bell pepper."
+  },
+  "nectar": {
+    "rules": [
+      {
+        "contains_any": [
+          "agave"
+        ],
+        "category_path": [
+          "Pantry",
+          "Sweetener",
+          "Agave Nectar"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Juice",
+      "Other"
+    ]
+  },
+  "substitute": {
+    "excluded": true,
+    "reason": "Deliberately NOT aliased to its base ingredient (egg/sugar/cheese/beef substitute), matching IngredientMatcher.kt's own documented design: 'substitute' changes what a thing IS, so 'egg substitute' correctly does NOT match fridge 'egg' today. Aliasing this head would silently undo that existing, intentional behavior."
+  },
+  "apricot": {
+    "category_path": [
+      "Produce",
+      "Apricot"
+    ]
+  },
+  "sirloin": {
+    "category_path": [
+      "Meat",
+      "Beef"
+    ],
+    "note": "Cross-head unification instance, same as steak/roast/brisket."
+  },
+  "beverage": {
+    "category_path": [
+      "Beverages",
+      "Other"
+    ]
+  },
+  "square": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. No dominant referent (cereal squares, bell pepper squares, cracker squares)."
+  },
+  "skewer": {
+    "excluded": true,
+    "reason": "Not food -- a kitchen tool (wooden/bamboo/metal skewers)."
+  },
+  "fry": {
+    "category_path": [
+      "Produce",
+      "Potato",
+      "Regular"
+    ],
+    "note": "Majority of examples are potato fries (French fries, waffle fries); 'stir-fry:' section headers are the minority, accepted imprecision."
+  },
+  "guacamole": {
+    "category_path": [
+      "Condiments",
+      "Guacamole"
+    ]
+  },
+  "creme": {
+    "category_path": [
+      "Pantry",
+      "Marshmallow"
+    ],
+    "note": "'Marshmallow creme' -- every example."
+  },
+  "prosciutto": {
+    "category_path": [
+      "Meat",
+      "Pork",
+      "Prosciutto"
+    ]
+  },
+  "barley": {
+    "category_path": [
+      "Grains",
+      "Barley"
+    ]
+  },
+  "reserved": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "mixture": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Too generic/heterogeneous (bean mixture, curing mixture, fruit mixture)."
+  },
+  "shoulder": {
+    "rules": [
+      {
+        "contains_any": [
+          "lamb"
+        ],
+        "category_path": [
+          "Meat",
+          "Lamb"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Meat",
+      "Pork"
+    ]
+  },
+  "matchstick": {
+    "default_category_path": [
+      "Produce",
+      "Other"
+    ],
+    "note": "Consistently a vegetable cut-form (bell pepper/carrot/cabbage matchsticks), unlike round/ring/bite which mix in non-food or have no dominant referent -- kept as a low-precision generic bucket rather than excluded."
+  },
+  "cleaned": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "meatball": {
+    "rules": [
+      {
+        "contains_any": [
+          "chicken"
+        ],
+        "category_path": [
+          "Meat",
+          "Chicken"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Meat",
+      "Meatball",
+      "Other"
+    ]
+  },
+  "bourbon": {
+    "alias_of": "whiskey",
+    "note": "Bourbon is a whiskey subtype."
+  },
+  "layer": {
+    "excluded": true,
+    "reason": "Recipe-structure section header ('pumpkin layer:', 'cheesecake layer:'), not an ingredient."
+  },
+  "nori": {
+    "category_path": [
+      "Pantry",
+      "Nori"
+    ]
+  },
+  "smashed": {
+    "alias_of": "garlic",
+    "note": "Every example is 'garlic, smashed'."
+  },
+  "cayenne": {
+    "category_path": [
+      "Spices",
+      "Pepper"
+    ]
+  },
+  "dumpling": {
+    "category_path": [
+      "Grains",
+      "Dumpling",
+      "Other"
+    ]
+  },
+  "cocktail": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Mixed meaning (juice cocktail, fruit cocktail, section header), low value."
+  },
+  "brine": {
+    "category_path": [
+      "Pantry",
+      "Brine",
+      "Other"
+    ]
+  },
+  "saffron": {
+    "category_path": [
+      "Spices",
+      "Saffron"
+    ]
+  },
+  "pod": {
+    "rules": [
+      {
+        "contains_any": [
+          "cardamom"
+        ],
+        "category_path": [
+          "Spices",
+          "Cardamom"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Spices",
+      "Pod",
+      "Other"
+    ]
+  },
+  "espresso": {
+    "category_path": [
+      "Beverages",
+      "Coffee"
+    ]
+  },
+  "nib": {
+    "category_path": [
+      "Baking",
+      "Cocoa Nibs"
+    ]
+  },
+  "provence": {
+    "category_path": [
+      "Herbs",
+      "Herbes de Provence"
+    ]
+  },
+  "rub": {
+    "category_path": [
+      "Spices",
+      "Spice Blend",
+      "Rub"
+    ]
+  },
+  "food": {
+    "excluded": true,
+    "reason": "Head is meaningless on its own ('processed cheese food', 'carrot baby food') -- too generic to route."
+  },
+  "squeezed": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('squeezed dry' removes liquid from spinach/sauerkraut -- opposite meaning of 'lemon juice, freshly squeezed', so no safe single rule.)"
+  },
+  "eggplant": {
+    "category_path": [
+      "Produce",
+      "Eggplant"
+    ]
+  },
+  "nugget": {
+    "rules": [
+      {
+        "contains_any": [
+          "chicken"
+        ],
+        "category_path": [
+          "Meat",
+          "Chicken"
+        ]
+      },
+      {
+        "contains_any": [
+          "potato"
+        ],
+        "category_path": [
+          "Produce",
+          "Potato",
+          "Regular"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "coating": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Purpose descriptor ('flour for coating', 'chocolate coating')."
+  },
+  "onionchopped": {
+    "alias_of": "onion",
+    "note": "Glued-word artifact ('Onion'+'chopped' with no space) -- another instance of the missing-delimiter issue documented in NEW_CORPUS_DATA_QUALITY.md, just under the 40-char blob threshold."
+  },
+  "curry": {
+    "rules": [
+      {
+        "contains_any": [
+          "leaves",
+          "leaf"
+        ],
+        "category_path": [
+          "Herbs",
+          "Curry Leaf"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Spices",
+      "Spice Blend",
+      "Curry Powder"
+    ]
+  },
+  "bag": {
+    "rules": [
+      {
+        "contains_any": [
+          "tea bag"
+        ],
+        "category_path": [
+          "Beverages",
+          "Tea"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ],
+    "note": "Mostly non-food (roasting bag, turkey bag) with one real food signal (tea bags)."
+  },
+  "toothpick": {
+    "excluded": true,
+    "reason": "Not food -- kitchen equipment/container/supply, not an ingredient."
+  },
+  "chard": {
+    "category_path": [
+      "Produce",
+      "Chard"
+    ]
+  },
+  "sprinkle": {
+    "category_path": [
+      "Baking",
+      "Sprinkles"
+    ]
+  },
+  "gum": {
+    "rules": [
+      {
+        "contains_any": [
+          "xanthan"
+        ],
+        "category_path": [
+          "Baking",
+          "Xanthan Gum"
+        ]
+      },
+      {
+        "contains_any": [
+          "guar"
+        ],
+        "category_path": [
+          "Baking",
+          "Guar Gum"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Baking",
+      "Gum",
+      "Other"
+    ]
+  },
+  "hock": {
+    "category_path": [
+      "Meat",
+      "Pork",
+      "Ham"
+    ],
+    "note": "Ham hock -- routed to the same node as the 'ham' head."
+  },
+  "parmesan": {
+    "category_path": [
+      "Dairy",
+      "Cheese",
+      "Parmesan"
+    ],
+    "note": "Matches the parmesan rule already in the 'cheese' head (batch 1)."
+  },
+  "fennel": {
+    "category_path": [
+      "Produce",
+      "Fennel"
+    ]
+  },
+  "ingredient": {
+    "excluded": true,
+    "reason": "Recipe-structure meta-word ('dry ingredients', 'remaining ingredients:'), not a food."
+  },
+  "rodo": {
+    "category_path": [
+      "Produce",
+      "Pepper",
+      "Chili"
+    ],
+    "note": "'Ata rodo' -- Yoruba name for scotch bonnet, same as the 'bonnet' head."
+  },
+  "tail": {
+    "rules": [
+      {
+        "contains_any": [
+          "lobster"
+        ],
+        "category_path": [
+          "Seafood",
+          "Lobster"
+        ]
+      },
+      {
+        "contains_any": [
+          "crawfish",
+          "crayfish"
+        ],
+        "category_path": [
+          "Seafood",
+          "Crayfish"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Seafood",
+      "Other"
+    ]
+  },
+  "short": {
+    "category_path": [
+      "Meat",
+      "Beef"
+    ],
+    "note": "'Beef short ribs' / 'short ribs' -- always beef. Cross-head unification instance."
+  },
+  "candy": {
+    "category_path": [
+      "Pantry",
+      "Candy",
+      "Other"
+    ]
+  },
+  "o": {
+    "rules": [
+      {
+        "contains_any": [
+          "jell-o",
+          "jello"
+        ],
+        "category_path": [
+          "Baking",
+          "Gelatin"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ],
+    "note": "Mostly the trademark symbol surviving from 'Jell-O(R)' (flavored gelatin, routed to the same node as the 'gelatin' head). One stray example is 'jalapeno' -- TOKEN_SEPARATOR is ASCII-only ([^a-z]+), so the accented 'n-with-tilde' splits the word instead of being treated as a letter, a small separate Unicode-handling gap worth knowing about but not fixed here (same disposition as the as/more/crushed/cooky gaps)."
+  },
+  "polenta": {
+    "category_path": [
+      "Grains",
+      "Polenta"
+    ]
+  },
+  "biscuit": {
+    "category_path": [
+      "Grains",
+      "Bread",
+      "Biscuit"
+    ]
+  },
+  "chuck": {
+    "category_path": [
+      "Meat",
+      "Beef"
+    ],
+    "note": "Cross-head unification instance."
+  },
+  "each": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Prep quantifier ('12 slices each'), not an ingredient."
+  },
+  "crouton": {
+    "category_path": [
+      "Grains",
+      "Bread",
+      "Crouton"
+    ]
+  },
+  "baked": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "arugula": {
+    "category_path": [
+      "Produce",
+      "Arugula"
+    ]
+  },
+  "cupcake": {
+    "category_path": [
+      "Baking",
+      "Cupcake",
+      "Other"
+    ]
+  },
+  "pound": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Leaked unit-of-measurement word, embedded ingredient varies too much."
+  },
+  "very": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Pure adverb."
+  },
+  "paper": {
+    "excluded": true,
+    "reason": "Not food -- kitchen equipment/container/supply, not an ingredient. (waxed/parchment paper)"
+  },
+  "ale": {
+    "rules": [
+      {
+        "contains_any": [
+          "ginger ale"
+        ],
+        "category_path": [
+          "Beverages",
+          "Soda"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Beverages",
+      "Beer"
+    ],
+    "note": "'Ginger ale' is a soft drink, not beer -- routed to the same node as the 'soda' head; other ales are real beer."
+  },
+  "ball": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Shape descriptor with no dominant referent (mozzarella balls, cantaloupe balls, rice balls)."
+  },
+  "only": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('white parts only', 'leaves only')."
+  },
+  "unpeeled": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "sake": {
+    "category_path": [
+      "Beverages",
+      "Wine",
+      "Sake"
+    ]
+  },
+  "tilapia": {
+    "category_path": [
+      "Seafood",
+      "Fish",
+      "Tilapia"
+    ]
+  },
+  "vinaigrette": {
+    "category_path": [
+      "Condiments",
+      "Dressing",
+      "Vinaigrette"
+    ]
+  },
+  "protein": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Too generic/heterogeneous (textured vegetable protein, collagen protein powder)."
+  },
+  "thread": {
+    "rules": [
+      {
+        "contains_any": [
+          "saffron"
+        ],
+        "category_path": [
+          "Spices",
+          "Saffron"
+        ]
+      },
+      {
+        "contains_any": [
+          "bean thread"
+        ],
+        "category_path": [
+          "Grains",
+          "Noodle"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "flavor": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Too generic ('vanilla flavor', 'any flavor') to route safely."
+  },
+  "sheet": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Mixed products (matzo/nori/gelatin/rice paper sheets), low value to split further."
+  },
+  "anchovy": {
+    "category_path": [
+      "Seafood",
+      "Fish",
+      "Anchovy"
+    ]
+  },
+  "thickly": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Pure adverb."
+  },
+  "unwrapped": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "tidbit": {
+    "alias_of": "pineapple",
+    "note": "Every example is 'pineapple tidbits'."
+  },
+  "atarodo": {
+    "category_path": [
+      "Produce",
+      "Pepper",
+      "Chili"
+    ],
+    "note": "Alternate spelling of 'ata rodo' -- same as 'rodo' head."
+  },
+  "garnishing": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Purpose descriptor, more varied than 'garnish' (citrus/parsley/cinnamon/pecans), no dominant referent."
+  },
+  "hazelnut": {
+    "category_path": [
+      "Pantry",
+      "Nut",
+      "Hazelnut"
+    ]
+  },
+  "fig": {
+    "category_path": [
+      "Produce",
+      "Fig"
+    ]
+  },
+  "bran": {
+    "rules": [
+      {
+        "contains_any": [
+          "oat"
+        ],
+        "category_path": [
+          "Grains",
+          "Oat"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Grains",
+      "Bran",
+      "Other"
+    ]
+  },
+  "pretzel": {
+    "category_path": [
+      "Pantry",
+      "Pretzel"
+    ]
+  },
+  "ravioli": {
+    "category_path": [
+      "Grains",
+      "Pasta",
+      "Ravioli"
+    ]
+  },
+  "schnapp": {
+    "category_path": [
+      "Beverages",
+      "Liquor",
+      "Schnapps"
+    ]
+  },
+  "packet": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Generic container word (spice packet, seasoning packet, smoothie packet)."
+  },
+  "couscous": {
+    "category_path": [
+      "Grains",
+      "Couscous"
+    ]
+  },
+  "ladyfinger": {
+    "category_path": [
+      "Baking",
+      "Ladyfinger"
+    ]
+  },
+  "stockfish": {
+    "category_path": [
+      "Seafood",
+      "Fish",
+      "Stockfish"
+    ]
+  },
+  "anise": {
+    "category_path": [
+      "Spices",
+      "Anise"
+    ]
+  },
+  "prune": {
+    "category_path": [
+      "Pantry",
+      "Dried Fruit",
+      "Prune"
+    ]
+  },
+  "mace": {
+    "category_path": [
+      "Spices",
+      "Mace"
+    ]
+  },
+  "patty": {
+    "rules": [
+      {
+        "contains_any": [
+          "hash brown"
+        ],
+        "category_path": [
+          "Produce",
+          "Potato",
+          "Regular"
+        ]
+      },
+      {
+        "contains_any": [
+          "hamburger",
+          "beef"
+        ],
+        "category_path": [
+          "Meat",
+          "Beef"
+        ]
+      },
+      {
+        "contains_any": [
+          "sausage"
+        ],
+        "category_path": [
+          "Meat",
+          "Pork",
+          "Sausage"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Meat",
+      "Other"
+    ]
+  },
+  "teaspoon": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Leaked unit-of-measurement word, embedded ingredient varies too much."
+  },
+  "jelly": {
+    "category_path": [
+      "Pantry",
+      "Jam",
+      "Other"
+    ],
+    "note": "Functionally interchangeable with jam/preserves -- routed to the same node."
+  },
+  "dice": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Cut-form descriptor, no dominant referent."
+  },
+  "gochujang": {
+    "category_path": [
+      "Condiments",
+      "Gochujang"
+    ]
+  },
+  "eggnog": {
+    "category_path": [
+      "Beverages",
+      "Eggnog"
+    ]
+  },
+  "pepperto": {
+    "alias_of": "pepper",
+    "note": "Glued-word artifact ('pepper'+'to [taste]' with no space) -- same class as onionchopped/saltto."
+  },
+  "wash": {
+    "alias_of": "egg",
+    "note": "'Egg wash:' -- always egg."
+  },
+  "vermouth": {
+    "category_path": [
+      "Beverages",
+      "Wine",
+      "Vermouth"
+    ]
+  },
+  "pudding": {
+    "category_path": [
+      "Baking",
+      "Pudding",
+      "Other"
+    ]
+  },
+  "consomme": {
+    "category_path": [
+      "Pantry",
+      "Broth",
+      "Beef Broth"
+    ],
+    "note": "Concentrated beef broth -- routed to the same node as the 'broth' head."
+  },
+  "third": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Leaked fraction/count word ('cut into thirds')."
+  },
+  "harina": {
+    "category_path": [
+      "Baking",
+      "Flour",
+      "Masa Harina"
+    ],
+    "note": "Corn flour for tortillas/tamales -- distinct enough from wheat flour to get its own leaf."
+  },
+  "cap": {
+    "rules": [
+      {
+        "contains_any": [
+          "portobello"
+        ],
+        "category_path": [
+          "Produce",
+          "Mushroom",
+          "Portobello"
+        ]
+      },
+      {
+        "contains_any": [
+          "shiitake"
+        ],
+        "category_path": [
+          "Produce",
+          "Mushroom",
+          "Shiitake"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Mushroom",
+      "Button"
+    ]
+  },
+  "kiwi": {
+    "category_path": [
+      "Produce",
+      "Kiwi"
+    ]
+  },
+  "tea": {
+    "category_path": [
+      "Beverages",
+      "Tea"
+    ]
+  },
+  "sparerib": {
+    "category_path": [
+      "Meat",
+      "Pork"
+    ]
+  },
+  "section": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Cut-form descriptor (carrot/celery/yuca sections)."
+  },
+  "gin": {
+    "category_path": [
+      "Beverages",
+      "Liquor",
+      "Gin"
+    ]
+  },
+  "marmalade": {
+    "category_path": [
+      "Pantry",
+      "Jam",
+      "Other"
+    ]
+  },
+  "husk": {
+    "excluded": true,
+    "reason": "A discarded/wrapping byproduct of corn (used for tamale-wrapping, not eaten as the ingredient content) -- routing it to Produce/Corn would wrongly imply fridge corn kernels satisfy a corn-husk requirement."
+  },
+  "serving": {
+    "excluded": true,
+    "reason": "Recipe-structure meta-word ('serving:', 'cut into serving pieces'), not a food."
+  },
+  "choy": {
+    "category_path": [
+      "Produce",
+      "Bok Choy"
+    ]
+  },
+  "link": {
+    "rules": [
+      {
+        "contains_any": [
+          "chicken"
+        ],
+        "category_path": [
+          "Meat",
+          "Chicken",
+          "Sausage"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Meat",
+      "Pork",
+      "Sausage"
+    ],
+    "note": "Sausage links -- matches the 'sausage' head's own chicken/default split."
+  },
+  "bowl": {
+    "excluded": true,
+    "reason": "Not food -- kitchen equipment/container/supply, not an ingredient. / recipe-structure header ('the bowls:')."
+  },
+  "jar": {
+    "excluded": true,
+    "reason": "Not food -- kitchen equipment/container/supply, not an ingredient. (mason/canning jars)"
+  },
+  "off": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('skin cut off', 'stems cut off')."
+  },
+  "niblet": {
+    "rules": [
+      {
+        "contains_any": [
+          "pineapple"
+        ],
+        "category_path": [
+          "Produce",
+          "Pineapple"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Corn"
+    ]
+  },
+  "stuffing": {
+    "category_path": [
+      "Pantry",
+      "Stuffing"
+    ]
+  },
+  "saltto": {
+    "alias_of": "salt",
+    "note": "Glued-word artifact ('salt'+'to [taste]') -- same class as onionchopped/pepperto."
+  },
+  "parsnip": {
+    "category_path": [
+      "Produce",
+      "Parsnip"
+    ]
+  },
+  "brushing": {
+    "rules": [
+      {
+        "contains_any": [
+          "oil"
+        ],
+        "category_path": [
+          "Oils",
+          "Cooking Oil"
+        ]
+      },
+      {
+        "contains_any": [
+          "egg"
+        ],
+        "category_path": [
+          "Dairy & Eggs",
+          "Egg"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "fresco": {
+    "category_path": [
+      "Dairy",
+      "Cheese",
+      "Queso Fresco"
+    ],
+    "note": "'Queso fresco' -- distinct enough cheese variety to get its own leaf."
+  },
+  "clam": {
+    "category_path": [
+      "Seafood",
+      "Clam"
+    ]
+  },
+  "curd": {
+    "rules": [
+      {
+        "contains_any": [
+          "lemon curd"
+        ],
+        "category_path": [
+          "Pantry",
+          "Curd",
+          "Lemon Curd"
+        ]
+      },
+      {
+        "contains_any": [
+          "bean curd"
+        ],
+        "category_path": [
+          "Produce",
+          "Tofu"
+        ]
+      },
+      {
+        "contains_any": [
+          "cheese curd"
+        ],
+        "category_path": [
+          "Dairy",
+          "Cheese",
+          "Other"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Curd",
+      "Other"
+    ]
+  },
+  "turnip": {
+    "category_path": [
+      "Produce",
+      "Turnip"
+    ]
+  },
+  "other": {
+    "excluded": true,
+    "reason": "Literally just 'other:' -- a section-header placeholder, meaningless on its own."
+  },
+  "salami": {
+    "category_path": [
+      "Meat",
+      "Pork",
+      "Salami"
+    ]
+  },
+  "baguette": {
+    "category_path": [
+      "Grains",
+      "Bread",
+      "Baguette"
+    ]
+  },
+  "pimento": {
+    "rules": [
+      {
+        "contains_any": [
+          "allspice",
+          "all spice"
+        ],
+        "category_path": [
+          "Spices",
+          "Allspice"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Pepper",
+      "Other"
+    ],
+    "note": "'Pimento' means two different things in this corpus: the jarred sweet pepper AND (in some regional usage) allspice berry -- 2 of 5 examples were actually allspice."
+  },
+  "gallo": {
+    "category_path": [
+      "Condiments",
+      "Salsa"
+    ],
+    "note": "'Pico de gallo' functions as a fresh salsa in recipes -- routed to the same node as the 'salsa' head."
+  },
+  "mayo": {
+    "category_path": [
+      "Condiments",
+      "Mayonnaise"
+    ]
+  },
+  "bar": {
+    "category_path": [
+      "Pantry",
+      "Candy",
+      "Other"
+    ]
+  },
+  "duck": {
+    "category_path": [
+      "Meat",
+      "Duck"
+    ]
+  },
+  "serve": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Purpose descriptor ('to serve:')."
+  },
+  "end": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('ends trimmed' on green beans/okra/asparagus/mushrooms/eggplant)."
+  },
+  "savory": {
+    "category_path": [
+      "Herbs",
+      "Savory"
+    ]
+  },
+  "glutamate": {
+    "category_path": [
+      "Spices",
+      "MSG"
+    ]
+  },
+  "catfish": {
+    "category_path": [
+      "Seafood",
+      "Fish",
+      "Catfish"
+    ]
+  },
+  "crosswise": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Pure adverb."
+  },
+  "smoke": {
+    "category_path": [
+      "Condiments",
+      "Liquid Smoke"
+    ]
+  },
+  "dog": {
+    "category_path": [
+      "Meat",
+      "Hot Dog"
+    ]
+  },
+  "muffin": {
+    "category_path": [
+      "Baking",
+      "Muffin"
+    ]
+  },
+  "fraiche": {
+    "category_path": [
+      "Dairy",
+      "Cream",
+      "Creme Fraiche"
+    ]
+  },
+  "goat": {
+    "category_path": [
+      "Meat",
+      "Goat"
+    ]
+  },
+  "color": {
+    "alias_of": "coloring",
+    "note": "Mostly 'Food Color' (dye) -- routed to the same node as the 'coloring' head. Minor accepted imprecision: 'bell peppers, any color' isn't about dye at all."
+  },
+  "dip": {
+    "category_path": [
+      "Condiments",
+      "Dip",
+      "Other"
+    ]
+  },
+  "granola": {
+    "category_path": [
+      "Pantry",
+      "Granola"
+    ]
+  },
+  "chorizo": {
+    "category_path": [
+      "Meat",
+      "Pork",
+      "Chorizo"
+    ]
+  },
+  "cocoa": {
+    "category_path": [
+      "Baking",
+      "Cocoa Powder"
+    ],
+    "note": "Matches the cocoa rule already in the 'powder' head (batch 1)."
+  },
+  "rolling": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Purpose descriptor ('for rolling')."
+  },
+  "petal": {
+    "rules": [
+      {
+        "contains_any": [
+          "onion"
+        ],
+        "category_path": [
+          "Produce",
+          "Onion"
+        ]
+      },
+      {
+        "contains_any": [
+          "hibiscus"
+        ],
+        "category_path": [
+          "Herbs",
+          "Hibiscus"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "e": {
+    "rules": [
+      {
+        "contains_any": [
+          "purée",
+          "puree"
+        ],
+        "category_path": [
+          "Produce",
+          "Puree",
+          "Other"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ],
+    "note": "Another Unicode-tokenizer artifact (like the 'o'/jalapeno case) -- accented chars in 'purée' split oddly under the ASCII-only [^a-z]+ separator. Majority of examples are about purée, routed to the same node as the 'puree' head."
+  },
+  "linguine": {
+    "category_path": [
+      "Grains",
+      "Pasta",
+      "Linguine"
+    ]
+  },
+  "romaine": {
+    "category_path": [
+      "Produce",
+      "Lettuce"
+    ]
+  },
+  "shoot": {
+    "category_path": [
+      "Produce",
+      "Bamboo Shoot"
+    ]
+  },
+  "grease": {
+    "category_path": [
+      "Pantry",
+      "Drippings",
+      "Other"
+    ],
+    "note": "'Bacon grease' -- routed to the same node as the 'dripping' head."
+  },
+  "diagonally": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Pure adverb."
+  },
+  "whip": {
+    "rules": [
+      {
+        "contains_any": [
+          "cool whip"
+        ],
+        "category_path": [
+          "Pantry",
+          "Topping",
+          "Whipped Topping"
+        ]
+      },
+      {
+        "contains_any": [
+          "miracle whip"
+        ],
+        "category_path": [
+          "Condiments",
+          "Mayonnaise"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "waffle": {
+    "category_path": [
+      "Baking",
+      "Waffle"
+    ]
+  },
+  "wrap": {
+    "category_path": [
+      "Grains",
+      "Tortilla"
+    ],
+    "note": "Dominant food meaning is tortilla wraps; 'plastic wrap' (non-food) is a minor accepted imprecision at this usage level (n=12)."
+  },
+  "chutney": {
+    "category_path": [
+      "Condiments",
+      "Chutney"
+    ]
+  },
+  "soaked": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Mixes food (oats, quinoa) and non-food (wood chips)."
+  },
+  "carcass": {
+    "category_path": [
+      "Meat",
+      "Other"
+    ]
+  },
+  "stripped": {
+    "rules": [
+      {
+        "contains_any": [
+          "rosemary"
+        ],
+        "category_path": [
+          "Herbs",
+          "Rosemary"
+        ]
+      },
+      {
+        "contains_any": [
+          "thyme"
+        ],
+        "category_path": [
+          "Herbs",
+          "Thyme"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "ground": {
+    "rules": [
+      {
+        "contains_any": [
+          "clove"
+        ],
+        "category_path": [
+          "Spices",
+          "Clove"
+        ]
+      },
+      {
+        "contains_any": [
+          "cinnamon"
+        ],
+        "category_path": [
+          "Spices",
+          "Cinnamon"
+        ]
+      },
+      {
+        "contains_any": [
+          "nutmeg"
+        ],
+        "category_path": [
+          "Spices",
+          "Nutmeg"
+        ]
+      },
+      {
+        "contains_any": [
+          "ginger"
+        ],
+        "category_path": [
+          "Produce",
+          "Ginger"
+        ]
+      },
+      {
+        "contains_any": [
+          "meatless",
+          "vegan"
+        ],
+        "category_path": [
+          "Pantry",
+          "Meat Substitute",
+          "Other"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Spices",
+      "Other"
+    ],
+    "note": "'McCormick(R) Cinnamon, Ground' style entries -- the spice name precedes 'Ground', not the reverse, but head-matching still lands on the trailing word."
+  },
+  "preference": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('adjust to preference')."
+  },
+  "onionfinely": {
+    "alias_of": "onion",
+    "note": "Glued-word artifact, same class as onionchopped."
+  },
+  "veal": {
+    "category_path": [
+      "Meat",
+      "Veal"
+    ]
+  },
+  "skinless": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Applied to chicken, garlic, and almonds inconsistently -- not reliably about one ingredient."
+  },
+  "halibut": {
+    "category_path": [
+      "Seafood",
+      "Fish",
+      "Halibut"
+    ]
+  },
+  "bitter": {
+    "category_path": [
+      "Beverages",
+      "Bitters"
+    ],
+    "note": "Cocktail bitters (Angostura, aromatic, cardamom) dominate; one outlier ('bitter leaves', a Nigerian vegetable) is an accepted minor imprecision."
+  },
+  "oxtail": {
+    "category_path": [
+      "Meat",
+      "Beef"
+    ],
+    "note": "Beef cut -- cross-head unification instance."
+  },
+  "ganache": {
+    "category_path": [
+      "Baking",
+      "Ganache"
+    ]
+  },
+  "whipped": {
+    "alias_of": "cream",
+    "note": "Every example is heavy/whipping cream, whipped."
+  },
+  "verde": {
+    "category_path": [
+      "Condiments",
+      "Salsa"
+    ],
+    "note": "'Salsa verde' -- routed to the same node as the 'salsa'/'gallo' heads."
+  },
+  "cheesecloth": {
+    "excluded": true,
+    "reason": "Not food -- kitchen equipment/container/supply, not an ingredient."
+  },
+  "meringue": {
+    "category_path": [
+      "Baking",
+      "Meringue"
+    ]
+  },
+  "starter": {
+    "category_path": [
+      "Baking",
+      "Sourdough Starter"
+    ]
+  },
+  "overnight": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Pure adverb ('soaked overnight')."
+  },
+  "crema": {
+    "category_path": [
+      "Dairy",
+      "Cream",
+      "Mexican Crema"
+    ]
+  },
+  "lemonade": {
+    "category_path": [
+      "Beverages",
+      "Lemonade"
+    ]
+  },
+  "cod": {
+    "category_path": [
+      "Seafood",
+      "Fish",
+      "Cod"
+    ]
+  },
+  "mahi": {
+    "category_path": [
+      "Seafood",
+      "Fish",
+      "Mahi Mahi"
+    ]
+  },
+  "cornflour": {
+    "category_path": [
+      "Baking",
+      "Cornstarch"
+    ],
+    "note": "British-English term for cornstarch -- confirmed by the corpus's own 'corn starch/cornflour' example."
+  },
+  "kidney": {
+    "category_path": [
+      "Meat",
+      "Other"
+    ],
+    "note": "Organ meat -- 'kidney beans' does NOT land here (its head is already 'bean' via the plain non-part-word algorithm, unaffected)."
+  },
+  "pinchsalt": {
+    "alias_of": "salt",
+    "note": "Glued-word artifact, same class as onionchopped."
+  },
+  "cupsugar": {
+    "alias_of": "sugar",
+    "note": "Glued-word artifact, same class as onionchopped."
+  },
+  "watercress": {
+    "category_path": [
+      "Produce",
+      "Watercress"
+    ]
+  },
+  "rind": {
+    "rules": [
+      {
+        "contains_any": [
+          "lemon"
+        ],
+        "category_path": [
+          "Produce",
+          "Zest",
+          "Lemon Zest"
+        ]
+      },
+      {
+        "contains_any": [
+          "orange"
+        ],
+        "category_path": [
+          "Produce",
+          "Zest",
+          "Orange Zest"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Produce",
+      "Peel",
+      "Other"
+    ],
+    "note": "Citrus rind and zest are the same concept -- routed to the same nodes. Default bucket also catches the one 'pork rind' outlier as an accepted imprecision."
+  },
+  "head": {
+    "rules": [
+      {
+        "contains_any": [
+          "cabbage"
+        ],
+        "category_path": [
+          "Produce",
+          "Cabbage"
+        ]
+      },
+      {
+        "contains_any": [
+          "garlic"
+        ],
+        "category_path": [
+          "Produce",
+          "Garlic"
+        ]
+      },
+      {
+        "contains_any": [
+          "prawn",
+          "shrimp"
+        ],
+        "category_path": [
+          "Seafood",
+          "Shrimp"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "grain": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Too generic/mixed ('grain' alone, 'pepper grains', 'against the grain' meat-cutting direction)."
+  },
+  "boned": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Mixed protein types (chicken, duck, stockfish)."
+  },
+  "pan": {
+    "excluded": true,
+    "reason": "Not food -- kitchen equipment/container/supply, not an ingredient. / purpose descriptor ('for the pan', 'for greasing pan')."
+  },
+  "chili": {
+    "category_path": [
+      "Produce",
+      "Pepper",
+      "Chili"
+    ]
+  },
+  "reggiano": {
+    "category_path": [
+      "Dairy",
+      "Cheese",
+      "Parmesan"
+    ],
+    "note": "Parmigiano-Reggiano -- routed to the same node as the 'cheese' head's parmesan rule."
+  },
+  "pistachio": {
+    "category_path": [
+      "Pantry",
+      "Nut",
+      "Pistachio"
+    ],
+    "note": "Matches the pistachio rule already in the 'nut' head (batch 2)."
+  },
+  "drizzling": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Purpose descriptor ('for drizzling'), mixes oil and honey."
+  },
+  "toast": {
+    "category_path": [
+      "Grains",
+      "Bread",
+      "Other"
+    ]
+  },
+  "tempeh": {
+    "category_path": [
+      "Produce",
+      "Tempeh"
+    ]
+  },
+  "kiwis": {
+    "category_path": [
+      "Produce",
+      "Kiwi"
+    ],
+    "note": "singularize() has a genuine bug here: the '-ss/-us/-is' exception (meant for words like 'hummus'/'molasses') also catches 'kiwis' (ends in '-is'), leaving it unstemmed as its own head separate from 'kiwi'. Same disposition as the cooky/chily gaps: noted, not fixed (needs a test-covered IngredientMatcher change)."
+  },
+  "grapefruit": {
+    "category_path": [
+      "Produce",
+      "Grapefruit"
+    ]
+  },
+  "firmly": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Pure adverb ('firmly packed')."
+  },
+  "debearded": {
+    "category_path": [
+      "Seafood",
+      "Mussel"
+    ],
+    "note": "New leaf -- 'mussels, cleaned and debearded' is the only example, but a real, distinct ingredient."
+  },
+  "leche": {
+    "category_path": [
+      "Pantry",
+      "Dulce de Leche"
+    ]
+  },
+  "mignon": {
+    "category_path": [
+      "Meat",
+      "Beef"
+    ],
+    "note": "'Filet mignon' -- beef cut, cross-head unification instance."
+  },
+  "here": {
+    "excluded": true,
+    "reason": "Not an ingredient at all -- an instruction referencing an external recipe ('pepper sauce recipe here')."
+  },
+  "cornbread": {
+    "category_path": [
+      "Grains",
+      "Bread",
+      "Cornbread"
+    ]
+  },
+  "de": {
+    "excluded": true,
+    "reason": "Stray fragment from 'de-cored' -- not an ingredient."
+  },
+  "iru": {
+    "category_path": [
+      "Condiments",
+      "Locust Bean (Iru)"
+    ]
+  },
+  "season": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Purpose descriptor ('salt and pepper to season')."
+  },
+  "parsleychopped": {
+    "alias_of": "parsley",
+    "note": "Glued-word artifact, same class as onionchopped."
+  },
+  "flower": {
+    "rules": [
+      {
+        "contains_any": [
+          "lavender"
+        ],
+        "category_path": [
+          "Herbs",
+          "Lavender"
+        ]
+      },
+      {
+        "contains_any": [
+          "hibiscus"
+        ],
+        "category_path": [
+          "Herbs",
+          "Hibiscus"
+        ]
+      },
+      {
+        "contains_any": [
+          "salt flower",
+          "flower of salt",
+          "fleur de sel"
+        ],
+        "category_path": [
+          "Spices",
+          "Salt"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "sandwich": {
+    "excluded": true,
+    "reason": "Recipe-structure meta-word ('sandwiches:'), mostly section headers."
+  },
+  "ing": {
+    "excluded": true,
+    "reason": "Unicode-tokenizer fragment from 'sautéing' -- same class as the 'o'/'e' cases."
+  },
+  "disc": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Mixes food (pastry discs) and produce cut-form (carrot discs), low usage."
+  },
+  "fenugreek": {
+    "category_path": [
+      "Herbs",
+      "Fenugreek"
+    ]
+  },
+  "mozzarella": {
+    "category_path": [
+      "Dairy",
+      "Cheese",
+      "Mozzarella"
+    ],
+    "note": "Matches the mozzarella rule already in the 'cheese' head (batch 1)."
+  },
+  "sofrito": {
+    "category_path": [
+      "Condiments",
+      "Sofrito"
+    ]
+  },
+  "drizzle": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Purpose descriptor, same class as 'drizzling'."
+  },
+  "meatloaf": {
+    "category_path": [
+      "Meat",
+      "Meatloaf"
+    ]
+  },
+  "husked": {
+    "rules": [
+      {
+        "contains_any": [
+          "tomatillo"
+        ],
+        "category_path": [
+          "Produce",
+          "Tomatillo"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Pantry",
+      "Other"
+    ]
+  },
+  "brown": {
+    "category_path": [
+      "Produce",
+      "Potato",
+      "Regular"
+    ],
+    "note": "'Hash browns' -- a potato product -- dominates; one outlier ('black eyed beans or brown') is accepted minor imprecision."
+  },
+  "coleslaw": {
+    "category_path": [
+      "Produce",
+      "Mix",
+      "Coleslaw Mix"
+    ],
+    "note": "Matches the coleslaw rule already in the 'mix' head (batch 1)."
+  },
+  "jicama": {
+    "category_path": [
+      "Produce",
+      "Jicama"
+    ]
+  },
+  "oatmeal": {
+    "category_path": [
+      "Grains",
+      "Oat"
+    ],
+    "note": "Prepared oats -- routed to the same node as the 'oat' head."
+  },
+  "wafer": {
+    "category_path": [
+      "Baking",
+      "Wafer"
+    ]
+  },
+  "tomatillo": {
+    "category_path": [
+      "Produce",
+      "Tomatillo"
+    ]
+  },
+  "lobster": {
+    "category_path": [
+      "Seafood",
+      "Lobster"
+    ],
+    "note": "Matches the lobster rule already in the 'tail' head (this batch)."
+  },
+  "bison": {
+    "category_path": [
+      "Meat",
+      "Bison"
+    ]
+  },
+  "sriracha": {
+    "category_path": [
+      "Condiments",
+      "Sauce",
+      "Hot Sauce"
+    ]
+  },
+  "cob": {
+    "alias_of": "corn"
+  },
+  "tastesalt": {
+    "alias_of": "salt",
+    "note": "Glued-word artifact (no space between two words in the source), same class as onionchopped/saltto."
+  },
+  "teaspoonsalt": {
+    "alias_of": "salt",
+    "note": "Glued-word artifact (no space between two words in the source), same class as onionchopped/saltto."
+  },
+  "grsugar": {
+    "alias_of": "sugar",
+    "note": "Glued-word artifact (no space between two words in the source), same class as onionchopped/saltto."
+  },
+  "f": {
+    "excluded": true,
+    "reason": "Leaked temperature unit ('80F', '130-150 F'), not an ingredient."
+  },
+  "bud": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Mostly 'taste buds' (not food) mixed with 'lavender buds'."
+  },
+  "twine": {
+    "excluded": true,
+    "reason": "Not food -- kitchen equipment/container/supply, not an ingredient."
+  },
+  "groat": {
+    "category_path": [
+      "Grains",
+      "Buckwheat"
+    ]
+  },
+  "recipe": {
+    "excluded": true,
+    "reason": "Recipe-structure meta-word ('recipe #1:'), not a food."
+  },
+  "ounce": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Leaked unit word, embedded ingredient varies too much."
+  },
+  "utazi": {
+    "category_path": [
+      "Herbs",
+      "Utazi"
+    ]
+  },
+  "sprinkling": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Purpose descriptor, mixes salt and sugar."
+  },
+  "oyster": {
+    "category_path": [
+      "Seafood",
+      "Oyster"
+    ]
+  },
+  "pancetta": {
+    "category_path": [
+      "Meat",
+      "Pork",
+      "Pancetta"
+    ]
+  },
+  "bulgur": {
+    "category_path": [
+      "Grains",
+      "Bulgur"
+    ]
+  },
+  "vermicelli": {
+    "category_path": [
+      "Grains",
+      "Pasta",
+      "Vermicelli"
+    ]
+  },
+  "burger": {
+    "category_path": [
+      "Meat",
+      "Beef"
+    ],
+    "note": "Mostly beef/plant-based burger patties -- low-precision default at this usage level."
+  },
+  "greasing": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Purpose descriptor, same class as 'grease'/'drizzling'."
+  },
+  "venison": {
+    "category_path": [
+      "Meat",
+      "Venison"
+    ]
+  },
+  "veggy": {
+    "category_path": [
+      "Produce",
+      "Mixed Vegetables"
+    ],
+    "note": "singularize() mis-stem of 'veggies' -- routed to the same node as the 'vegetable' head."
+  },
+  "almondmilk": {
+    "category_path": [
+      "Dairy & Alternatives",
+      "Milk",
+      "Plant-Based"
+    ],
+    "note": "Glued-word artifact (no space between two words in the source), same class as onionchopped/saltto. Matches the plant-based-milk rule in the 'milk' head."
+  },
+  "heated": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "less": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Same class as 'more'/'as'."
+  },
+  "custard": {
+    "category_path": [
+      "Baking",
+      "Custard"
+    ]
+  },
+  "edamame": {
+    "category_path": [
+      "Produce",
+      "Edamame"
+    ]
+  },
+  "butt": {
+    "category_path": [
+      "Meat",
+      "Pork"
+    ]
+  },
+  "horizontally": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Pure adverb."
+  },
+  "shred": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. No dominant referent (coconut/cabbage/cheese shreds)."
+  },
+  "scone": {
+    "category_path": [
+      "Baking",
+      "Scone"
+    ]
+  },
+  "fettuccine": {
+    "category_path": [
+      "Grains",
+      "Pasta",
+      "Fettuccine"
+    ]
+  },
+  "plus": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Same class as 'more'/'as'."
+  },
+  "microgreen": {
+    "category_path": [
+      "Produce",
+      "Microgreens"
+    ]
+  },
+  "kombucha": {
+    "category_path": [
+      "Beverages",
+      "Kombucha"
+    ]
+  },
+  "optional": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Meta-word ('Optional', '(optional)'), not an ingredient itself."
+  },
+  "egusi": {
+    "category_path": [
+      "Pantry",
+      "Egusi"
+    ]
+  },
+  "fritter": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Mixed ('oil for cooking fritters' vs 'black eyed peas fritters')."
+  },
+  "package": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Leaked packaging word."
+  },
+  "soil": {
+    "excluded": true,
+    "reason": "Not food -- kitchen equipment/container/supply, not an ingredient. (potting soil for microgreens)."
+  },
+  "veined": {
+    "alias_of": "shrimp",
+    "note": "'De-veined' -- always shrimp."
+  },
+  "can": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Leaked container word."
+  },
+  "cassava": {
+    "category_path": [
+      "Produce",
+      "Cassava"
+    ]
+  },
+  "onionsfinely": {
+    "alias_of": "onion",
+    "note": "Glued-word artifact (no space between two words in the source), same class as onionchopped/saltto."
+  },
+  "boiled": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "teaspoonoregano": {
+    "alias_of": "oregano",
+    "note": "Glued-word artifact (no space between two words in the source), same class as onionchopped/saltto."
+  },
+  "caramel": {
+    "category_path": [
+      "Pantry",
+      "Caramel"
+    ]
+  },
+  "garlicminced": {
+    "alias_of": "garlic",
+    "note": "Glued-word artifact (no space between two words in the source), same class as onionchopped/saltto."
+  },
+  "trout": {
+    "category_path": [
+      "Seafood",
+      "Fish",
+      "Trout"
+    ]
+  },
+  "chilly": {
+    "category_path": [
+      "Produce",
+      "Pepper",
+      "Chili"
+    ],
+    "note": "singularize() mis-stem of 'chillies', same class as chily/cooky."
+  },
+  "tbspvinegar": {
+    "alias_of": "vinegar",
+    "note": "Glued-word artifact (no space between two words in the source), same class as onionchopped/saltto."
+  },
+  "g": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Leaked gram-unit abbreviation, embedded ingredient varies too much."
+  },
+  "back": {
+    "rules": [
+      {
+        "contains_any": [
+          "beef"
+        ],
+        "category_path": [
+          "Meat",
+          "Beef"
+        ]
+      }
+    ],
+    "default_category_path": [
+      "Meat",
+      "Pork"
+    ],
+    "note": "'Baby back ribs' (pork) dominates; 'beef back ribs' routed separately."
+  },
+  "discarded": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "slivered": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Mixed referents (almonds, garlic, onion)."
+  },
+  "frankfurter": {
+    "category_path": [
+      "Meat",
+      "Hot Dog"
+    ],
+    "note": "Routed to the same node as the 'dog' head."
+  },
+  "snapped": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "whisked": {
+    "alias_of": "egg",
+    "note": "Every example is about eggs."
+  },
+  "gluten": {
+    "category_path": [
+      "Baking",
+      "Vital Wheat Gluten"
+    ]
+  },
+  "left": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('left on', 'left whole')."
+  },
+  "kimchi": {
+    "category_path": [
+      "Condiments",
+      "Kimchi"
+    ]
+  },
+  "millet": {
+    "category_path": [
+      "Grains",
+      "Millet"
+    ]
+  },
+  "tot": {
+    "category_path": [
+      "Produce",
+      "Potato",
+      "Regular"
+    ],
+    "note": "Tater tots -- a potato product."
+  },
+  "honeydew": {
+    "category_path": [
+      "Produce",
+      "Melon",
+      "Honeydew"
+    ]
+  },
+  "dredging": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Purpose descriptor ('for dredging')."
+  },
+  "pancake": {
+    "category_path": [
+      "Baking",
+      "Pancake"
+    ]
+  },
+  "streusel": {
+    "category_path": [
+      "Baking",
+      "Streusel"
+    ]
+  },
+  "sherbet": {
+    "category_path": [
+      "Pantry",
+      "Sherbet"
+    ]
+  },
+  "creamer": {
+    "category_path": [
+      "Beverages",
+      "Coffee Creamer"
+    ],
+    "note": "Kept distinct from Dairy/Milk -- often non-dairy."
+  },
+  "snow": {
+    "excluded": true,
+    "reason": "Too obscure/literal an ingredient ('clean snow') to be worth a category at this usage level."
+  },
+  "amaranth": {
+    "category_path": [
+      "Grains",
+      "Amaranth"
+    ]
+  },
+  "tenderizer": {
+    "category_path": [
+      "Pantry",
+      "Meat Tenderizer"
+    ]
+  },
+  "over": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('picked over')."
+  },
+  "aioli": {
+    "category_path": [
+      "Condiments",
+      "Aioli"
+    ]
+  },
+  "sorted": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
+  },
+  "hummus": {
+    "category_path": [
+      "Condiments",
+      "Hummus"
+    ]
+  },
+  "pulp": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. No dominant referent (persimmon/guava/naranjilla/orange pulp)."
+  },
+  "seitan": {
+    "category_path": [
+      "Pantry",
+      "Meat Substitute",
+      "Seitan"
+    ]
+  },
+  "leveled": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('packed and leveled')."
+  },
+  "panla": {
+    "category_path": [
+      "Seafood",
+      "Fish",
+      "Stockfish"
+    ],
+    "note": "Yoruba name for stockfish -- routed to the same node."
+  },
+  "sweetcorn": {
+    "alias_of": "corn"
+  },
+  "ponmo": {
+    "category_path": [
+      "Meat",
+      "Other"
+    ],
+    "note": "Nigerian cow-skin product -- distinct enough to route generically rather than force into an existing leaf."
+  },
+  "shombo": {
+    "category_path": [
+      "Produce",
+      "Pepper",
+      "Chili"
+    ],
+    "note": "Nigerian name for a chili pepper variety, same family as bonnet/rodo/atarodo/tatashe."
+  },
+  "gizzard": {
+    "category_path": [
+      "Meat",
+      "Chicken"
+    ],
+    "note": "Standalone (no preceding animal word to anchor via PART_WORDS) -- chicken is the overwhelmingly common context."
+  },
+  "epazote": {
+    "category_path": [
+      "Herbs",
+      "Epazote"
+    ]
+  },
+  "tspsalt": {
+    "alias_of": "salt",
+    "note": "Glued-word artifact (no space between two words in the source), same class as onionchopped/saltto."
+  },
+  "finishing": {
+    "excluded": true,
+    "reason": "Single example is a section header ('finishing:')."
+  },
+  "moon": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('half moon' cut-form, no dominant referent -- mushroom/onion/zucchini)."
+  },
+  "stevia": {
+    "category_path": [
+      "Pantry",
+      "Sweetener",
+      "Stevia"
+    ]
+  },
+  "seaweed": {
+    "category_path": [
+      "Pantry",
+      "Seaweed",
+      "Other"
+    ]
+  },
+  "long": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Adjective/prep-artifact ('long pieces', 'long stems')."
+  },
+  "cheesecake": {
+    "category_path": [
+      "Baking",
+      "Cheesecake"
+    ]
+  },
+  "paneer": {
+    "category_path": [
+      "Dairy",
+      "Cheese",
+      "Paneer"
+    ]
+  },
+  "browny": {
+    "category_path": [
+      "Baking",
+      "Brownie"
+    ],
+    "note": "singularize() mis-stem of 'brownies', same class as cooky/chily/chilly."
+  },
+  "taco": {
+    "excluded": true,
+    "reason": "Mostly section headers ('tacos:', 'fish tacos:'), too generic to route at this usage level."
+  },
+  "donut": {
+    "category_path": [
+      "Baking",
+      "Donut"
+    ]
+  },
+  "segmented": {
+    "alias_of": "orange",
+    "note": "Every example is orange/clementine, segmented."
+  },
+  "hominy": {
+    "category_path": [
+      "Grains",
+      "Hominy"
+    ]
+  },
+  "cornflake": {
+    "category_path": [
+      "Pantry",
+      "Cereal"
+    ],
+    "note": "Routed to the same node as the 'cereal' head."
+  },
+  "vertically": {
+    "excluded": true,
+    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Pure adverb."
+  },
+  "pepita": {
+    "category_path": [
+      "Pantry",
+      "Seed",
+      "Pumpkin Seed"
+    ]
+  },
+  "tm": {
+    "excluded": true,
+    "reason": "Trademark-symbol artifact ('Old Bay Seasoning TM'), not itself an ingredient word."
+  }
+}

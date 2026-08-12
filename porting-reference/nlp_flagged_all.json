@@ -1,0 +1,352 @@
+[
+ {
+  "recipe_id": 361,
+  "title": "April 30, 2023Why are you still buying tubs of hummus? Quick Garlic Hummus Recipe",
+  "reason": "Instructions mention adding cumin to the food processor, but cumin is not listed in the stated ingredient list (no amount given); included with null amount."
+ },
+ {
+  "recipe_id": 383,
+  "title": "December 28, 2021Becoming An Authentic European Olive Oil Connoisseur",
+  "reason": "Raw text is truncated right after 'You Will Need:' for the Aglio e Olio recipe, before the actual ingredient list appears. Extraction is inferred only from descriptive prose earlier in the article (spaghetti, olive oil, garlic, red pepper flakes, parmesan) with no amounts."
+ },
+ {
+  "recipe_id": 385,
+  "title": "November 17, 2021Vegan Sweet Potato & Black Bean Cauli Crumble Chili",
+  "reason": "Text formatting runs '1 tablespoon onion 1 tablespoon cumin' together with no separator; interpreted 'onion' as 'onion powder' but this is a guess."
+ },
+ {
+  "recipe_id": 393,
+  "title": "October 7, 2021The Always Pan Review: Safe Non-stick Cooking",
+  "reason": "This is primarily a cookware product review; the 'recipe' is only a vague narrative description of a soba noodle dish with almost no ingredient amounts or a formal list. Uncertain whether this should count as a real extractable recipe."
+ },
+ {
+  "recipe_id": 397,
+  "title": "July 1, 2021Grapefruit Thyme + Blood Orange Cocktail with Indian River Select Brand Grapefruit Juice",
+  "reason": "Ingredient list has '1.2 cup water' which is almost certainly a typo (likely 1/2 cup); amount recorded as '1/2' cup is a guess. Also 'gin' ingredient is confusingly described as being substituted with a brandy product."
+ },
+ {
+  "recipe_id": 404,
+  "title": "April 27, 2021Low Sugar Breakfast Ideas",
+  "reason": "This post describes three separate informal mini-recipes (Avo Bagel, Steel Cut Oat Matcha Fruit Bowl, The Half Wrap) rather than one dish; all ingredients from all three were combined into a single list, which may not be the intended structure."
+ },
+ {
+  "recipe_id": 408,
+  "title": "March 8, 2021Easy Irish Soda Bread",
+  "reason": "The narrative ingredient mention says '3 tablespoons white sugar' while the separate 'Printable Recipe' ingredient list later in the same text says '4 tablespoons white sugar'. Used the printable list's value (4 tablespoons) but the two are contradictory."
+ },
+ {
+  "recipe_id": 417,
+  "title": "November 28, 2020Make Time For Your Besties This Holiday Season",
+  "reason": "This is mostly a holiday party-planning lifestyle article; the only 'recipe' is a very casual one-sentence mention of stuffing cheese and a kalamata olive into puff pastry dough, with no formal ingredient list or amounts. Uncertain if this should be treated as a real recipe."
+ },
+ {
+  "recipe_id": 424,
+  "title": "August 12, 2020Coconut Oat Fruit Bake",
+  "reason": "Instructions say to mix oats with 'flour, sugar, cinnamon and coconut flakes' but flour is not present anywhere in the stated ingredient list. Included with null amount."
+ },
+ {
+  "recipe_id": 426,
+  "title": "August 6, 2020Summer Harvest Chowder",
+  "reason": "Instructions mention adding 'potatoes' to the pot along with spices, onions and corn, but potatoes are not listed anywhere in the stated ingredient list. Included with null amount as a likely omission."
+ },
+ {
+  "recipe_id": 436,
+  "title": "June 1, 2020Parsley Onion Potato Zucchini Bake",
+  "reason": "Instructions mention sauteing in 'green onions' along with parsley and garlic, but green onions do not appear in the stated ingredient list. Included with null amount as a likely omission."
+ },
+ {
+  "recipe_id": 448,
+  "title": "March 18, 2020Beans From Scratch, It Ain't No Thing",
+  "reason": "This is a general technique/how-to article about soaking and cooking dried beans rather than a specific dish with a fixed ingredient list; extraction is a best-effort minimal list based on a passing mention of optional seasonings."
+ },
+ {
+  "recipe_id": 480,
+  "title": "Easy Pear & Cardamom Tart Recipe",
+  "reason": "Post content is a stub - only title/author/tags and unrelated 'related posts' links are present, no actual recipe text or ingredients were captured in the scrape."
+ },
+ {
+  "recipe_id": 481,
+  "title": "Chocolate Almond Butter Muffins with Once Again Nut Butters",
+  "reason": "Directions reference beating 'milk, peanut butter, and eggs' but the ingredient list has no eggs and lists almond spread rather than peanut butter - likely a template/copy-paste error in the source text, so the true ingredient list is uncertain."
+ },
+ {
+  "recipe_id": 507,
+  "title": "Vegan Ginger Squash Potstickers with Twin Dragon Asian Wrapper",
+  "reason": "Ingredient list says 'garlic' for the item that the title and directions call 'ginger' - likely a text error; extracted as ginger but this should be verified against the original post."
+ },
+ {
+  "recipe_id": 521,
+  "title": "Summer Entertaining With Bigelow Tea",
+  "reason": "This reads more like an entertaining/tea-pairing guide than a single fixed recipe - offers multiple tea and ice-cube pairing options with no firm quantities, and the text is truncated mid-list ('Lemon Cubes –')."
+ },
+ {
+  "recipe_id": 522,
+  "title": "Keema Rice with Malaysian Sustainable Palm Oil",
+  "reason": "Text is truncated at the end ('I added some sliced bamboo and red bell pepper') so the final additions have no stated amounts/units and the sentence is incomplete."
+ },
+ {
+  "recipe_id": 530,
+  "title": "Create a Party Platter by Color",
+  "reason": "This is a loose 'assemble a colorful platter' concept plus a briefly-described dip, with no quantities given for most items - judgment call on whether this counts as a proper recipe."
+ },
+ {
+  "recipe_id": 536,
+  "title": "Save Time Prepping your Herbs",
+  "reason": "Primarily a product-feature article about frozen herb cubes; only a very minor, loosely described pasta sauce mention was extracted as a recipe, which is a judgment call."
+ },
+ {
+  "recipe_id": 540,
+  "title": "Blue Evolution's Seaweed Pasta is Super Food & a Planet Super Hero",
+  "reason": "Text is severely truncated right as the author begins actually cooking ('I quickly saute...') so almost no real ingredient/preparation detail is available beyond the pasta itself."
+ },
+ {
+  "recipe_id": 553,
+  "title": "Easy French Onion Soup in the Instant Pot",
+  "reason": "Directions say to 'add the brown sugar' but brown sugar does not appear in the stated ingredient list, so its amount is unknown."
+ },
+ {
+  "recipe_id": 561,
+  "title": "Creating a Food Friendly Event with Selectivor",
+  "reason": "The post gives a full bean & corn salad recipe, then describes modifying it to remove cilantro and peppers for guests with dislikes/allergies, but the modified list is truncated - unclear whether the final dish actually included cilantro/peppers or not, so extraction uses the original full recipe."
+ },
+ {
+  "recipe_id": 559,
+  "title": "Baked Spicy Turnip Fries",
+  "reason": "Ingredient list states '1/2 Parmigiano Reggiano' with no unit given (likely cup), so the unit was left null rather than guessed."
+ },
+ {
+  "recipe_id": 569,
+  "title": "Going Native with Fish Tacos & El Yucateco®",
+  "reason": "Text is truncated right as it begins describing a Michelada cocktail recipe; only a generic definition of a michelada is given (light beer, lime juice, sauces/spices/peppers) with no actual quantities before the text cuts off, and the fish tacos were bought at a restaurant rather than made by the author."
+ },
+ {
+  "recipe_id": 580,
+  "title": "Rediscovering Summer with LA MORENA®",
+  "reason": "Article describes two dip recipes (jalapeno-black bean dip, chipotle-sweet potato hummus) only in general narrative terms; text is truncated before any actual ingredient list/quantities are given, so extraction is only the main named components."
+ },
+ {
+  "recipe_id": 581,
+  "title": "Beet Sabji Salad",
+  "reason": "Page contains two versions of the recipe (a body-text version using olive oil, and a duplicated 'Print Yum' schema version using ghee and adding hing powder) that are inconsistent with each other; used the body-text version as primary and simplified oil/ghee to 'oil'."
+ },
+ {
+  "recipe_id": 586,
+  "title": "Ogo Seaweed + Rosemary Fingerling Potatoes",
+  "reason": "Recipe is described entirely in narrative form with no ingredient list and no quantities given; extraction is a best-effort reading of the described dish."
+ },
+ {
+  "recipe_id": 601,
+  "title": "Packaged Dinner Kit Services – Are They Worth It?",
+  "reason": "This is a comparison/opinion article about meal-kit services, not a recipe the author cooked herself. The ingredient list extracted is a sample Blue Apron box contents (Butternut Squash Pasta with Romaine & Apple Salad) quoted for illustration, and the list is truncated before completion."
+ },
+ {
+  "recipe_id": 603,
+  "title": "Cooking with Avocado Oil",
+  "reason": "Primarily an article about avocado oil's health benefits; the 'recipe' portion is a brief, informal aside about a stir fry the author made, with no quantities given at all."
+ },
+ {
+  "recipe_id": 605,
+  "title": "Savory Pumpkin Quiche with Lactaid  (Dairy-Free)",
+  "reason": "Ingredient list has a likely typo ('12/ teaspoon salt') interpreted as 1/2 teaspoon; also nutmeg is used in the directions but never appears in the stated ingredient list, so its amount is unknown."
+ },
+ {
+  "recipe_id": 626,
+  "title": "Last-Minute Summer Party Ideas",
+  "reason": "Article is primarily about party lighting/decor; the only food mentioned is a vague 'fruit and veggie platter' (with beet chips) and a reference to a separate Tortilla de Patatas recipe post, with no actual ingredient list given here."
+ },
+ {
+  "recipe_id": 644,
+  "title": "Easy Side Dishes to Impress",
+  "reason": "This post bundles four separate mini side-dish recipes (beet/potato/garbanzo salad, garlic-basil carrots, wild rice with beet greens, caramelized onion mashed potatoes) into one article; all ingredients were combined into a single flat list. The last recipe (caramelized onion mashed potatoes) is truncated before the potato/dairy portion is described."
+ },
+ {
+  "recipe_id": 660,
+  "title": "Salt – Why Care Where It's From?",
+  "reason": "Primarily a product-review article about salt sourcing; only a brief, informal aside describes actually cooking a whole rock cod with seasoning salt and lemon, with no quantities given."
+ },
+ {
+  "recipe_id": 15867,
+  "title": "Nkwobi- Spicy Cow foot",
+  "reason": "Narrative says the friend's Ugba (oil bean) wasn't available and they made do without it, yet the formal ingredient list includes '1.5 Cups Ugba/Oil Bean' and also lists pepper soup spice as an addition not part of the original recipe -- contradiction between narrative and the listed ingredients."
+ },
+ {
+  "recipe_id": 15877,
+  "title": "Zobo Aka Zoborodo! What's not to Love?",
+  "reason": "Text is truncated: an ingredient list is present but no directions/method follow (cuts straight to unrelated related-post teasers), so usage/quantities could not be verified against steps."
+ },
+ {
+  "recipe_id": 15878,
+  "title": "Zobo Aka Zoborodo! What's not to Love?",
+  "reason": "Ingredient list has two separate honey entries with different amounts (1/4 cup pure honey and a further 1/2 cup honey marked optional), which is redundant/ambiguous; directions also mention lemon rind that the author says to skip unless using artificial sweeteners."
+ },
+ {
+  "recipe_id": 15886,
+  "title": "Nigerian Chicken Curry",
+  "reason": "No cooking directions at all -- only two ingredient blocks ('For The Chicken Marinade' and an unlabeled second list) are present, with curry powder and thyme each appearing in both blocks at different quantities; the split between marinade vs. main-dish ingredients is inferred, not stated."
+ },
+ {
+  "recipe_id": 15899,
+  "title": "Honey Glazed Chicken",
+  "reason": "Main ingredient list gives no amounts for lemon juice/cumin/garlic powder/cayenne, but the directions describe two separate marinade preparations with different specific quantities each time, so the true total amounts used are ambiguous."
+ },
+ {
+  "recipe_id": 15936,
+  "title": "Basmati Fried Rice Recipe!",
+  "reason": "Text is truncated: ingredient list present but no cooking directions follow (cuts to unrelated related-post teasers), so usage could not be verified against steps."
+ },
+ {
+  "recipe_id": 15937,
+  "title": "Zobo Aka Zoborodo! What's not to Love?",
+  "reason": "Same truncated content as recipe 15877 -- ingredient list present but no directions follow."
+ },
+ {
+  "recipe_id": 15938,
+  "title": "So I decided to record an Oven Baked Jollof rice recipe.",
+  "reason": "Text is truncated: ingredient list present but no cooking directions follow (cuts to unrelated related-post teasers), so usage could not be verified against steps."
+ },
+ {
+  "recipe_id": 15939,
+  "title": "Nigerian Chicken Curry",
+  "reason": "Same content as recipe 15886: no cooking directions, and curry powder/thyme each appear twice at different quantities across two ambiguous ingredient blocks."
+ },
+ {
+  "recipe_id": 15940,
+  "title": "I love, love Coconut rice!",
+  "reason": "Text is truncated: ingredient list present but no cooking directions follow (cuts to unrelated related-post teasers), so usage could not be verified against steps."
+ },
+ {
+  "recipe_id": 15941,
+  "title": "Garden Egg Stew (video)",
+  "reason": "Text is truncated: ingredient list present but no cooking directions follow (cuts to unrelated related-post teasers), so usage could not be verified against steps."
+ },
+ {
+  "recipe_id": 15942,
+  "title": "Honey Beans and Plantain Pottage (video)",
+  "reason": "Text is truncated: ingredient list present but no cooking directions follow (cuts to unrelated related-post teasers), so usage could not be verified against steps."
+ },
+ {
+  "recipe_id": 15956,
+  "title": "Vegetable Stir Fry",
+  "reason": "Ingredient list has a truncated/garbled word 'Baby c' inside the mixed vegetables description (likely 'baby corn' but unclear), plus mismatched vegetable names between list and directions (e.g. 'Carrots' from a similar recipe)."
+ },
+ {
+  "recipe_id": 15957,
+  "title": "Shrimp and Bacon Pasta",
+  "reason": "Shrimp quantity listed as '4-20 Pieces' which is an unusually wide/likely erroneous range (possibly a typo for '14-20')."
+ },
+ {
+  "recipe_id": 15984,
+  "title": "Basmati Jollof Rice",
+  "reason": "Ingredient list has what appear to be duplicate/conflicting entries for onion and tomatoes at the end of the list (an extra '1 Onion' and '2 Medium Tomatoes' after 'Salt to taste'), unclear if these are additions or a scraping artifact."
+ },
+ {
+  "recipe_id": 16029,
+  "title": "Potato Frittata",
+  "reason": "Bell pepper quantity written as '2/2 Red and Green Bell Peppers Chopped' - ambiguous notation, interpreted as amount 2 but could mean something else."
+ },
+ {
+  "recipe_id": 16038,
+  "title": "Fried Yam (Dundun) and Ata Dindin",
+  "reason": "Raw text is truncated mid-ingredient-list; the last item reads '1/2 Cup Chicken' with no unit/ingredient completion - guessed 'chicken stock' but this is uncertain."
+ },
+ {
+  "recipe_id": 16131,
+  "title": "Jollof Rice Tips? Very necessary right?! So, I got a request from a lovely lady a week ago to add cooking tips to the Blog. I thought long and hard about a subject to start with and thought, why not",
+  "reason": "This post is a 'Jollof Rice Tips' article (advice/technique discussion referencing an existing separate recipe), not itself a recipe with a concrete ingredient list/directions for one dish, so ingredients left empty."
+ },
+ {
+  "recipe_id": 16135,
+  "title": "Coconut Jollof Rice Recipe...... Finally!",
+  "reason": "The 'Ingredients:' header is present but the actual ingredient list text is missing/empty in the scraped data (likely a scraping artifact) even though full cooking directions follow. Ingredients were reconstructed from what's named in the prose directions only, with no amounts available anywhere in the source text."
+ },
+ {
+  "recipe_id": 16137,
+  "title": "There are various recipes for Jollof rice and they all depend on which Country you're from though I'm only familiar with three variants. There's the Senegalese which of course, Jollof rice originated",
+  "reason": "This post is discussion/history/tips about Party Jollof Rice; the raw text is truncated (cuts off mid-sentence at 'Anyway') before reaching any concrete ingredient list, so no reliable ingredient list could be extracted."
+ },
+ {
+  "recipe_id": 16051,
+  "title": "Potato Frittata? What's not to love?",
+  "reason": "Ingredient line reads '2/2 Red and Green Bell Peppers Chopped' - ambiguous/likely typo notation for quantity, so amount was left null rather than guessed."
+ },
+ {
+  "recipe_id": 16145,
+  "title": "Another stir- fry recipe? well, not quite, this recipe is pretty similar to my Beef Stir fry with Green Peppers recipe. Only difference really is the inclusion of Red and Orange bell Peppers and the e",
+  "reason": "The raw ingredient block appears to contain two overlapping lists (main list plus a secondary block repeating chicken/beef seasoning, cornflour, and salt) - possible scraping/template artifact merging two recipes' ingredient blocks. Kept a best-effort deduplicated union."
+ },
+ {
+  "recipe_id": 16185,
+  "title": "Basmati Fried Rice Recipe! There are least 5 Fried rice recipes on the blog and I do have a Nigerian Fried Rice recipe as well, however, I decided to record a YouTube video recipe for Nigerian Fried R",
+  "reason": "Ingredient list text was run together with no line breaks in the raw scrape (spacing lost), had to infer item boundaries algorithmically; some risk of missegmentation (e.g. Ginger/Garlic split, seafood/liver items)."
+ },
+ {
+  "recipe_id": 16187,
+  "title": "I’m sure some people are thinking Ata Dindin again? Yes, Ata Dindin again. You can’t have too much Ata Dindin preparation methods now, can you? Rice is a major Nigerian staple, how better to enjoy it",
+  "reason": "No cooking directions at all were present (only ingredient list followed by unrelated post excerpts), and the line \"500g Assorted meats  Boiled Eggs (Optional)\" appears to merge two ingredients with unclear boundary; could not cross-check usage against directions."
+ },
+ {
+  "recipe_id": 16235,
+  "title": "I’m sure some people are thinking Ata Dindin again? Yes, Ata Dindin again. You can’t have too much Ata Dindin preparation methods now, can you? Rice is a major Nigerian staple, how better to enjoy it",
+  "reason": "Duplicate of 16187 (Ata Dindin) with the same issue: no directions present to confirm ingredient usage, and an ambiguous merged ingredient line (\"Assorted meats  Boiled Eggs\")."
+ },
+ {
+  "recipe_id": 16240,
+  "title": "Spaghetti and Meatballs is an Italian – American dish which typically consists of Mincemeat, Tomato Sauce and Spaghetti. Spaghetti and Meatballs is absolutely delicious and very easy to whip up. Now,",
+  "reason": "Added \"spaghetti\" as an ingredient because the title/intro and directions clearly describe boiling and using spaghetti, but it was never actually listed in the ingredients list itself (no amount given, inferred from prose only)."
+ },
+ {
+  "recipe_id": 16252,
+  "title": "Another stir- fry recipe? well, not quite, this recipe is pretty similar to my Beef Stir fry with Green Peppers recipe. Only difference really is the inclusion of Red and Orange bell Peppers and the e",
+  "reason": "Ingredient list contains what appears to be a duplicated/overlapping seasoning section (Chicken/Beef Seasoning, Cornflour, Black Pepper, Garlic Powder, Salt appear twice with different quantities) with no directions provided to clarify whether this is a separate marinade or a duplication error."
+ },
+ {
+  "recipe_id": 16260,
+  "title": "Beef Stir fry Noodles, what's not to love?",
+  "reason": "Ingredient line '1/2 red, yellow and red bell pepper thinly sliced' appears to contain a typo (likely meant green instead of the second red); combined into a single 'mixed bell peppers' entry rather than guessing the intended color."
+ },
+ {
+  "recipe_id": 16268,
+  "title": "Scotch Eggs are one of my favorite Nigerian snacks ever...",
+  "reason": "instructions_raw is truncated right after the ingredient list (cuts into unrelated related-post blurbs) with no cooking directions present in the text, but the ingredient list itself is clear and complete."
+ },
+ {
+  "recipe_id": 16290,
+  "title": "Gizdodo is simply peppered Gizzard and Plantain...",
+  "reason": "Ingredient line '1 whole onion 1/2  onion chopped' is ambiguous formatting; interpreted as two separate onion quantities (1 whole + 1/2 chopped)."
+ },
+ {
+  "recipe_id": 16307,
+  "title": "Jollof Rice Tips? Very necessary right?! So, I got a request from a lovely lady a week ago to add cooking tips to the Blog. I thought long and hard about a subject to start with and thought, why not",
+  "reason": "Discursive tips/advice post about Jollof rice technique, not a recipe with a dish being prepared; only mentions an illustrative ratio (3 bell peppers, 2 tomatoes, 70g tomato paste per 3 cups rice), no full ingredient list or cooking process. Treated as non-recipe."
+ },
+ {
+  "recipe_id": 16335,
+  "title": "Jollof Rice Tips? Very necessary right?! So, I got a request from a lovely lady a week ago to add cooking tips to the Blog. I thought long and hard about a subject to start with and thought, why not",
+  "reason": "Duplicate of recipe_id 16307; same tips/advice post, not an actual recipe. Treated as non-recipe."
+ },
+ {
+  "recipe_id": 16343,
+  "title": "There are various recipes for Jollof rice and they all depend on which Country you're from though I'm only familiar with three variants. There's the Senegalese which of course, Jollof rice originated",
+  "reason": "Discursive article about Jollof rice history and methods; text is cut off (ends mid-sentence at 'Anyway') before any ingredient list or cooking steps appear. Treated as non-recipe."
+ },
+ {
+  "recipe_id": 16339,
+  "title": "Coconut Jollof Rice Recipe...... Finally!",
+  "reason": "Has an 'Ingredients:' header but the actual bulleted list is missing from the scraped text (jumps straight from the header into the directions). Ingredients were reconstructed entirely from the prose/instructions with no quantities available; may be incomplete."
+ },
+ {
+  "recipe_id": 16333,
+  "title": "Basmati Jollof Rice is simply Nigerian style Jollof rice made with Basmati rice, as opposed to regular Long Grain Rice.",
+  "reason": "Ingredient list contains an extra '1 Onion' and '2 Medium Tomatoes' listed again after 'Salt to taste', duplicating items already listed earlier (2 Onions, tomatoes/plum tomatoes) with unclear purpose since the instructions text is cut off before reaching that point; included as separate additional entries."
+ },
+ {
+  "recipe_id": 16332,
+  "title": "I love, love Coconut rice! Well, who doesn't? I already have a recipe for Coconut fried rice on the blog, click HERE to view the recipe. This Ginger Coconut Rice is similar to my Nigerian Coconut Frie",
+  "reason": "Ingredient list gives '1 Teaspoon Curry and Thyme' as a single combined quantity for two separate spices; the amount was arbitrarily assigned to one of the two ingredients rather than split precisely."
+ },
+ {
+  "recipe_id": 16328,
+  "title": "Basmati Fried Rice Recipe! There are least 5 Fried rice recipes on the blog and I do have a Nigerian Fried Rice recipe as well, however, I decided to record a YouTube video recipe for Nigerian Fried R",
+  "reason": "Ingredient list text is a run-on string with no spacing/line breaks between items (scraping artifact), requiring inference of item boundaries; also contains both 'Garlic Pepper' and separate 'Garlic'/'Black pepper' entries, which may be a distinct seasoning blend or a scraping duplication."
+ }
+]
