@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,6 +31,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import com.example.kitchenassistant.ui.theme.FavoriteHeart
@@ -46,12 +51,15 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.model.Recipe
 import com.example.kitchenassistant.viewmodel.RecipeViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,11 +75,33 @@ fun RecipeScreen(
     val filterQuery by viewModel.filterQuery.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val totalMatchCount by viewModel.totalMatchCount.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Same undo-on-remove safety net as FavoritesScreen/RecipeDetailScreen -- a stray tap on the
+    // heart while scrolling a long results list is easy to do by accident.
+    fun toggleFavoriteWithUndo(recipe: Recipe) {
+        val wasFavorite = recipe.isFavorite
+        viewModel.toggleFavorite(recipe.id)
+        if (wasFavorite) {
+            scope.launch {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Removed \"${recipe.title}\" from favorites",
+                    actionLabel = "Undo",
+                    duration = SnackbarDuration.Short
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    viewModel.toggleFavorite(recipe.id)
+                }
+            }
+        }
+    }
 
     LaunchedEffect(Unit) { viewModel.searchRecipes(fridgeIngredients, prioritizedIngredients) }
     BackHandler(onBack = onBack)
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 navigationIcon = {
@@ -144,7 +174,11 @@ fun RecipeScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(recipes, key = { it.id }) { recipe ->
-                                RecipeCard(recipe, onClick = { onRecipeClick(recipe) })
+                                RecipeCard(
+                                    recipe,
+                                    onClick = { onRecipeClick(recipe) },
+                                    onToggleFavorite = { toggleFavoriteWithUndo(recipe) }
+                                )
                             }
                         }
                         LazyListScrollbar(
@@ -162,7 +196,7 @@ fun RecipeScreen(
 }
 
 @Composable
-private fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
+private fun RecipeCard(recipe: Recipe, onClick: () -> Unit, onToggleFavorite: () -> Unit) {
     val matchRatio = if (recipe.totalCount > 0) recipe.matchedCount.toFloat() / recipe.totalCount else 0f
     val isComplete = matchRatio == 1f
     val isPartial = matchRatio >= 0.75f && !isComplete
@@ -181,15 +215,21 @@ private fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = cardContainerColor),
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(recipe.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                if (recipe.isFavorite) {
+        Column(modifier = Modifier.padding(start = 12.dp, top = 12.dp, end = 4.dp, bottom = 12.dp)) {
+            // Top-aligned, not centered: a long title wraps to 2-3 lines and centering would
+            // float the heart in the middle of that block instead of next to the first line.
+            Row(verticalAlignment = Alignment.Top) {
+                Text(
+                    recipe.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f).padding(top = 10.dp)
+                )
+                IconButton(onClick = onToggleFavorite) {
                     Icon(
-                        imageVector = Icons.Filled.Favorite,
-                        contentDescription = "Favorited",
-                        tint = FavoriteHeart,
-                        modifier = Modifier.padding(start = 4.dp).size(28.dp)
+                        imageVector = if (recipe.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        contentDescription = if (recipe.isFavorite) "Remove from favorites" else "Add to favorites",
+                        tint = if (recipe.isFavorite) FavoriteHeart else ingredientTextColor.copy(alpha = 0.5f),
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             }
