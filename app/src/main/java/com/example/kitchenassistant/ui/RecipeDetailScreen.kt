@@ -79,6 +79,14 @@ import java.util.Locale
 /** The read-aloud control's 3-state cycle -- see the doc where it's declared in the composable. */
 private enum class ReadAloudState { IDLE, SPEAKING, PAUSED }
 
+// Master switch for the read-aloud (TTS) feature, off while other features are under test so
+// audio playback doesn't get exercised incidentally -- flip back to true to re-enable. When
+// false, the TTS engine is never created and the button/Previous-Next row/step highlight don't
+// render, rather than rendering disabled -- consistent with how the rest of the app treats
+// data-quality mitigations (SUPPRESS_UNDERPARSED_RECIPES, USE_NEW_RECIPE_DATABASE): a named,
+// reversible flag rather than deleting the feature.
+private const val READ_ALOUD_ENABLED = false
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeDetailScreen(
@@ -150,6 +158,7 @@ fun RecipeDetailScreen(
     var hasStartedReading by remember { mutableStateOf(false) }
     val textToSpeech = remember { mutableStateOf<TextToSpeech?>(null) }
     DisposableEffect(Unit) {
+        if (!READ_ALOUD_ENABLED) return@DisposableEffect onDispose {}
         val engine = TextToSpeech(context) { }
         engine.language = Locale.getDefault()
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -185,6 +194,7 @@ fun RecipeDetailScreen(
     // Queues every direction from [fromIndex] onward, each with its own utteranceId so
     // onStart/onDone above can track which one is currently playing.
     fun speakFrom(directions: List<String>, fromIndex: Int) {
+        if (!READ_ALOUD_ENABLED) return
         val engine = textToSpeech.value ?: return
         directions.forEachIndexed { index, step ->
             if (index < fromIndex) return@forEachIndexed
@@ -350,6 +360,7 @@ fun RecipeDetailScreen(
                                 style = MaterialTheme.typography.labelMedium
                             )
                         }
+                        if (READ_ALOUD_ENABLED) {
                         Spacer(Modifier.width(8.dp))
                         // A labeled button, not a bare icon -- an icon-only control next to
                         // another text button read as decoration rather than something tappable.
@@ -384,6 +395,7 @@ fun RecipeDetailScreen(
                             Spacer(Modifier.width(4.dp))
                             Text(label)
                         }
+                        }
                     }
                 }
 
@@ -391,7 +403,7 @@ fun RecipeDetailScreen(
                 // rather than only ever moving linearly through Play. Shown once there's
                 // something to navigate; the step counter doubles as feedback for what Play will
                 // read next before you've tapped anything.
-                if (directions.isNotEmpty()) {
+                if (READ_ALOUD_ENABLED && directions.isNotEmpty()) {
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -427,7 +439,7 @@ fun RecipeDetailScreen(
                         HorizontalDivider(modifier = Modifier.padding(top = 4.dp))
                     }
                     itemsIndexed(directions) { index, step ->
-                        val isCurrent = index == currentStepIndex
+                        val isCurrent = READ_ALOUD_ENABLED && index == currentStepIndex
                         val highlightShape = RoundedCornerShape(6.dp)
                         Text(
                             step,
