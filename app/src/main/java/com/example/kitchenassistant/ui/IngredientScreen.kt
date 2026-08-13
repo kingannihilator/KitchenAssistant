@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Add
 // import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -96,6 +97,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.model.Ingredient
+import com.example.kitchenassistant.ui.theme.FavoriteHeart
 import com.example.kitchenassistant.viewmodel.IngredientViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -111,15 +113,20 @@ import java.util.Locale
  *  - A scrollable [LazyColumn] containing the add form followed by the ingredient list.
  *  - A bottom bar with a "Find Recipes" action.
  *
- * @param onFindRecipes Called when the user taps "Find Recipes"; receives the names of all
- *                      ingredients currently in the fridge, followed by the subset that are
- *                      starred as prioritized (boosts those recipes' ranking downstream).
- * @param viewModel     Injected automatically by Compose; can be overridden in tests/previews.
+ * @param onFindRecipes   Called when the user taps "Find Recipes"; receives the names of all
+ *                        ingredients currently in the fridge, followed by the subset that are
+ *                        starred as prioritized (boosts those recipes' ranking downstream).
+ * @param onViewFavorites Called when the user taps the top-bar heart shortcut; receives the same
+ *                        two lists as [onFindRecipes] so favorites can still show fridge-relative
+ *                        match info, but is a distinct callback so the destination screen knows to
+ *                        filter down to favorited recipes only rather than the full search.
+ * @param viewModel       Injected automatically by Compose; can be overridden in tests/previews.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IngredientScreen(
     onFindRecipes: (fridgeIngredients: List<String>, prioritizedIngredients: List<String>) -> Unit = { _, _ -> },
+    onViewFavorites: (fridgeIngredients: List<String>, prioritizedIngredients: List<String>) -> Unit = { _, _ -> },
     viewModel: IngredientViewModel = viewModel()
 ) {
     // Collect the latest values from each StateFlow; any change triggers recomposition.
@@ -142,7 +149,25 @@ fun IngredientScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Kitchen Assistant") })
+            TopAppBar(
+                title = { Text("Kitchen Assistant") },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            onViewFavorites(
+                                ingredients.map { it.name },
+                                ingredients.filter { it.isPrioritized }.map { it.name }
+                            )
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Favorite,
+                            contentDescription = "View favorite recipes",
+                            tint = FavoriteHeart
+                        )
+                    }
+                }
+            )
         },
         bottomBar = {
             // Elevated surface so the bar stands out from the list content behind it.

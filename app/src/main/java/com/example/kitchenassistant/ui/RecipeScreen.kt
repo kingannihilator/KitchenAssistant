@@ -48,6 +48,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.model.Recipe
@@ -58,15 +59,26 @@ import com.example.kitchenassistant.viewmodel.RecipeViewModel
 fun RecipeScreen(
     fridgeIngredients: List<String>,
     prioritizedIngredients: List<String> = emptyList(),
+    // When true, this screen is the favorites shortcut from the fridge screen rather than a
+    // regular search: same underlying search/scoring (favorites still rank fridge-relatively,
+    // which is useful info), just displayed as a favorites-only slice of the results. Note this
+    // means a favorite won't appear here if [fridgeIngredients] is empty -- search itself returns
+    // nothing to score against with no fridge contents -- so the empty state below distinguishes
+    // that case ("add ingredients to see match info") from genuinely having zero favorites.
+    favoritesOnly: Boolean = false,
     onBack: () -> Unit,
     onRecipeClick: (Recipe) -> Unit = {},
     viewModel: RecipeViewModel = viewModel()
 ) {
-    val allRecipes by viewModel.sortedRecipes.collectAsState()
-    val recipes by viewModel.filteredRecipes.collectAsState()
+    val rawAllRecipes by viewModel.sortedRecipes.collectAsState()
+    val rawRecipes by viewModel.filteredRecipes.collectAsState()
     val filterQuery by viewModel.filterQuery.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val totalMatchCount by viewModel.totalMatchCount.collectAsState()
+    val favoriteIds by viewModel.favoriteIds.collectAsState()
+
+    val allRecipes = if (favoritesOnly) rawAllRecipes.filter { it.isFavorite } else rawAllRecipes
+    val recipes = if (favoritesOnly) rawRecipes.filter { it.isFavorite } else rawRecipes
 
     LaunchedEffect(Unit) { viewModel.searchRecipes(fridgeIngredients, prioritizedIngredients) }
     BackHandler(onBack = onBack)
@@ -83,6 +95,7 @@ fun RecipeScreen(
                     Text(
                         when {
                             isLoading -> "Searching…"
+                            favoritesOnly -> "Favorites (${allRecipes.size})"
                             filterQuery.isNotEmpty() -> "${recipes.size} of ${allRecipes.size} recipes"
                             // Only the best-ranked slice is loaded, so say so rather than letting
                             // "600 found" imply that's all there was.
@@ -124,6 +137,14 @@ fun RecipeScreen(
             ) {
                 when {
                     isLoading -> CircularProgressIndicator()
+                    favoritesOnly && allRecipes.isEmpty() -> Text(
+                        if (favoriteIds.isEmpty())
+                            "You haven't favorited any recipes yet — tap the heart on a recipe to save it here."
+                        else
+                            "Add ingredients to your fridge to see your favorites here.",
+                        modifier = Modifier.padding(horizontal = 32.dp),
+                        textAlign = TextAlign.Center
+                    )
                     allRecipes.isEmpty() -> Text("No matching recipes")
                     recipes.isEmpty() -> Text("No results for \"$filterQuery\"")
                     else -> {

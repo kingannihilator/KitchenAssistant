@@ -19,11 +19,16 @@ import com.example.kitchenassistant.viewmodel.IngredientViewModel
 
 sealed class Screen {
     object Ingredients : Screen()
-    data class Recipes(val fridgeIngredients: List<String>, val prioritizedIngredients: List<String>) : Screen()
+    data class Recipes(
+        val fridgeIngredients: List<String>,
+        val prioritizedIngredients: List<String>,
+        val favoritesOnly: Boolean = false
+    ) : Screen()
     data class RecipeDetail(
         val recipe: Recipe,
         val fridgeIngredients: List<String>,
-        val prioritizedIngredients: List<String>
+        val prioritizedIngredients: List<String>,
+        val favoritesOnly: Boolean = false
     ) : Screen()
 }
 
@@ -40,17 +45,22 @@ class MainActivity : ComponentActivity() {
                     is Screen.Ingredients -> IngredientScreen(
                         onFindRecipes = { fridge, prioritized ->
                             currentScreen = Screen.Recipes(fridge, prioritized)
+                        },
+                        onViewFavorites = { fridge, prioritized ->
+                            currentScreen = Screen.Recipes(fridge, prioritized, favoritesOnly = true)
                         }
                     )
                     is Screen.Recipes -> RecipeScreen(
                         fridgeIngredients = screen.fridgeIngredients,
                         prioritizedIngredients = screen.prioritizedIngredients,
+                        favoritesOnly = screen.favoritesOnly,
                         onBack = { currentScreen = Screen.Ingredients },
                         onRecipeClick = { recipe ->
                             currentScreen = Screen.RecipeDetail(
                                 recipe,
                                 screen.fridgeIngredients,
-                                screen.prioritizedIngredients
+                                screen.prioritizedIngredients,
+                                screen.favoritesOnly
                             )
                         }
                     )
@@ -58,7 +68,11 @@ class MainActivity : ComponentActivity() {
                         recipe = screen.recipe,
                         fridgeIngredients = fridgeIngredients.filter { !it.isNegative },
                         onBack = {
-                            currentScreen = Screen.Recipes(screen.fridgeIngredients, screen.prioritizedIngredients)
+                            currentScreen = Screen.Recipes(
+                                screen.fridgeIngredients,
+                                screen.prioritizedIngredients,
+                                screen.favoritesOnly
+                            )
                         },
                         onDeductIngredient = { id -> ingredientViewModel.decrementCount(id) },
                         onSetCount = { id, count -> ingredientViewModel.setCountByIdOrRemove(id, count) }
