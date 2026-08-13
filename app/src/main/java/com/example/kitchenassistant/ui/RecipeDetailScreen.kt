@@ -25,7 +25,12 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.size
 import com.example.kitchenassistant.ui.theme.FavoriteHeart
 import com.example.kitchenassistant.ui.theme.FridgeMatchGreen
@@ -99,19 +104,32 @@ fun RecipeDetailScreen(
 
     // Reads Directions aloud via the platform TTS engine -- no bundled voice data, no network,
     // consistent with the rest of the app. Android's TTS API has no true pause (only stop, which
-    // can't resume mid-sentence), so this is Play/Stop, not Play/Pause: stopping and playing again
-    // always restarts from the first step rather than pretending to resume exactly where it left off.
+    // can't resume mid-sentence), so Stop always leaves off at a step boundary, never mid-sentence
+    // -- Play then resumes from that same step (currentStepIndex) rather than restarting from the
+    // very first one, which is as close to "pause/resume" as the platform API actually allows.
     val context = LocalContext.current
     val mainScope = rememberCoroutineScope()
     var isSpeaking by remember { mutableStateOf(false) }
+    // Which direction is currently playing (or, once playback finishes or before it ever starts,
+    // which one would play next / just finished) -- drives both the highlighted row below and the
+    // Previous/Next bounds. Starts at 0 so the first step is highlighted as "up next" even before
+    // any playback, rather than showing nothing until the first tap.
+    var currentStepIndex by remember { mutableStateOf(0) }
+    // Guards the auto-scroll effect below from firing on initial composition (currentStepIndex
+    // starts at 0 to highlight the first step, but the screen shouldn't jump straight to
+    // Directions before the user has actually started playback or tapped Next/Previous).
+    var hasStartedReading by remember { mutableStateOf(false) }
     val textToSpeech = remember { mutableStateOf<TextToSpeech?>(null) }
     DisposableEffect(Unit) {
         val engine = TextToSpeech(context) { }
         engine.language = Locale.getDefault()
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {}
             // Fires on the TTS service's own callback thread, not the UI thread -- Compose state
-            // must only be written from the main thread, hence the explicit dispatch.
+            // must only be written from the main thread, hence the explicit dispatch throughout.
+            override fun onStart(utteranceId: String?) {
+                val index = utteranceId?.removePrefix("step_")?.toIntOrNull() ?: return
+                mainScope.launch(Dispatchers.Main) { currentStepIndex = index }
+            }
             override fun onDone(utteranceId: String?) {
                 // Reads the live direction count (not one captured when this listener was
                 // created) since DisposableEffect(Unit) only runs once, before the recipe's
@@ -131,6 +149,24 @@ fun RecipeDetailScreen(
             engine.stop()
             engine.shutdown()
         }
+    }
+
+    // Queues every direction from [fromIndex] onward, each with its own utteranceId so
+    // onStart/onDone above can track which one is currently playing.
+    fun speakFrom(directions: List<String>, fromIndex: Int) {
+        val engine = textToSpeech.value ?: return
+        directions.forEachIndexed { index, step ->
+            if (index < fromIndex) return@forEachIndexed
+            engine.speak(
+                step,
+                if (index == fromIndex) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD,
+                null,
+                "step_$index"
+            )
+        }
+        currentStepIndex = fromIndex
+        isSpeaking = true
+        hasStartedReading = true
     }
 
     LaunchedEffect(recipe.id, fridgeIngredients) {
@@ -171,6 +207,21 @@ fun RecipeDetailScreen(
             ) { CircularProgressIndicator() }
         } else {
             val listState = rememberLazyListState()
+            // Where the Directions section's step rows start in the LazyColumn's flat item
+            // index, so the currently-playing step can be scrolled into view. Recomputed
+            // whenever the sections above Directions could change size.
+            val directionsStartIndex = remember(ingredients, directions) {
+                var idx = 1 // metadata row
+                if (ingredients.isNotEmpty()) idx += 1 + ingredients.size // header + rows
+                idx += 1 // cook button / read-aloud row
+                if (directions.isNotEmpty()) idx += 2 // Previous/Next row + "Directions" header
+                idx
+            }
+            LaunchedEffect(currentStepIndex) {
+                if (hasStartedReading && directions.isNotEmpty()) {
+                    listState.animateScrollToItem(directionsStartIndex + currentStepIndex)
+                }
+            }
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             LazyColumn(
                 state = listState,
@@ -258,20 +309,14 @@ fun RecipeDetailScreen(
                             enabled = directions.isNotEmpty(),
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                             onClick = {
-                                val engine = textToSpeech.value ?: return@OutlinedButton
                                 if (isSpeaking) {
-                                    engine.stop()
+                                    textToSpeech.value?.stop()
                                     isSpeaking = false
                                 } else {
-                                    directions.forEachIndexed { index, step ->
-                                        engine.speak(
-                                            step,
-                                            if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD,
-                                            null,
-                                            "step_$index"
-                                        )
-                                    }
-                                    isSpeaking = true
+                                    // Resumes from currentStepIndex, not always 0 -- after a Stop
+                                    // this continues from the step that was playing, the closest
+                                    // this platform API gets to real pause/resume.
+                                    speakFrom(directions, currentStepIndex)
                                 }
                             }
                         ) {
@@ -286,6 +331,38 @@ fun RecipeDetailScreen(
                     }
                 }
 
+                // Previous/Next step controls -- jump to (and read) a specific step directly,
+                // rather than only ever moving linearly through Play. Shown once there's
+                // something to navigate; the step counter doubles as feedback for what Play will
+                // read next before you've tapped anything.
+                if (directions.isNotEmpty()) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                enabled = currentStepIndex > 0,
+                                onClick = { speakFrom(directions, currentStepIndex - 1) }
+                            ) {
+                                Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous step")
+                            }
+                            Text(
+                                "Step ${currentStepIndex + 1} of ${directions.size}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            IconButton(
+                                enabled = currentStepIndex < directions.lastIndex,
+                                onClick = { speakFrom(directions, currentStepIndex + 1) }
+                            ) {
+                                Icon(Icons.Filled.SkipNext, contentDescription = "Next step")
+                            }
+                        }
+                    }
+                }
+
                 // Directions section
                 if (directions.isNotEmpty()) {
                     item {
@@ -293,8 +370,22 @@ fun RecipeDetailScreen(
                         Text("Directions", style = MaterialTheme.typography.titleMedium)
                         HorizontalDivider(modifier = Modifier.padding(top = 4.dp))
                     }
-                    itemsIndexed(directions) { _, step ->
-                        Text(step, style = MaterialTheme.typography.bodyMedium)
+                    itemsIndexed(directions) { index, step ->
+                        val isCurrent = index == currentStepIndex
+                        val highlightShape = RoundedCornerShape(6.dp)
+                        Text(
+                            step,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (isCurrent) MaterialTheme.colorScheme.onPrimaryContainer
+                                    else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (isCurrent) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                                    highlightShape
+                                )
+                                .padding(6.dp)
+                        )
                     }
                 }
 

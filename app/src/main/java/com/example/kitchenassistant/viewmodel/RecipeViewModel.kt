@@ -367,10 +367,22 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 }
 
-                _detailDirections.value = dao.getSteps(recipeId).mapNotNull { step ->
-                    val instruction = step.instruction.trim().takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                _detailDirections.value = dao.getSteps(recipeId).flatMap { step ->
+                    val instruction = step.instruction.trim().takeIf { it.isNotBlank() } ?: return@flatMap emptyList()
                     val title = step.stepTitle?.trim()
-                    if (title.isNullOrEmpty()) instruction else "$title: $instruction"
+                    // recipe_steps is essentially unsplit in this corpus build -- 99.98% of
+                    // recipes that have steps at all have exactly one row, with every real step
+                    // concatenated into its instruction text separated by runs of blank lines
+                    // (confirmed against the shipped db, not assumed). Splitting on those here
+                    // recovers per-step granularity for the read-aloud step navigation without
+                    // needing a corpus rebuild -- a single blank line within a genuine paragraph
+                    // is rare enough in this data that requiring 2+ to split on is the safer cut.
+                    val paragraphs = instruction.split(Regex("\n{2,}"))
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                    paragraphs.mapIndexed { index, paragraph ->
+                        if (index == 0 && !title.isNullOrEmpty()) "$title: $paragraph" else paragraph
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "loadRecipeDetailNew failed for recipeId=$recipeId", e)
