@@ -22,3 +22,8 @@ val PartialMatchOnContainerDark = Color(0xFF90CAF9)
 
 val FridgeMatchGreen = Color(0xFF4CAF50)
 val FridgeMissingRed = Color(0xFFF44336)
+
+// The classic "liked" heart pink/red seen across social apps -- deliberately a fixed brand-style
+// color rather than a theme role, since a red heart reads as "favorited" regardless of light/dark
+// mode (same reasoning as FridgeMatchGreen/FridgeMissingRed above).
+val FavoriteHeart = Color(0xFFE91E63)

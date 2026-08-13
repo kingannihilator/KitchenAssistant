@@ -32,6 +32,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import com.example.kitchenassistant.ui.theme.FavoriteHeart
 import com.example.kitchenassistant.ui.theme.FullMatchContainerDark
 import com.example.kitchenassistant.ui.theme.FullMatchContainerLight
 import com.example.kitchenassistant.ui.theme.FullMatchOnContainerDark
@@ -187,8 +188,8 @@ private fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
                     Icon(
                         imageVector = Icons.Filled.Favorite,
                         contentDescription = "Favorited",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 4.dp)
+                        tint = FavoriteHeart,
+                        modifier = Modifier.padding(start = 4.dp).size(28.dp)
                     )
                 }
             }

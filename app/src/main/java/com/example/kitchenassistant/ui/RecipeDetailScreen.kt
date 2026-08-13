@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.foundation.layout.size
+import com.example.kitchenassistant.ui.theme.FavoriteHeart
 import com.example.kitchenassistant.ui.theme.FridgeMatchGreen
 import com.example.kitchenassistant.ui.theme.FridgeMissingRed
 import androidx.compose.material3.CircularProgressIndicator
@@ -109,7 +110,8 @@ fun RecipeDetailScreen(
                             // (a static pin). Same icon for both read as "the same feature."
                             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                             contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                            tint = if (isFavorite) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                            tint = if (isFavorite) FavoriteHeart else LocalContentColor.current,
+                            modifier = Modifier.size(30.dp)
                         )
                     }
                 }
