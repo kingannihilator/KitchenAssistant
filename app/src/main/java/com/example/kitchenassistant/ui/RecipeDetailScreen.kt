@@ -193,16 +193,24 @@ fun RecipeDetailScreen(
                     }
                 }
 
-                // Cook section toggle
-                if (cookIngredients.isNotEmpty()) {
-                    item {
-                        Spacer(Modifier.height(4.dp))
-                        OutlinedButton(
-                            onClick = { showCookSection = !showCookSection },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(if (showCookSection) "Hide cook mode" else "Cook this recipe")
-                        }
+                // Cook section toggle -- always shown, disabled (not hidden) when the fridge has
+                // none of this recipe's ingredients, same convention as the Add button on the
+                // fridge screen: a missing button reads as "this feature doesn't exist here,"
+                // a greyed-out one reads as "not right now, and here's why."
+                item {
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(
+                        onClick = { showCookSection = !showCookSection },
+                        enabled = cookIngredients.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            when {
+                                cookIngredients.isEmpty() -> "Cook this recipe (nothing in your fridge)"
+                                showCookSection -> "Hide cook mode"
+                                else -> "Cook this recipe"
+                            }
+                        )
                     }
                 }
 
