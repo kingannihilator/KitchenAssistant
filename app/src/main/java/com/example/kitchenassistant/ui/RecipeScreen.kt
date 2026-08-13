@@ -68,6 +68,10 @@ fun RecipeScreen(
     prioritizedIngredients: List<String> = emptyList(),
     onBack: () -> Unit,
     onRecipeClick: (Recipe) -> Unit = {},
+    // Lets the undo snackbar's fallback advice ("check Previously Favorited") actually be
+    // actionable from here -- without this, reaching the Favorites screen meant backing all the
+    // way out to the fridge screen first.
+    onViewFavorites: () -> Unit = {},
     viewModel: RecipeViewModel = viewModel()
 ) {
     val allRecipes by viewModel.sortedRecipes.collectAsState()
@@ -78,17 +82,23 @@ fun RecipeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // Same undo-on-remove safety net as FavoritesScreen/RecipeDetailScreen -- a stray tap on the
-    // heart while scrolling a long results list is easy to do by accident.
+    // Undo-on-remove safety net, kept only on this screen (not FavoritesScreen/RecipeDetailScreen
+    // -- there, re-tapping the same heart is just as fast as an "Undo" button, so the snackbar
+    // added nothing). Here it earns its keep: un-favoriting triggers a live re-sort via
+    // recipeOrder, which can move or hide the very card you just tapped, so "just tap it again"
+    // isn't always trivial. SnackbarDuration.Long (not the default Short) gives more time to
+    // notice and react in a scrolling list; the message also names the permanent fallback
+    // (Previously Favorited on the Favorites screen) for whenever the snackbar's already gone.
     fun toggleFavoriteWithUndo(recipe: Recipe) {
         val wasFavorite = recipe.isFavorite
         viewModel.toggleFavorite(recipe.id)
         if (wasFavorite) {
             scope.launch {
                 val result = snackbarHostState.showSnackbar(
-                    message = "Removed \"${recipe.title}\" from favorites",
+                    message = "Removed \"${recipe.title}\" from favorites. Can't find it? " +
+                        "Check Previously Favorited on the Favorites screen.",
                     actionLabel = "Undo",
-                    duration = SnackbarDuration.Short
+                    duration = SnackbarDuration.Long
                 )
                 if (result == SnackbarResult.ActionPerformed) {
                     viewModel.toggleFavorite(recipe.id)
@@ -120,6 +130,15 @@ fun RecipeScreen(
                             else -> "Recipes (${allRecipes.size} found)"
                         }
                     )
+                },
+                actions = {
+                    IconButton(onClick = onViewFavorites) {
+                        Icon(
+                            imageVector = Icons.Filled.Favorite,
+                            contentDescription = "View favorite recipes",
+                            tint = FavoriteHeart
+                        )
+                    }
                 }
             )
         }

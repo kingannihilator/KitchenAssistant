@@ -70,7 +70,8 @@ class MainActivity : ComponentActivity() {
                                 screen.fridgeIngredients,
                                 screen.prioritizedIngredients
                             )
-                        }
+                        },
+                        onViewFavorites = { currentScreen = Screen.Favorites }
                     )
                     is Screen.RecipeDetail -> RecipeDetailScreen(
                         recipe = screen.recipe,

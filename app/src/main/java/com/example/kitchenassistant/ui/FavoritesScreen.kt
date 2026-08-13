@@ -27,17 +27,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -46,7 +40,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.model.Recipe
 import com.example.kitchenassistant.ui.theme.FavoriteHeart
 import com.example.kitchenassistant.viewmodel.RecipeViewModel
-import kotlinx.coroutines.launch
 
 /**
  * The favorites shortcut screen, reached from the fridge screen's top-bar heart button.
@@ -76,27 +69,7 @@ fun FavoritesScreen(
 ) {
     val favorites by viewModel.favoriteRecipes.collectAsState()
     val history by viewModel.favoriteHistoryRecipes.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     BackHandler(onBack = onBack)
-
-    // Un-favoriting is the one destructive action here -- the recipe drops out of the current
-    // list immediately, but a snackbar offers one tap to put it right back, since "which recipe
-    // did I just lose" is otherwise a re-search away. Re-favoriting (from the history shelf) isn't
-    // destructive, so it doesn't need the same safety net.
-    fun unfavoriteWithUndo(recipe: Recipe) {
-        viewModel.toggleFavorite(recipe.id)
-        scope.launch {
-            val result = snackbarHostState.showSnackbar(
-                message = "Removed \"${recipe.title}\" from favorites",
-                actionLabel = "Undo",
-                duration = SnackbarDuration.Short
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                viewModel.toggleFavorite(recipe.id)
-            }
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -108,8 +81,7 @@ fun FavoritesScreen(
                 },
                 title = { Text("Favorites (${favorites.size})") }
             )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        }
     ) { padding ->
         Box(
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -144,7 +116,7 @@ fun FavoritesScreen(
                                 recipe = recipe,
                                 isCurrentFavorite = true,
                                 onClick = { onRecipeClick(recipe) },
-                                onToggleFavorite = { unfavoriteWithUndo(recipe) }
+                                onToggleFavorite = { viewModel.toggleFavorite(recipe.id) }
                             )
                         }
                     }
