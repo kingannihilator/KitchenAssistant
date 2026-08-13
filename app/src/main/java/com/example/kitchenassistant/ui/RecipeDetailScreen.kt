@@ -3,6 +3,8 @@ package com.example.kitchenassistant.ui
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -85,7 +87,21 @@ fun RecipeDetailScreen(
     val isLoading by viewModel.isLoadingDetail.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     val isFavorite = favoriteIds.contains(recipe.id)
-    var showCookSection by remember { mutableStateOf(false) }
+
+    // Toggles a highlight over the missing (X) rows in the Ingredients checklist above -- always
+    // enabled (no disabled/greyed state), since "what am I missing" is meaningful to ask even
+    // with nothing at all in the fridge. missingHighlightAlpha animates a brighter flash down to
+    // a steady tint on turn-on ("blink once"), and fades out on turn-off.
+    var highlightMissing by remember { mutableStateOf(false) }
+    val missingHighlightAlpha = remember { Animatable(0f) }
+    LaunchedEffect(highlightMissing) {
+        if (highlightMissing) {
+            missingHighlightAlpha.snapTo(0.7f)
+            missingHighlightAlpha.animateTo(0.25f, animationSpec = tween(600))
+        } else {
+            missingHighlightAlpha.animateTo(0f, animationSpec = tween(200))
+        }
+    }
 
     // Which fridge ingredient covers each recipe line, parallel to [ingredients]. Computed once
     // and used for both the checkmarks and the cook-mode rows, through the same IngredientMatcher
@@ -257,9 +273,18 @@ fun RecipeDetailScreen(
                         // the legacy corpus leaves it null and falls back to the direct-match-only
                         // coveredBy computed above, exactly as before.
                         val inFridge = detail.matched ?: (coveredBy.getOrNull(index) != null)
+                        val isMissing = detail.canonical != null && !inFridge
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (isMissing) FridgeMissingRed.copy(alpha = missingHighlightAlpha.value)
+                                    else Color.Transparent,
+                                    RoundedCornerShape(4.dp)
+                                )
+                                .padding(4.dp)
                         ) {
                             if (detail.canonical == null) {
                                 // A section heading or a line the corpus couldn't parse. It can't
@@ -278,28 +303,19 @@ fun RecipeDetailScreen(
                     }
                 }
 
-                // Cook button + read-aloud control, sitting right below the ingredient checklist
-                // above (rather than after Directions, far away from it) so it's obvious the
-                // button is answering "do you have what that checklist says you need" -- always
-                // shown, disabled (not hidden) when the fridge has none of this recipe's
-                // ingredients, same convention as the Add button on the fridge screen: a missing
-                // button reads as "this feature doesn't exist here," a greyed-out one reads as
-                // "not right now, and here's why."
+                // Highlight-missing toggle + read-aloud control, sitting right below the
+                // ingredient checklist above so the effect (a flash on the X rows right there) is
+                // immediately visible without scrolling -- the previous cook-mode toggle here
+                // revealed a section far below Directions, so tapping it looked like it did
+                // nothing from up here.
                 item {
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedButton(
-                            onClick = { showCookSection = !showCookSection },
-                            enabled = cookIngredients.isNotEmpty(),
+                            onClick = { highlightMissing = !highlightMissing },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(
-                                when {
-                                    cookIngredients.isEmpty() -> "Let's cook (nothing in your fridge yet)"
-                                    showCookSection -> "Hide cook mode"
-                                    else -> "Have everything? Let's cook"
-                                }
-                            )
+                            Text(if (highlightMissing) "Hide what's missing" else "Highlight what's missing")
                         }
                         Spacer(Modifier.width(8.dp))
                         // A labeled button, not a bare icon -- an icon-only control next to a
@@ -389,8 +405,12 @@ fun RecipeDetailScreen(
                     }
                 }
 
-                // Cook section — ingredient rows with editable count and minus button
-                if (showCookSection && cookIngredients.isNotEmpty()) {
+                // Cook section — ingredient rows with editable count and minus button. Always
+                // shown once there's something to deduct, rather than gated behind a toggle: it's
+                // a natural continuation of reading through Directions, and a remote toggle up
+                // near Ingredients had the same "looks like nothing happened" problem the
+                // highlight button above just got fixed for.
+                if (cookIngredients.isNotEmpty()) {
                     item {
                         Spacer(Modifier.height(4.dp))
                         Text("Use from fridge", style = MaterialTheme.typography.titleMedium)
