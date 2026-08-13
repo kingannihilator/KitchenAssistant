@@ -886,7 +886,10 @@ internal fun CountStepper(
         }
 
         if (isEditing) {
-            // Inline numeric text field — no border/decoration, styled to match the label.
+            // Inline numeric text field — filled + thick primary border while editing, so it
+            // visibly changes state from the plain outlined label it replaces (previously this
+            // had no decoration at all, making it easy to miss that a tap had done anything).
+            val editingShape = RoundedCornerShape(4.dp)
             BasicTextField(
                 value = editText,
                 // Strip any non-digit characters so the field only ever holds a valid integer.
@@ -903,6 +906,10 @@ internal fun CountStepper(
                 ),
                 modifier = Modifier
                     .width(40.dp)
+                    .clip(editingShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f), editingShape)
+                    .border(2.dp, MaterialTheme.colorScheme.primary, editingShape)
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
                     .focusRequester(focusRequester)
                     .onFocusChanged { focusState ->
                         if (focusState.isFocused) {
