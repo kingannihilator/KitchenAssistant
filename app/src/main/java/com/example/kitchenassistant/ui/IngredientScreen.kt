@@ -716,8 +716,12 @@ private fun IngredientItem(
 //                Spacer(Modifier.width(40.dp))
 //            }
 
-            // Name and subtitle (main label or expiration date).
-            Column(modifier = Modifier.weight(1f)) {
+            // Name and subtitle (main label or expiration date). spacedBy separates the name from
+            // the clickable subtitle below it -- with zero gap, a tap aimed at the name can land
+            // on "Set expiry"/"Expires ..." instead, since the two lines sit right on top of each
+            // other. The subtitle's own vertical padding pads its tap target symmetrically, which
+            // combined with the gap above keeps that padding from creeping back up into the name.
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = ingredient.name,
                     style = MaterialTheme.typography.bodyLarge,
@@ -736,14 +740,18 @@ private fun IngredientItem(
                         text = "Expires ${dateFormat.format(Date(ingredient.expirationDate))}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.clickable { showDatePicker = true }
+                        modifier = Modifier
+                            .clickable { showDatePicker = true }
+                            .padding(vertical = 4.dp)
                     )
                 } else if (!ingredient.isPrioritized) {
                     Text(
                         text = "Set expiry",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.clickable { showDatePicker = true }
+                        modifier = Modifier
+                            .clickable { showDatePicker = true }
+                            .padding(vertical = 4.dp)
                     )
                 }
             }
