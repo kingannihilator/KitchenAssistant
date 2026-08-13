@@ -260,7 +260,9 @@ fun IngredientScreen(
                                     onSetExpirationDate = { viewModel.setExpirationDate(ingredient.id, it) },
                                     onIncrement = { viewModel.incrementCount(ingredient.id) },
                                     onDecrement = { viewModel.decrementCount(ingredient.id) },
-                                    onSetCount = { viewModel.setCount(ingredient.id, it) }
+                                    onSetCount = { viewModel.setCount(ingredient.id, it) },
+                                    onRename = { viewModel.renameIngredient(ingredient.id, it) },
+                                    isValidName = { viewModel.isKnownIngredientName(it) }
                                 )
                             }
                         }
@@ -682,7 +684,9 @@ private fun IngredientItem(
     onSetExpirationDate: (Long?) -> Unit,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
-    onSetCount: (Int) -> Unit
+    onSetCount: (Int) -> Unit,
+    onRename: (String) -> Unit,
+    isValidName: (String) -> Boolean
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -748,12 +752,72 @@ private fun IngredientItem(
             // other. The subtitle's own vertical padding pads its tap target symmetrically, which
             // combined with the gap above keeps that padding from creeping back up into the name.
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = ingredient.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    // textDecoration = if (ingredient.isNegative) TextDecoration.LineThrough else TextDecoration.None
-                    textDecoration = TextDecoration.None
-                )
+                // Tap-to-rename, reusing the tap-to-edit pattern from CountStepper: tapping the
+                // name swaps it for a BasicTextField pre-filled with the current value. Unlike
+                // the count field, a rename is only committed if it's a recognized ingredient
+                // (validated against the same database the add-ingredient field checks against)
+                // -- the border/background reflect that live as the user types, since there's no
+                // autocomplete dropdown here to lean on for feedback.
+                var isEditingName by remember { mutableStateOf(false) }
+                var nameEditText by remember { mutableStateOf(TextFieldValue()) }
+                val nameFocusRequester = remember { FocusRequester() }
+                var nameHasFocused by remember { mutableStateOf(false) }
+
+                fun commitName() {
+                    onRename(nameEditText.text)
+                    isEditingName = false
+                    nameHasFocused = false
+                }
+
+                if (isEditingName) {
+                    val isCurrentValid = isValidName(nameEditText.text)
+                    val nameShape = RoundedCornerShape(4.dp)
+                    BasicTextField(
+                        value = nameEditText,
+                        onValueChange = { nameEditText = it },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { commitName() }),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(nameShape)
+                            .background(
+                                (if (isCurrentValid) MaterialTheme.colorScheme.primaryContainer
+                                 else MaterialTheme.colorScheme.errorContainer).copy(alpha = 0.5f),
+                                nameShape
+                            )
+                            .border(
+                                2.dp,
+                                if (isCurrentValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                nameShape
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .focusRequester(nameFocusRequester)
+                            .onFocusChanged { focusState ->
+                                if (focusState.isFocused) {
+                                    nameHasFocused = true
+                                } else if (nameHasFocused) {
+                                    commitName()
+                                }
+                            }
+                    )
+                    LaunchedEffect(Unit) { nameFocusRequester.requestFocus() }
+                } else {
+                    Text(
+                        text = ingredient.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        // textDecoration = if (ingredient.isNegative) TextDecoration.LineThrough else TextDecoration.None
+                        textDecoration = TextDecoration.None,
+                        modifier = Modifier.clickable {
+                            val text = ingredient.name
+                            nameEditText = TextFieldValue(text, selection = TextRange(text.length))
+                            isEditingName = true
+                        }
+                    )
+                }
                 if (ingredient.isPrioritized) {
                     Text(
                         text = "Prioritized",

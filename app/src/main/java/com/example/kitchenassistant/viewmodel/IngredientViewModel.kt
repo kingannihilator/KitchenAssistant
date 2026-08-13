@@ -297,6 +297,29 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /** True if [name] (trimmed) exactly matches an entry in the bundled ingredient database, case-insensitive. */
+    fun isKnownIngredientName(name: String): Boolean =
+        allIngredients.any { it.equals(name.trim(), ignoreCase = true) }
+
+    /**
+     * Renames the ingredient with the given [id] to [newName], reusing the same
+     * database-membership validation as the add-ingredient field. A no-op (name left unchanged)
+     * if [newName] isn't a recognized ingredient -- callers don't need to check first, but see
+     * [isKnownIngredientName] if the UI wants to reflect validity live while the user types.
+     *
+     * Renaming to a name that collides with another fridge row is allowed and does not merge the
+     * two -- unlike [quickAddIngredient], which merges deliberately for its one-tap-repeat use
+     * case. A rename is a deliberate single edit, not a repeated shortcut, so silently combining
+     * it with an unrelated existing row would be more surprising than helpful.
+     */
+    fun renameIngredient(id: String, newName: String) {
+        val trimmed = newName.trim()
+        if (!isKnownIngredientName(trimmed)) return
+        _ingredients.update { list ->
+            list.map { if (it.id == id) it.copy(name = trimmed) else it }
+        }
+    }
+
     /** Updates the expiration date of the ingredient with the given [id]. Pass null to clear it. */
     fun setExpirationDate(id: String, date: Long?) {
         _ingredients.update { list ->
