@@ -606,14 +606,18 @@ private fun AddIngredientCard(
                         DropdownMenu(
                             expanded = unitDropdownExpanded,
                             onDismissRequest = { unitDropdownExpanded = false },
-                            modifier = Modifier.heightIn(max = 200.dp)
+                            // Capped at a non-multiple of the row height (40dp) so the cutoff
+                            // always lands mid-row -- a sliver of the next item peeking out is
+                            // what actually signals "more below," since the scroll gesture
+                            // itself has no other visible cue.
+                            modifier = Modifier.heightIn(max = 170.dp)
                         ) {
                             unitOptions.forEach { unit ->
                                 DropdownMenuItem(
                                     text = { Text(unit, style = MaterialTheme.typography.bodyMedium) },
                                     onClick = { selectedUnit = unit; unitDropdownExpanded = false },
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                    modifier = Modifier.heightIn(min = 36.dp)
+                                    modifier = Modifier.height(40.dp)
                                 )
                             }
                         }
