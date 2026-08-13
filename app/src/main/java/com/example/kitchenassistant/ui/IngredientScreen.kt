@@ -116,17 +116,16 @@ import java.util.Locale
  * @param onFindRecipes   Called when the user taps "Find Recipes"; receives the names of all
  *                        ingredients currently in the fridge, followed by the subset that are
  *                        starred as prioritized (boosts those recipes' ranking downstream).
- * @param onViewFavorites Called when the user taps the top-bar heart shortcut; receives the same
- *                        two lists as [onFindRecipes] so favorites can still show fridge-relative
- *                        match info, but is a distinct callback so the destination screen knows to
- *                        filter down to favorited recipes only rather than the full search.
+ * @param onViewFavorites Called when the user taps the top-bar heart shortcut, to navigate to the
+ *                        favorites list. Takes no fridge snapshot -- that screen is intentionally
+ *                        fridge-independent (see RecipeViewModel.favoriteRecipes).
  * @param viewModel       Injected automatically by Compose; can be overridden in tests/previews.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IngredientScreen(
     onFindRecipes: (fridgeIngredients: List<String>, prioritizedIngredients: List<String>) -> Unit = { _, _ -> },
-    onViewFavorites: (fridgeIngredients: List<String>, prioritizedIngredients: List<String>) -> Unit = { _, _ -> },
+    onViewFavorites: () -> Unit = {},
     viewModel: IngredientViewModel = viewModel()
 ) {
     // Collect the latest values from each StateFlow; any change triggers recomposition.
@@ -152,14 +151,7 @@ fun IngredientScreen(
             TopAppBar(
                 title = { Text("Kitchen Assistant") },
                 actions = {
-                    IconButton(
-                        onClick = {
-                            onViewFavorites(
-                                ingredients.map { it.name },
-                                ingredients.filter { it.isPrioritized }.map { it.name }
-                            )
-                        }
-                    ) {
+                    IconButton(onClick = onViewFavorites) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = "View favorite recipes",

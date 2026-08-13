@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.model.Recipe
+import com.example.kitchenassistant.ui.FavoritesScreen
 import com.example.kitchenassistant.ui.IngredientScreen
 import com.example.kitchenassistant.ui.RecipeDetailScreen
 import com.example.kitchenassistant.ui.RecipeScreen
@@ -19,16 +20,16 @@ import com.example.kitchenassistant.viewmodel.IngredientViewModel
 
 sealed class Screen {
     object Ingredients : Screen()
-    data class Recipes(
-        val fridgeIngredients: List<String>,
-        val prioritizedIngredients: List<String>,
-        val favoritesOnly: Boolean = false
-    ) : Screen()
+    object Favorites : Screen()
+    data class Recipes(val fridgeIngredients: List<String>, val prioritizedIngredients: List<String>) : Screen()
     data class RecipeDetail(
         val recipe: Recipe,
         val fridgeIngredients: List<String>,
         val prioritizedIngredients: List<String>,
-        val favoritesOnly: Boolean = false
+        // Which list to return to on back -- Favorites is a static, fridge-independent bookmark
+        // list (see RecipeViewModel.favoriteRecipes), so it carries no fridge/prioritized snapshot
+        // of its own to reconstruct like Recipes does.
+        val cameFromFavorites: Boolean = false
     ) : Screen()
 }
 
@@ -46,21 +47,28 @@ class MainActivity : ComponentActivity() {
                         onFindRecipes = { fridge, prioritized ->
                             currentScreen = Screen.Recipes(fridge, prioritized)
                         },
-                        onViewFavorites = { fridge, prioritized ->
-                            currentScreen = Screen.Recipes(fridge, prioritized, favoritesOnly = true)
+                        onViewFavorites = { currentScreen = Screen.Favorites }
+                    )
+                    is Screen.Favorites -> FavoritesScreen(
+                        onBack = { currentScreen = Screen.Ingredients },
+                        onRecipeClick = { recipe ->
+                            currentScreen = Screen.RecipeDetail(
+                                recipe,
+                                fridgeIngredients = emptyList(),
+                                prioritizedIngredients = emptyList(),
+                                cameFromFavorites = true
+                            )
                         }
                     )
                     is Screen.Recipes -> RecipeScreen(
                         fridgeIngredients = screen.fridgeIngredients,
                         prioritizedIngredients = screen.prioritizedIngredients,
-                        favoritesOnly = screen.favoritesOnly,
                         onBack = { currentScreen = Screen.Ingredients },
                         onRecipeClick = { recipe ->
                             currentScreen = Screen.RecipeDetail(
                                 recipe,
                                 screen.fridgeIngredients,
-                                screen.prioritizedIngredients,
-                                screen.favoritesOnly
+                                screen.prioritizedIngredients
                             )
                         }
                     )
@@ -68,11 +76,11 @@ class MainActivity : ComponentActivity() {
                         recipe = screen.recipe,
                         fridgeIngredients = fridgeIngredients.filter { !it.isNegative },
                         onBack = {
-                            currentScreen = Screen.Recipes(
-                                screen.fridgeIngredients,
-                                screen.prioritizedIngredients,
-                                screen.favoritesOnly
-                            )
+                            currentScreen = if (screen.cameFromFavorites) {
+                                Screen.Favorites
+                            } else {
+                                Screen.Recipes(screen.fridgeIngredients, screen.prioritizedIngredients)
+                            }
                         },
                         onDeductIngredient = { id -> ingredientViewModel.decrementCount(id) },
                         onSetCount = { id, count -> ingredientViewModel.setCountByIdOrRemove(id, count) }

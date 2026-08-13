@@ -21,8 +21,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class RecipeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -207,6 +209,78 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 _favoriteIds.value = current + recipeId
             }
         }
+    }
+
+    /**
+     * The user's favorited recipes, loaded directly by id -- unlike [sortedRecipes], this never
+     * runs fridge-relative match scoring at all, so it re-fetches only when [favoriteIds] itself
+     * changes (StateFlow already only emits on an actual value change, so [mapLatest] here fires
+     * exactly on add/remove, never on an unrelated recomposition or fridge search). A bookmark
+     * list, not a filtered search result -- it shows the same favorites regardless of what's in
+     * the fridge right now, including when the fridge is empty (where [searchRecipes] has nothing
+     * to score against and returns nothing at all). matchedCount/totalCount are always 0 here:
+     * real per-ingredient matching still happens in [loadRecipeDetail] once a favorite is opened.
+     */
+    val favoriteRecipes: StateFlow<List<Recipe>> = _favoriteIds
+        .mapLatest { ids -> loadFavoriteRecipesById(ids) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    private suspend fun loadFavoriteRecipesById(ids: Set<Int>): List<Recipe> {
+        if (ids.isEmpty()) return emptyList()
+        return withContext(Dispatchers.IO) {
+            try {
+                if (USE_NEW_RECIPE_DATABASE) loadFavoriteRecipesNew(ids) else loadFavoriteRecipesLegacy(ids)
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not load favorite recipes", e)
+                emptyList()
+            }
+        }
+    }
+
+    private suspend fun loadFavoriteRecipesNew(ids: Set<Int>): List<Recipe> {
+        val dao = newRecipeDao()
+        val titleById = dao.getRecipesByIds(ids.toList()).associate { it.recipeId to it.title }
+        return ids.mapNotNull { id ->
+            val title = titleById[id] ?: return@mapNotNull null
+            Recipe(
+                id = id,
+                title = title,
+                servings = null,
+                categories = emptyList(),
+                ingredients = emptyList(),
+                matchedCount = 0,
+                totalCount = 0,
+                isFavorite = true
+            )
+        }.sortedBy { it.title }
+    }
+
+    private fun loadFavoriteRecipesLegacy(ids: Set<Int>): List<Recipe> {
+        val database = openRecipesDatabase()
+        val idList = ids.joinToString(",")
+        val titleById = mutableMapOf<Int, String>()
+        database.rawQuery("SELECT id, title FROM recipes WHERE id IN ($idList)", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                titleById[cursor.getInt(0)] = cursor.getString(1) ?: ""
+            }
+        }
+        return ids.mapNotNull { id ->
+            val title = titleById[id] ?: return@mapNotNull null
+            Recipe(
+                id = id,
+                title = title,
+                servings = null,
+                categories = emptyList(),
+                ingredients = emptyList(),
+                matchedCount = 0,
+                totalCount = 0,
+                isFavorite = true
+            )
+        }.sortedBy { it.title }
     }
 
     private val _isLoading = MutableStateFlow(false)
