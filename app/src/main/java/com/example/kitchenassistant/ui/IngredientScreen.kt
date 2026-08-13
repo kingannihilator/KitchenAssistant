@@ -594,7 +594,11 @@ private fun AddIngredientCard(
                         onIncrement = { count++ },
                         onSetCount = { newCount -> count = newCount }
                     )
-                    // Unit dropdown, anchored below the stepper.
+                    // Unit dropdown, anchored below the stepper. Owns its own ScrollState (rather
+                    // than relying on DropdownMenu's internal, inaccessible one) so a visible
+                    // scrollbar thumb can be drawn on top -- same pattern as the ingredient-name
+                    // autocomplete dropdown above.
+                    val unitScrollState = rememberScrollState()
                     Box {
                         OutlinedButton(
                             onClick = { unitDropdownExpanded = true },
@@ -605,19 +609,29 @@ private fun AddIngredientCard(
                         }
                         DropdownMenu(
                             expanded = unitDropdownExpanded,
-                            onDismissRequest = { unitDropdownExpanded = false },
-                            // Capped at a non-multiple of the row height (40dp) so the cutoff
-                            // always lands mid-row -- a sliver of the next item peeking out is
-                            // what actually signals "more below," since the scroll gesture
-                            // itself has no other visible cue.
-                            modifier = Modifier.heightIn(max = 170.dp)
+                            onDismissRequest = { unitDropdownExpanded = false }
                         ) {
-                            unitOptions.forEach { unit ->
-                                DropdownMenuItem(
-                                    text = { Text(unit, style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = { selectedUnit = unit; unitDropdownExpanded = false },
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                    modifier = Modifier.height(40.dp)
+                            Box(modifier = Modifier.heightIn(max = 170.dp)) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .verticalScroll(unitScrollState)
+                                ) {
+                                    unitOptions.forEach { unit ->
+                                        DropdownMenuItem(
+                                            text = { Text(unit, style = MaterialTheme.typography.bodyMedium) },
+                                            onClick = { selectedUnit = unit; unitDropdownExpanded = false },
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                            modifier = Modifier.height(40.dp)
+                                        )
+                                    }
+                                }
+                                ScrollStateScrollbar(
+                                    state = unitScrollState,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterEnd)
+                                        .fillMaxHeight()
+                                        .width(6.dp)
                                 )
                             }
                         }
