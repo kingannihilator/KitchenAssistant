@@ -440,7 +440,12 @@ private fun AddIngredientCard(
     }
 
     // Selected unit of measurement for the ingredient being added.
-    val unitOptions = listOf("units", "pounds", "cups", "quarts")
+    val unitOptions = listOf(
+        "units", "pounds", "ounces", "grams", "kilograms",
+        "cups", "tablespoons", "teaspoons",
+        "quarts", "pints", "gallons", "liters", "milliliters",
+        "cloves", "cans", "bunches", "slices"
+    )
     var selectedUnit by remember { mutableStateOf("units") }
     var unitDropdownExpanded by remember { mutableStateOf(false) }
 
@@ -744,7 +749,7 @@ private fun IngredientItem(
                             .clickable { showDatePicker = true }
                             .padding(vertical = 4.dp)
                     )
-                } else if (!ingredient.isPrioritized) {
+                } else {
                     Text(
                         text = "Set expiry",
                         style = MaterialTheme.typography.bodySmall,
