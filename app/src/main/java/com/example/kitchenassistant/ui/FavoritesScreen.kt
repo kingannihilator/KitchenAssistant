@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,17 +19,25 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -37,6 +46,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.model.Recipe
 import com.example.kitchenassistant.ui.theme.FavoriteHeart
 import com.example.kitchenassistant.viewmodel.RecipeViewModel
+import kotlinx.coroutines.launch
 
 /**
  * The favorites shortcut screen, reached from the fridge screen's top-bar heart button.
@@ -46,6 +56,11 @@ import com.example.kitchenassistant.viewmodel.RecipeViewModel
  * and only changes when a favorite is added or removed -- not on every fridge edit or
  * re-navigation the way a live search would. That also means it works with an empty fridge, where
  * [RecipeViewModel.searchRecipes] has nothing to score against and would show nothing at all.
+ *
+ * Below the current favorites, a "Previously Favorited" shelf (from
+ * [RecipeViewModel.favoriteHistoryRecipes]) lists recipes favorited at some point and since
+ * removed, each re-addable with one tap -- the history itself is never cleared, only excluded
+ * here once a recipe becomes a current favorite again.
  *
  * Cards here don't show match-ratio coloring or an ingredient count -- there's no fridge-relative
  * score to show (see [RecipeViewModel.favoriteRecipes]'s doc). Opening a recipe from here still
@@ -60,7 +75,28 @@ fun FavoritesScreen(
     viewModel: RecipeViewModel = viewModel()
 ) {
     val favorites by viewModel.favoriteRecipes.collectAsState()
+    val history by viewModel.favoriteHistoryRecipes.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     BackHandler(onBack = onBack)
+
+    // Un-favoriting is the one destructive action here -- the recipe drops out of the current
+    // list immediately, but a snackbar offers one tap to put it right back, since "which recipe
+    // did I just lose" is otherwise a re-search away. Re-favoriting (from the history shelf) isn't
+    // destructive, so it doesn't need the same safety net.
+    fun unfavoriteWithUndo(recipe: Recipe) {
+        viewModel.toggleFavorite(recipe.id)
+        scope.launch {
+            val result = snackbarHostState.showSnackbar(
+                message = "Removed \"${recipe.title}\" from favorites",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.toggleFavorite(recipe.id)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -72,13 +108,14 @@ fun FavoritesScreen(
                 },
                 title = { Text("Favorites (${favorites.size})") }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Box(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentAlignment = Alignment.Center
         ) {
-            if (favorites.isEmpty()) {
+            if (favorites.isEmpty() && history.isEmpty()) {
                 Text(
                     "You haven't favorited any recipes yet — tap the heart on a recipe to save it here.",
                     modifier = Modifier.padding(horizontal = 32.dp),
@@ -92,8 +129,46 @@ fun FavoritesScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(favorites, key = { it.id }) { recipe ->
-                        FavoriteCard(recipe, onClick = { onRecipeClick(recipe) })
+                    if (favorites.isEmpty()) {
+                        item {
+                            Text(
+                                "No current favorites — tap the heart on a recipe to save it here.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                    } else {
+                        items(favorites, key = { it.id }) { recipe ->
+                            FavoriteCard(
+                                recipe = recipe,
+                                isCurrentFavorite = true,
+                                onClick = { onRecipeClick(recipe) },
+                                onToggleFavorite = { unfavoriteWithUndo(recipe) }
+                            )
+                        }
+                    }
+
+                    // Lower shelf: recipes favorited before but not right now. Only rendered when
+                    // there's something to show, so the screen doesn't grow an empty header.
+                    if (history.isNotEmpty()) {
+                        item {
+                            Text(
+                                "Previously Favorited",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)
+                            )
+                            HorizontalDivider()
+                        }
+                        items(history, key = { it.id }) { recipe ->
+                            FavoriteCard(
+                                recipe = recipe,
+                                isCurrentFavorite = false,
+                                onClick = { onRecipeClick(recipe) },
+                                onToggleFavorite = { viewModel.toggleFavorite(recipe.id) }
+                            )
+                        }
                     }
                 }
                 LazyListScrollbar(
@@ -109,19 +184,30 @@ fun FavoritesScreen(
 }
 
 @Composable
-private fun FavoriteCard(recipe: Recipe, onClick: () -> Unit) {
+private fun FavoriteCard(
+    recipe: Recipe,
+    isCurrentFavorite: Boolean,
+    onClick: () -> Unit,
+    onToggleFavorite: () -> Unit
+) {
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+            modifier = Modifier.padding(start = 12.dp, end = 4.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(recipe.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Icon(
-                imageVector = Icons.Filled.Favorite,
-                contentDescription = "Favorited",
-                tint = FavoriteHeart,
-                modifier = Modifier.padding(start = 4.dp).size(28.dp)
+            Text(
+                recipe.title,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f).padding(vertical = 8.dp)
             )
+            IconButton(onClick = onToggleFavorite) {
+                Icon(
+                    imageVector = if (isCurrentFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    contentDescription = if (isCurrentFavorite) "Remove from favorites" else "Add back to favorites",
+                    tint = if (isCurrentFavorite) FavoriteHeart else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
     }
 }

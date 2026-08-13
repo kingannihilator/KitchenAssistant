@@ -35,6 +35,10 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -43,6 +47,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +57,7 @@ import com.example.kitchenassistant.data.IngredientMatcher
 import com.example.kitchenassistant.model.Ingredient
 import com.example.kitchenassistant.model.Recipe
 import com.example.kitchenassistant.viewmodel.RecipeViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +77,27 @@ fun RecipeDetailScreen(
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     val isFavorite = favoriteIds.contains(recipe.id)
     var showCookSection by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Un-favoriting from here is the same "silently gone, hard to re-find" pain point as on
+    // FavoritesScreen -- same undo-snackbar remedy, see that screen's doc.
+    fun toggleFavoriteWithUndo() {
+        val wasFavorite = isFavorite
+        viewModel.toggleFavorite(recipe.id)
+        if (wasFavorite) {
+            scope.launch {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Removed \"${recipe.title}\" from favorites",
+                    actionLabel = "Undo",
+                    duration = SnackbarDuration.Short
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    viewModel.toggleFavorite(recipe.id)
+                }
+            }
+        }
+    }
 
     // Which fridge ingredient covers each recipe line, parallel to [ingredients]. Computed once
     // and used for both the checkmarks and the cook-mode rows, through the same IngredientMatcher
@@ -102,7 +129,7 @@ fun RecipeDetailScreen(
                 },
                 title = { Text(recipe.title) },
                 actions = {
-                    IconButton(onClick = { viewModel.toggleFavorite(recipe.id) }) {
+                    IconButton(onClick = { toggleFavoriteWithUndo() }) {
                         Icon(
                             // A heart, not a star -- the star is already used for prioritized
                             // fridge ingredients (see IngredientScreen), a different concept
@@ -116,7 +143,8 @@ fun RecipeDetailScreen(
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         if (isLoading) {
             Box(

@@ -150,8 +150,12 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     private val _favoriteIds = MutableStateFlow<Set<Int>>(emptySet())
     val favoriteIds: StateFlow<Set<Int>> = _favoriteIds.asStateFlow()
 
+    // Every id ever favorited, including ones since removed -- see FavoritesRepository's doc.
+    private val _favoriteHistoryIds = MutableStateFlow<Set<Int>>(emptySet())
+
     init {
         _favoriteIds.value = favoritesRepository.getFavoriteIds()
+        _favoriteHistoryIds.value = favoritesRepository.getFavoriteHistoryIds()
     }
 
     private val _recipes = MutableStateFlow<List<Recipe>>(emptyList())
@@ -207,6 +211,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
             } else {
                 favoritesRepository.addFavorite(recipeId)
                 _favoriteIds.value = current + recipeId
+                _favoriteHistoryIds.value = _favoriteHistoryIds.value + recipeId
             }
         }
     }
@@ -229,6 +234,21 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = emptyList()
         )
 
+    /**
+     * Recipes favorited at some point but not currently -- the same static, by-id loading as
+     * [favoriteRecipes], just over the [_favoriteHistoryIds] minus [_favoriteIds] set instead.
+     * Backs the "previously favorited" shelf on [com.example.kitchenassistant.ui.FavoritesScreen],
+     * so removing a favorite (by mistake or otherwise) doesn't mean losing track of it entirely.
+     */
+    val favoriteHistoryRecipes: StateFlow<List<Recipe>> =
+        combine(_favoriteIds, _favoriteHistoryIds) { current, history -> history - current }
+            .mapLatest { ids -> loadFavoriteRecipesById(ids) }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
+
     private suspend fun loadFavoriteRecipesById(ids: Set<Int>): List<Recipe> {
         if (ids.isEmpty()) return emptyList()
         return withContext(Dispatchers.IO) {
@@ -243,6 +263,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
 
     private suspend fun loadFavoriteRecipesNew(ids: Set<Int>): List<Recipe> {
         val dao = newRecipeDao()
+        val currentFavorites = _favoriteIds.value
         val titleById = dao.getRecipesByIds(ids.toList()).associate { it.recipeId to it.title }
         return ids.mapNotNull { id ->
             val title = titleById[id] ?: return@mapNotNull null
@@ -254,13 +275,14 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 ingredients = emptyList(),
                 matchedCount = 0,
                 totalCount = 0,
-                isFavorite = true
+                isFavorite = id in currentFavorites
             )
         }.sortedBy { it.title }
     }
 
     private fun loadFavoriteRecipesLegacy(ids: Set<Int>): List<Recipe> {
         val database = openRecipesDatabase()
+        val currentFavorites = _favoriteIds.value
         val idList = ids.joinToString(",")
         val titleById = mutableMapOf<Int, String>()
         database.rawQuery("SELECT id, title FROM recipes WHERE id IN ($idList)", null).use { cursor ->
@@ -278,7 +300,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 ingredients = emptyList(),
                 matchedCount = 0,
                 totalCount = 0,
-                isFavorite = true
+                isFavorite = id in currentFavorites
             )
         }.sortedBy { it.title }
     }
