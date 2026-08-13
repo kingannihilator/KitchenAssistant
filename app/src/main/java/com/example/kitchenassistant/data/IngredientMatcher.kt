@@ -80,7 +80,91 @@ object IngredientMatcher {
             fridge.words.containsAll(recipe.words) -> fridge.words - recipe.words
             else -> return false
         }
-        return extra.none { it in BLOCK_MODIFIERS }
+        return extra.none { isBlockedModifier(it) }
+    }
+
+    /**
+     * True when [recipe] is specifically rejected as a different substance from [fridge] — same
+     * head, but a [BLOCK_MODIFIERS] word among the extra words (`fridge=milk` vs
+     * `recipe=powdered milk`). False for every other reason two terms fail to match, including a
+     * head mismatch, which is what lets [NewIngredientIndex]'s cross-head category expansion work
+     * at all (`beef` reaching `ribeye` shares no words, let alone a blocked one).
+     *
+     * [NewIngredientIndex] calls this to stop category expansion from re-admitting a sibling that
+     * direct matching already rejected for exactly this reason. Without it, categories that group a
+     * plain ingredient with its blocked variant (`Dairy Milk` holds both `milk` and `powdered
+     * milk`) let the category boost silently overrule [BLOCK_MODIFIERS]: fridge `milk` string
+     * matches the `milk` row, and expansion then adds every other row sharing that category —
+     * `powdered milk` included — even though direct matching correctly rejects it.
+     */
+    fun isDifferentSubstance(fridge: Term, recipe: Term): Boolean {
+        val fridgeHead = fridge.head ?: return false
+        val recipeHead = recipe.head ?: return false
+        if (fridgeHead != recipeHead) return false
+
+        val extra = when {
+            recipe.words.containsAll(fridge.words) -> recipe.words - fridge.words
+            fridge.words.containsAll(recipe.words) -> fridge.words - recipe.words
+            else -> return false
+        }
+        return extra.any { isBlockedModifier(it) }
+    }
+
+    /**
+     * True when [more] names the same thing as [less] or a more specific variant of it — same
+     * head, [more]'s words a superset of [less]'s, and whatever's extra isn't a [BLOCK_MODIFIERS]
+     * word. Unlike [matches], only this one direction counts; [less] being the more specific side
+     * (the direction that lets a fridge item satisfy a more general recipe requirement) does not.
+     *
+     * [IngredientPopularityIndex] calls this instead of [matches] specifically because that
+     * direction is wrong for counting popularity. Fridge "chicken egg" legitimately *satisfies* a
+     * recipe that just calls for "egg" — egg is egg — so [matches] correctly says yes both ways.
+     * But summing every recipe-corpus row a candidate would satisfy that way credited "chicken egg"
+     * with plain "egg"'s entire frequency (in the thousands, since eggs are in nearly everything),
+     * vaulting it above "chicken" itself and "chicken breast" for a "chicken" search — backwards
+     * from what popularity should mean here. Restricting to "more is less-or-more-specific" keeps
+     * "chicken breast" crediting from "boneless chicken breast" (more specific, same thing) while
+     * excluding "egg"/"egg yolk" (a different, more general thing "chicken egg" merely satisfies).
+     */
+    fun isSpecificVariantOf(less: Term, more: Term): Boolean {
+        val lessHead = less.head ?: return false
+        val moreHead = more.head ?: return false
+        if (lessHead != moreHead) return false
+        if (!more.words.containsAll(less.words)) return false
+        val extra = more.words - less.words
+        return extra.none { isBlockedModifier(it) }
+    }
+
+    /**
+     * True when [word] is a modifier that should reject the match — either the word itself, or a
+     * [QUANTITY_PREFIXES] entry glued directly onto one with no separating space.
+     *
+     * The corpus has rows like `grcream cheese` and `tablespoonspeanut butter` — a missing space
+     * between a quantity ("gr", "tablespoons") and the next word, which [TOKEN_SEPARATOR] can't
+     * detect since both sides are letters. Written correctly these would tokenize to `cream`/
+     * `peanut` and get blocked normally; fused, the literal token is never in [BLOCK_MODIFIERS] and
+     * the match slips through — and since [NewIngredientIndex] expands a direct match to every
+     * ingredient sharing its category, one bad row like this can wrongly mark a whole sibling group
+     * (e.g. all `Cream Cheese`-category rows) as satisfied by plain `cheese`.
+     *
+     * [QUANTITY_PREFIXES] includes the single-letter abbreviations `g` and `c` (grams, cups/cans —
+     * both appear glued on in the corpus, e.g. `gcream cheese`), guarded by
+     * [PREFIX_FUSION_EXCEPTIONS]: `g` + `oat` reconstructs `goat`, and `c` + `oat` reconstructs
+     * `coat`, both real words that appear legitimately (`goat cheese`, `goat milk`). Every other
+     * single-letter-prefix-plus-modifier combination was checked by hand and isn't a real word, so
+     * this is the only carve-out needed.
+     */
+    private fun isBlockedModifier(word: String): Boolean {
+        if (word in BLOCK_MODIFIERS) return true
+        if (word in PREFIX_FUSION_EXCEPTIONS) return false
+        for (prefix in QUANTITY_PREFIXES) {
+            if (word.length > prefix.length && word.startsWith(prefix) &&
+                word.substring(prefix.length) in BLOCK_MODIFIERS
+            ) {
+                return true
+            }
+        }
+        return false
     }
 
     /** Convenience overload for one-off comparisons; parses both sides every call. */
@@ -189,7 +273,17 @@ object IngredientMatcher {
         "light", "heavy", "firm", "soft", "reduced", "low", "nonfat", "free",
         "approximately", "about", "approx", "cut", "up", "new", "old", "assorted", "mixed",
         "prepared", "instant", "quick", "ready", "level", "little", "pat", "size", "sized",
-        "type", "brand", "style", "divided", "needed", "taste", "desired"
+        "type", "brand", "style", "divided", "needed", "taste", "desired",
+        // More preparation participles, same family as the ones above -- found by scanning the
+        // new corpus's ingredients table for words ending a canonical that aren't already
+        // covered, so they were wrongly becoming the head (e.g. "blue cheese crumbled" resolved
+        // to head "crumbled" instead of "cheese", silently failing to match fridge "cheese").
+        // Row counts are canonicals ending in that word in the bundled recipe_database.sqlite.
+        "removed", "quartered", "halved", "thawed", "crushed", "reserved", "crumbled", // 200/164/163/144/128/70/61
+        "toasted", "deveined", "chilled", "juiced", "undrained", "mashed", "warmed", // 58/58/56/55/53/52/36
+        "pitted", "sifted", "flaked", "cooled", "separated", "zested", "scrubbed", // 36/27/25/24/24/22/20
+        "unpeeled", "discarded", "cleaned", "stemmed", "pressed", "heated", "undiluted", // 12/12/12/10/9/8/7
+        "baked", "unwrapped", "blanched", "defrosted", "slivered", "boiled", "pureed", "squeezed" // 7/5/5/5/5/5/5/5
     )
     // Deliberately not stop words, though they look like ones: `flavoring`/`flavour` and
     // `substitute` change what a thing *is*. Dropping them made "butter flavoring" read as butter
@@ -231,6 +325,23 @@ object IngredientMatcher {
         "condensed", "evaporated", "spring", "clotted", "buttermilk", "tartar", "powdered",
         "malted"
     )
+
+    /**
+     * Quantity words seen glued directly onto a [BLOCK_MODIFIERS] entry elsewhere in the corpus
+     * (`cuppowdered sugar`, `tbsppeanut butter`, `gcream cheese`) — see [isBlockedModifier].
+     */
+    private val QUANTITY_PREFIXES = listOf(
+        "tablespoons", "tablespoon", "tbsp", "tbl", "teaspoons", "teaspoon", "tsp",
+        "cups", "cup", "cans", "can", "grams", "gram", "gr", "g", "c", "ounces", "ounce", "oz",
+        "pounds", "pound", "lbs", "lb", "packages", "package",
+        "containers", "container", "jars", "jar", "tubs", "tub"
+    )
+
+    /**
+     * Real English words that happen to match the quantity-prefix + [BLOCK_MODIFIERS] pattern but
+     * are not fusion typos — see [isBlockedModifier].
+     */
+    private val PREFIX_FUSION_EXCEPTIONS = setOf("goat", "coat")
 
     private val IRREGULAR_PLURALS = mapOf(
         "leaves" to "leaf",

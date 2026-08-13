@@ -7,7 +7,11 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Anthony\\\\AndroidStudioProjects\\\\KitchenAssistant\" -Recurse -Filter \"*.kt\")",
       "Bash(Select-Object -First 30 FullName)",
       "PowerShell(.\\\\gradlew.bat compileDebugKotlin --console=plain)",
-      "Bash(sqlite3 *)"
+      "Bash(sqlite3 *)",
+      "Bash(where adb *)",
+      "Bash(where emulator *)",
+      "Bash(where python *)",
+      "Bash(python -c ' *)"
     ]
   }
 }

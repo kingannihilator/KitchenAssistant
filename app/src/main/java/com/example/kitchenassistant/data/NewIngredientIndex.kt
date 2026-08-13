@@ -19,6 +19,15 @@ package com.example.kitchenassistant.data
  * no category (NULL `category_id` -- blob or not-yet-categorized) simply isn't expanded, falling
  * back to exactly today's string-matching behavior.
  *
+ * The expansion pass has one exception: a candidate is skipped, not added, when some fridge item
+ * shares its head and [IngredientMatcher.isDifferentSubstance] says direct matching rejected it
+ * specifically as a different substance. Categories in this corpus routinely group a plain
+ * ingredient with a [IngredientMatcher] `BLOCK_MODIFIERS`-blocked variant of it -- `Dairy Milk`
+ * holds both `milk` and `powdered milk` -- so without this check, string-matching plain `milk`
+ * would expand straight through the block and mark `powdered milk` satisfied too. A candidate
+ * whose head no fridge item shares (the actual "ribeye is beef" case) is untouched by this check
+ * and expands exactly as before.
+ *
  * Built once per process and held for the app's lifetime, same rationale as [CanonicalIndex].
  */
 class NewIngredientIndex private constructor(
@@ -38,10 +47,14 @@ class NewIngredientIndex private constructor(
      * `ingredient_id IN (...)` list, so it is the full set, not a ranked one.
      */
     fun matching(fridgeNames: List<String>): Set<Int> {
+        val fridgeTerms = fridgeNames.map { IngredientMatcher.parseFridge(it) }
+        // Same-head lookup for the category-expansion guard below -- a candidate can only be
+        // "explicitly rejected" by a fridge item whose head it shares.
+        val fridgeTermsByHead = fridgeTerms.filter { it.head != null }.groupBy { it.head!! }
+
         // Indices into the parallel arrays, not ingredient_ids yet -- resolved at the end.
         val matchedIndices = LinkedHashSet<Int>()
-        for (name in fridgeNames) {
-            val fridgeTerm = IngredientMatcher.parseFridge(name)
+        for (fridgeTerm in fridgeTerms) {
             val head = fridgeTerm.head ?: continue
             val bucket = byHead[head] ?: continue
             for (i in bucket) {
@@ -54,7 +67,16 @@ class NewIngredientIndex private constructor(
 
         val categoriesToExpand = matchedIndices.mapNotNull { categoryIds[it] }.toSet()
         for (categoryId in categoriesToExpand) {
-            byCategory[categoryId]?.let { matchedIndices.addAll(it.asList()) }
+            val siblings = byCategory[categoryId] ?: continue
+            for (i in siblings) {
+                if (i in matchedIndices) continue
+                val candidateTerm = IngredientMatcher.parseRecipe(normalizedNames[i])
+                val sameHeadFridgeTerms = candidateTerm.head?.let { fridgeTermsByHead[it] }
+                val explicitlyRejected = sameHeadFridgeTerms?.any {
+                    IngredientMatcher.isDifferentSubstance(it, candidateTerm)
+                } ?: false
+                if (!explicitlyRejected) matchedIndices.add(i)
+            }
         }
 
         return matchedIndices.mapTo(LinkedHashSet()) { ingredientIds[it] }

@@ -2,12 +2,19 @@ package com.example.kitchenassistant.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.kitchenassistant.model.Ingredient
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.example.kitchenassistant.data.BundledDatabase
+import com.example.kitchenassistant.data.IngredientPopularityIndex
+import com.example.kitchenassistant.data.NewIngredientIndex
+import com.example.kitchenassistant.data.NewRecipeDao
+import com.example.kitchenassistant.data.NewRecipeDatabase
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
  * ViewModel for the ingredient list screen.
@@ -22,6 +29,44 @@ import kotlinx.coroutines.flow.update
  * The ingredient list is currently held in memory only — it is lost when the app process ends.
  */
 class IngredientViewModel(application: Application) : AndroidViewModel(application) {
+
+    companion object {
+        /**
+         * Ranks [candidates] for the autocomplete dropdown against [trimmedQuery]: prefix matches
+         * before mid-word matches, and within each group, higher [frequencyOf] first, then fewer
+         * extra words, then alphabetical as the final tiebreak.
+         *
+         * [frequencyOf] is expected to be real recipe-corpus popularity (see
+         * [IngredientPopularityIndex]) — the bundled `ingredients.db` itself has no such signal
+         * (schema is just `id, name_en`; see `porting-reference/INGREDIENT_MATCHING_CONCEPTS.md`).
+         * It defaults to "everyone's equally (un)popular" so this still produces a sane, fully
+         * deterministic order before that index has finished loading (see
+         * [IngredientViewModel.onSearchQueryChange]): word count is the next-best proxy for how
+         * general a name is — "chicken breast" and "chicken neck" are both 2-word entries and land
+         * together regardless of their differing character lengths — with alphabetical order
+         * making the remaining ties predictable to type toward.
+         *
+         * A free function on the companion object (not a method) specifically so it needs no
+         * Application/Context and can be unit tested under plain JUnit, same reasoning as
+         * [com.example.kitchenassistant.data.IngredientMatcher].
+         */
+        internal fun rankSuggestions(
+            candidates: List<String>,
+            trimmedQuery: String,
+            frequencyOf: (String) -> Int = { 0 }
+        ): List<String> {
+            if (trimmedQuery.isEmpty()) return emptyList()
+            val (prefixMatches, midWordMatches) = candidates
+                .filter { it.contains(trimmedQuery, ignoreCase = true) }
+                .partition { it.startsWith(trimmedQuery, ignoreCase = true) }
+            val ranking = compareByDescending<String> { frequencyOf(it) }
+                .thenBy { it.trim().split(WHITESPACE).size }
+                .thenBy { it.lowercase() }
+            return prefixMatches.sortedWith(ranking) + midWordMatches.sortedWith(ranking)
+        }
+
+        private val WHITESPACE = Regex("\\s+")
+    }
 
     // --- State: ingredient list ---
 
@@ -45,6 +90,13 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
     // Controls whether the Add button is enabled.
     private val _isQueryValid = MutableStateFlow(false)
     val isQueryValid: StateFlow<Boolean> = _isQueryValid.asStateFlow()
+
+    // True when the current query is an exact ingredients.db match (Add is enabled) that matches
+    // nothing at all in the recipe corpus -- addable, but won't help find any recipe. The UI shows
+    // this in the dropdown's spot once the dropdown itself has nothing left to show; see
+    // AddIngredientCard. False (not just unset) while unknown, so nothing renders prematurely.
+    private val _hasNoRecipeMatch = MutableStateFlow(false)
+    val hasNoRecipeMatch: StateFlow<Boolean> = _hasNoRecipeMatch.asStateFlow()
 
     // Full list of ingredient names loaded once from assets/ingredients.db at startup.
     // Kept in memory for instant, no-network filtering.
@@ -73,14 +125,23 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    // Real-world popularity signal from the bundled recipe corpus, loaded lazily on the first
+    // search (see ensurePopularityIndexLoaded) rather than at startup alongside allIngredients,
+    // since building it means opening and querying a second, much larger database. @Volatile:
+    // written from the IO dispatcher in ensurePopularityIndexLoaded, read from the main thread on
+    // every keystroke.
+    @Volatile
+    private var popularityIndex: IngredientPopularityIndex? = null
+
+    private fun newRecipeDao(): NewRecipeDao = NewRecipeDatabase.getInstance(getApplication()).newRecipeDao()
+
     /**
      * Called on every keystroke in the ingredient name field.
      *
      * Updates the search query and immediately recomputes suggestions by filtering
-     * [allIngredients] for entries that contain the query (case-insensitive).
-     * Suggestions are only shown when the query is at least 2 characters long to avoid
-     * flooding the dropdown on a single-character prefix.
-     * Results are capped at 5 to keep the dropdown concise.
+     * [allIngredients] for entries that contain the query (case-insensitive), ranked by
+     * [rankSuggestions]. Suggestions are only shown when the query is at least 2 characters long
+     * to avoid flooding the dropdown on a single-character prefix.
      */
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
@@ -95,16 +156,68 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
         // the user can keep typing past that space normally.
         val trimmed = query.trim()
         _isQueryValid.value = allIngredients.any { it.equals(trimmed, ignoreCase = true) }
-        _suggestions.value = if (trimmed.length >= 2) {
-            // Partition into prefix matches and mid-word matches, then concatenate so
-            // prefix matches always appear first. Both groups retain their original order.
-            val (prefixMatches, midWordMatches) = allIngredients
-                .filter { it.contains(trimmed, ignoreCase = true) }
-                .partition { it.startsWith(trimmed, ignoreCase = true) }
-            // Within each group, shorter names appear first.
-            prefixMatches.sortedBy { it.length } + midWordMatches.sortedBy { it.length }
+        _suggestions.value = if (trimmed.length >= 2) rankWithCurrentFrequencies(trimmed) else emptyList()
+        ensurePopularityIndexLoaded()
+
+        if (_isQueryValid.value) {
+            checkRecipeMatch(trimmed)
         } else {
-            emptyList()
+            // Nothing addable yet, so nothing to hint about -- and this also clears a hint left
+            // over from a previous exact match now that the user has typed past it.
+            _hasNoRecipeMatch.value = false
+        }
+    }
+
+    /**
+     * Checks whether [trimmed] (already confirmed to be an exact `ingredients.db` match) matches
+     * anything at all in the recipe corpus, via [NewIngredientIndex.matching] -- the identical
+     * logic real search runs, so this can never disagree with what search actually finds.
+     * Updates [hasNoRecipeMatch] if [trimmed] is still the live query when the (first-call-only
+     * expensive; see [NewIngredientIndex.get]) lookup finishes.
+     */
+    private fun checkRecipeMatch(trimmed: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val matched = try {
+                val index = NewIngredientIndex.get(newRecipeDao(), RecipeViewModel.BLOB_NAME_LENGTH_THRESHOLD_NEW)
+                index.matching(listOf(trimmed)).isNotEmpty()
+            } catch (e: Exception) {
+                true // Unknown on failure -- silently hiding the hint beats wrongly claiming "no matches".
+            }
+            if (_searchQuery.value.trim().equals(trimmed, ignoreCase = true)) {
+                _hasNoRecipeMatch.value = !matched
+            }
+        }
+    }
+
+    private fun rankWithCurrentFrequencies(trimmed: String): List<String> {
+        val index = popularityIndex
+        return if (index != null) {
+            rankSuggestions(allIngredients, trimmed) { index.frequencyFor(it) }
+        } else {
+            rankSuggestions(allIngredients, trimmed)
+        }
+    }
+
+    /**
+     * Builds [popularityIndex] in the background on first use, then re-ranks whatever query is
+     * showing at that moment so the dropdown upgrades to popularity-ranked order in place, rather
+     * than the very first search waiting on it. A no-op once [popularityIndex] is loaded.
+     *
+     * Safe to call on every keystroke before that: [IngredientPopularityIndex.get] has its own
+     * double-checked singleton cache, so a few redundant launches racing to build it before the
+     * first one finishes just join the same work rather than repeating it.
+     */
+    private fun ensurePopularityIndexLoaded() {
+        if (popularityIndex != null) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val built = try {
+                IngredientPopularityIndex.get(newRecipeDao(), RecipeViewModel.BLOB_NAME_LENGTH_THRESHOLD_NEW)
+            } catch (e: Exception) {
+                null
+            } ?: return@launch
+            popularityIndex = built
+            val current = _searchQuery.value.trim()
+            if (current.length >= 2) _suggestions.value = rankWithCurrentFrequencies(current)
         }
     }
 
@@ -127,6 +240,7 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
         _searchQuery.value = ""
         _suggestions.value = emptyList()
         _isQueryValid.value = false
+        _hasNoRecipeMatch.value = false
     }
 
     /**

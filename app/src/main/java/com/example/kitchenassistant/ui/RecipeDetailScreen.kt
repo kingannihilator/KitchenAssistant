@@ -86,7 +86,9 @@ fun RecipeDetailScreen(
     }
     val cookIngredients = remember(coveredBy) { coveredBy.filterNotNull().distinctBy { it.id } }
 
-    LaunchedEffect(recipe.id) { viewModel.loadRecipeDetail(recipe.id) }
+    LaunchedEffect(recipe.id, fridgeIngredients) {
+        viewModel.loadRecipeDetail(recipe.id, fridgeIngredients.map { it.name })
+    }
     BackHandler(onBack = onBack)
 
     Scaffold(
@@ -148,7 +150,10 @@ fun RecipeDetailScreen(
                         HorizontalDivider(modifier = Modifier.padding(top = 4.dp))
                     }
                     itemsIndexed(ingredients) { index, detail ->
-                        val inFridge = coveredBy.getOrNull(index) != null
+                        // detail.matched is the new corpus's category-aware verdict (see its doc);
+                        // the legacy corpus leaves it null and falls back to the direct-match-only
+                        // coveredBy computed above, exactly as before.
+                        val inFridge = detail.matched ?: (coveredBy.getOrNull(index) != null)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)

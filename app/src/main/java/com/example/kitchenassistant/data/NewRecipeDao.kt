@@ -15,10 +15,14 @@ data class IngredientForIndexRow(
 )
 
 /** One ingredient line for the detail screen, joined against its [NewIngredientEntity] for the
- * normalized name the search actually scored against. */
+ * normalized name the search actually scored against. [ingredientId] lets the caller check this
+ * row against the same category-expanded matched set [NewIngredientIndex.matching] produces for
+ * scoring, so the detail screen's checkmarks can agree with the card's ratio even for a
+ * category-only match (no shared words at all, e.g. "ribeye" satisfied by fridge "beef"). */
 data class RecipeIngredientLineRow(
     @ColumnInfo(name = "original_text") val originalText: String,
-    @ColumnInfo(name = "normalized_name") val normalizedName: String
+    @ColumnInfo(name = "normalized_name") val normalizedName: String,
+    @ColumnInfo(name = "ingredient_id") val ingredientId: Int
 )
 
 /** One ingredient line for the free-text filter's haystack -- no join needed, just the raw text
@@ -44,6 +48,14 @@ data class NewRecipeMatchRow(
 )
 
 data class RecipeIdRow(@ColumnInfo(name = "recipe_id") val recipeId: Int)
+
+/** One ingredient's real-world frequency in the recipe corpus, for
+ * [com.example.kitchenassistant.data.IngredientPopularityIndex] -- see its class doc. */
+data class IngredientFrequencyRow(
+    @ColumnInfo(name = "ingredient_id") val ingredientId: Int,
+    @ColumnInfo(name = "normalized_name") val normalizedName: String,
+    val frequency: Int
+)
 
 @Dao
 interface NewRecipeDao {
@@ -88,7 +100,8 @@ interface NewRecipeDao {
     suspend fun getIngredientLines(recipeId: Int): List<RecipeIngredientLineRow> =
         getIngredientLinesRaw(
             SimpleSQLiteQuery(
-                """SELECT ri.original_text AS original_text, i.normalized_name AS normalized_name
+                """SELECT ri.original_text AS original_text, i.normalized_name AS normalized_name,
+                          ri.ingredient_id AS ingredient_id
                    FROM recipe_ingredients ri JOIN ingredients i ON i.ingredient_id = ri.ingredient_id
                    WHERE ri.recipe_id = ? ORDER BY ri.position""",
                 arrayOf(recipeId)
@@ -138,4 +151,26 @@ interface NewRecipeDao {
      */
     @RawQuery
     suspend fun scoreChunk(query: SupportSQLiteQuery): List<NewRecipeMatchRow>
+
+    @RawQuery
+    suspend fun getIngredientFrequenciesRaw(query: SupportSQLiteQuery): List<IngredientFrequencyRow>
+
+    /**
+     * How many `recipe_ingredients` rows reference each matchable ingredient -- the real-world
+     * popularity signal `ingredients.db` (the fridge-autocomplete taxonomy) has no room for, since
+     * its bundled schema is stripped to just `id, name_en` (see
+     * `porting-reference/INGREDIENT_MATCHING_CONCEPTS.md`). [blobLengthThreshold] mirrors
+     * [getMatchableIngredients]'s.
+     */
+    suspend fun getIngredientFrequencies(blobLengthThreshold: Int): List<IngredientFrequencyRow> =
+        getIngredientFrequenciesRaw(
+            SimpleSQLiteQuery(
+                """SELECT i.ingredient_id AS ingredient_id, i.normalized_name AS normalized_name,
+                          COUNT(*) AS frequency
+                   FROM ingredients i JOIN recipe_ingredients ri ON ri.ingredient_id = i.ingredient_id
+                   WHERE LENGTH(i.normalized_name) <= ?
+                   GROUP BY i.ingredient_id""",
+                arrayOf(blobLengthThreshold)
+            )
+        )
 }

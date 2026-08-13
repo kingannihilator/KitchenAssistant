@@ -127,6 +127,7 @@ fun IngredientScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
     val isQueryValid by viewModel.isQueryValid.collectAsState()
+    val hasNoRecipeMatch by viewModel.hasNoRecipeMatch.collectAsState()
 
     // Local UI state for the expiration date picker — lives here so it resets when the form is
     // submitted and is not part of the permanent ingredient data until the user taps Add.
@@ -205,6 +206,7 @@ fun IngredientScreen(
                     searchQuery = searchQuery,
                     suggestions = suggestions,
                     isQueryValid = isQueryValid,
+                    hasNoRecipeMatch = hasNoRecipeMatch,
                     expirationDate = expirationDate,
                     dateFormat = dateFormat,
                     onQueryChange = { viewModel.onSearchQueryChange(it) },
@@ -393,6 +395,8 @@ private fun QuickAddThumbnail(item: QuickAddItem, onClick: () -> Unit) {
  *
  * @param searchQuery        Current text in the ingredient name field.
  * @param suggestions        Autocomplete suggestions to show in the dropdown.
+ * @param hasNoRecipeMatch   True when [searchQuery] is an exact, addable match that won't help
+ *   find any recipe. Rendered as a hint in the dropdown's spot once [suggestions] is empty.
  * @param expirationDate     Currently selected expiration date in epoch millis, or null.
  * @param dateFormat         Formatter used to display the selected date in the chip label.
  * @param onQueryChange      Called on every keystroke with the new query string.
@@ -408,6 +412,7 @@ private fun AddIngredientCard(
     searchQuery: String,
     suggestions: List<String>,
     isQueryValid: Boolean,
+    hasNoRecipeMatch: Boolean,
     expirationDate: Long?,
     dateFormat: SimpleDateFormat,
     onQueryChange: (String) -> Unit,
@@ -531,6 +536,18 @@ private fun AddIngredientCard(
                         }
                     }
                 }
+            }
+
+            // Shown in the dropdown's spot once it has nothing left to show: an exact, addable
+            // match (Add is enabled) that won't help find any recipe in our corpus. Purely
+            // informational -- the item can still be added.
+            if (isQueryValid && hasNoRecipeMatch && suggestions.isEmpty()) {
+                Text(
+                    "Not used in any of our recipes — you can still add it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp)
+                )
             }
 
             // Bottom row: expiration date selector | quantity stepper | Add button.

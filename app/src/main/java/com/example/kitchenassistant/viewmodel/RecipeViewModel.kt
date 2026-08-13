@@ -223,26 +223,52 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     val isLoadingDetail: StateFlow<Boolean> = _isLoadingDetail.asStateFlow()
 
     private var lastDetailRecipeId: Int? = null
+    private var lastDetailFridgeIngredients: List<String>? = null
 
-    fun loadRecipeDetail(recipeId: Int) {
-        if (USE_NEW_RECIPE_DATABASE) loadRecipeDetailNew(recipeId) else loadRecipeDetailLegacy(recipeId)
+    /**
+     * [fridgeIngredients] is only consulted by the new-corpus path, to precompute each line's
+     * category-aware match status — see [DetailIngredient.matched]. The legacy path ignores it
+     * and keeps computing checkmarks live in [com.example.kitchenassistant.ui.RecipeDetailScreen],
+     * exactly as before.
+     */
+    fun loadRecipeDetail(recipeId: Int, fridgeIngredients: List<String> = emptyList()) {
+        if (USE_NEW_RECIPE_DATABASE) {
+            loadRecipeDetailNew(recipeId, fridgeIngredients)
+        } else {
+            loadRecipeDetailLegacy(recipeId)
+        }
     }
 
-    private fun loadRecipeDetailNew(recipeId: Int) {
-        if (recipeId == lastDetailRecipeId &&
+    private fun loadRecipeDetailNew(recipeId: Int, fridgeIngredients: List<String>) {
+        val fridgeSet = fridgeIngredients.filter { it.isNotBlank() }.distinct()
+        if (recipeId == lastDetailRecipeId && fridgeSet == lastDetailFridgeIngredients &&
             (_detailIngredients.value.isNotEmpty() || _detailDirections.value.isNotEmpty())
         ) {
             return
         }
         lastDetailRecipeId = recipeId
+        lastDetailFridgeIngredients = fridgeSet
 
         _isLoadingDetail.value = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val dao = newRecipeDao()
 
+                // Same category-expanded matched set scoreRecipesNew used for this recipe's card
+                // ratio, so a line credited there (even a category-only match with no shared
+                // words, e.g. "ribeye" via fridge "beef") shows the same checkmark here.
+                val matchedIds = if (fridgeSet.isEmpty()) {
+                    emptySet()
+                } else {
+                    NewIngredientIndex.get(dao, BLOB_NAME_LENGTH_THRESHOLD_NEW).matching(fridgeSet)
+                }
+
                 _detailIngredients.value = dao.getIngredientLines(recipeId).map { row ->
-                    DetailIngredient(line = row.originalText, canonical = row.normalizedName)
+                    DetailIngredient(
+                        line = row.originalText,
+                        canonical = row.normalizedName,
+                        matched = row.ingredientId in matchedIds
+                    )
                 }
 
                 _detailDirections.value = dao.getSteps(recipeId).mapNotNull { step ->

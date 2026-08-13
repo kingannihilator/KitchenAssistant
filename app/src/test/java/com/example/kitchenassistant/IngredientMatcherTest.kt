@@ -120,6 +120,24 @@ class IngredientMatcherTest {
     }
 
     @Test
+    fun `trailing preparation participles do not steal the head`() {
+        // Real corpus rows: without these in STOPWORDS, the trailing participle becomes the head
+        // instead of the actual ingredient, so e.g. fridge "cheese" silently failed to match
+        // "blue cheese crumbled" even though nothing about category expansion was involved --
+        // pure head misdetection.
+        assertMatches("cheese", "blue cheese crumbled")
+        assertMatches("egg", "eggs at room temperature separated")
+        assertMatches("egg", "large egg separated divided")
+        assertMatches("potato", "potatoes quartered")
+        assertMatches("lemon", "lemon juiced")
+        assertMatches("almond", "almonds toasted")
+        assertMatches("shrimp", "shrimp deveined")
+        assertMatches("bean", "beans undrained")
+        assertMatches("garlic", "garlic pressed")
+        assertMatches("apple", "apples halved and cored")
+    }
+
+    @Test
     fun `corpus trailing junk still matches`() {
         // 693 canonicals end in a stray "or", 255 in a stray "w".
         assertMatches("thyme", "thyme or")
@@ -155,6 +173,108 @@ class IngredientMatcherTest {
         assertDoesNotMatch("egg", "egg substitute")
         assertDoesNotMatch("egg", "liquid egg substitute")
         assertDoesNotMatch("butter", "butter flavoring")
+    }
+
+    @Test
+    fun `quantity words fused onto a block modifier are still blocked`() {
+        // Real corpus rows: a missing space between a quantity and the next word (e.g.
+        // "2 gr cream cheese" saved as "grcream cheese") glues a BLOCK_MODIFIERS entry onto a
+        // quantity word, so the literal token is never in BLOCK_MODIFIERS and the match used to
+        // slip through -- which NewIngredientIndex's category expansion then spread to every
+        // other ingredient sharing that category (e.g. all of Cream Cheese, satisfied by plain
+        // "cheese"). See ingredient_id 2325 in the bundled corpus.
+        assertDoesNotMatch("cheese", "grcream cheese")
+        assertDoesNotMatch("butter", "tablespoonspeanut butter")
+        assertDoesNotMatch("butter", "tbsppeanut butter")
+        assertDoesNotMatch("butter", "grpeanut butter")
+        assertDoesNotMatch("sugar", "cuppowdered sugar")
+        assertDoesNotMatch("flour", "gralmond flour")
+        assertDoesNotMatch("extract", "tspalmond extract")
+        assertDoesNotMatch("milk", "cancondensed milk")
+        assertDoesNotMatch("milk", "canevaporated milk")
+        assertDoesNotMatch("milk", "cupcoconut milk")
+        assertDoesNotMatch("cream", "cansour cream")
+        assertDoesNotMatch("cream", "cupwhipping cream")
+        assertMatches("buttermilk", "buttermilk") // sanity: the compound itself still matches
+        assertDoesNotMatch("sauce", "tablespoonsoy sauce")
+
+        // The single-letter "g"/"c" abbreviations (grams, cups/cans) fuse the same way.
+        // ingredient_id 2819 in the bundled corpus -- this is the exact row that let plain
+        // "cheese" wrongly satisfy the whole Cream Cheese category via NewIngredientIndex's
+        // category expansion.
+        assertDoesNotMatch("cheese", "gcream cheese")
+        assertDoesNotMatch("cream", "gsour cream")
+        assertDoesNotMatch("cream", "csour cream")
+        assertDoesNotMatch("sugar", "gpowdered sugar")
+    }
+
+    @Test
+    fun `single-letter quantity abbreviations still leave real words alone`() {
+        // "g" + "oat" reconstructs "goat" and "c" + "oat" reconstructs "coat" -- both real,
+        // common words, not fusion typos. PREFIX_FUSION_EXCEPTIONS carves these two out so
+        // legitimate goat recipes don't get wrongly blocked.
+        assertMatches("cheese", "goat cheese")
+        assertMatches("milk", "goat milk")
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // isSpecificVariantOf: the one-directional half of matches, for popularity counting
+    // -----------------------------------------------------------------------------------------
+
+    private fun assertVariant(less: String, more: String) =
+        assertTrue(
+            "expected \"$more\" to be \"$less\" or a more specific variant of it",
+            IngredientMatcher.isSpecificVariantOf(
+                IngredientMatcher.parseFridge(less),
+                IngredientMatcher.parseRecipe(more)
+            )
+        )
+
+    private fun assertNotVariant(less: String, more: String) =
+        assertFalse(
+            "expected \"$more\" NOT to count as \"$less\" or a more specific variant of it",
+            IngredientMatcher.isSpecificVariantOf(
+                IngredientMatcher.parseFridge(less),
+                IngredientMatcher.parseRecipe(more)
+            )
+        )
+
+    @Test
+    fun `a more specific variant counts, the reverse does not`() {
+        // The reported bug: "chicken egg" satisfies plain "egg" as a fridge item (egg is egg), so
+        // matches() correctly allows it -- but that's the wrong direction for popularity, since it
+        // credited "chicken egg" with plain "egg"'s entire (much larger) corpus frequency.
+        // IngredientPopularityIndex calls isSpecificVariantOf(candidate, corpusRow), so the
+        // direction that matters for that bug is: is corpus row "egg" a variant of candidate
+        // "chicken egg"? No -- "egg" is a different, more general thing, not a specific chicken-egg
+        // variant, so it must not count toward it.
+        assertVariant("chicken breast", "boneless chicken breast")
+        assertVariant("chicken egg", "chicken egg yolk")
+        assertNotVariant("chicken egg", "egg")
+        assertNotVariant("chicken breast", "chicken")
+        // The reverse direction is legitimate, though: "egg" (general) is satisfied by "chicken
+        // egg" (specific) being in the corpus, same as "chicken" aggregates its named cuts below.
+        assertVariant("egg", "chicken egg")
+    }
+
+    @Test
+    fun `a bare term is a variant of its own more specific cuts`() {
+        // This is what lets bare "chicken" aggregate frequency across all its named cuts.
+        assertVariant("chicken", "chicken breast")
+        assertVariant("chicken", "chicken thigh")
+    }
+
+    @Test
+    fun `block modifiers still reject the more-specific direction`() {
+        assertNotVariant("cheese", "cream cheese")
+        assertNotVariant("milk", "powdered milk")
+        assertNotVariant("butter", "peanut butter")
+    }
+
+    @Test
+    fun `the same term is trivially its own variant`() {
+        assertVariant("chicken", "chicken")
+        assertVariant("chicken egg", "chicken egg")
     }
 
     @Test
@@ -225,6 +345,55 @@ class IngredientMatcherTest {
         assertMatches("hummus", "hummus")
         assertMatches("couscous", "couscous")
         assertMatches("asparagus", "asparagus")
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // isDifferentSubstance: the category-expansion guard
+    // -----------------------------------------------------------------------------------------
+
+    private fun assertDifferentSubstance(fridge: String, canonical: String) =
+        assertTrue(
+            "expected \"$canonical\" to be rejected as a different substance from fridge \"$fridge\"",
+            IngredientMatcher.isDifferentSubstance(
+                IngredientMatcher.parseFridge(fridge),
+                IngredientMatcher.parseRecipe(canonical)
+            )
+        )
+
+    private fun assertNotDifferentSubstance(fridge: String, canonical: String) =
+        assertFalse(
+            "expected \"$canonical\" NOT to be flagged as a different substance from fridge \"$fridge\"",
+            IngredientMatcher.isDifferentSubstance(
+                IngredientMatcher.parseFridge(fridge),
+                IngredientMatcher.parseRecipe(canonical)
+            )
+        )
+
+    @Test
+    fun `isDifferentSubstance flags exactly the same pairs matches already blocks`() {
+        // NewIngredientIndex.Dairy Milk (category_id 98) holds both "milk" and "powdered milk" --
+        // the exact real row that let category expansion resurrect a BLOCK_MODIFIERS rejection.
+        assertDifferentSubstance("milk", "powdered milk")
+        assertDifferentSubstance("butter", "peanut butter")
+        assertDifferentSubstance("cheese", "cream cheese")
+        assertDifferentSubstance("cream", "sour cream")
+    }
+
+    @Test
+    fun `isDifferentSubstance is false for a head mismatch, not just a non-match`() {
+        // This is what lets NewIngredientIndex's cross-head expansion ("beef" reaching "ribeye")
+        // survive the guard: those pairs fail matches() too, but not because of a blocked
+        // modifier, so the category boost must still be allowed to add them.
+        assertNotDifferentSubstance("beef", "ribeye")
+        assertNotDifferentSubstance("chicken", "chicken broth")
+        assertNotDifferentSubstance("black pepper", "cayenne pepper")
+    }
+
+    @Test
+    fun `isDifferentSubstance is false whenever matches would succeed`() {
+        assertNotDifferentSubstance("cheese", "cheddar cheese")
+        assertNotDifferentSubstance("chicken", "chicken breast half")
+        assertNotDifferentSubstance("milk", "milk")
     }
 
     // -----------------------------------------------------------------------------------------
