@@ -20,8 +20,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.foundation.layout.size
 import com.example.kitchenassistant.ui.theme.FridgeMatchGreen
 import com.example.kitchenassistant.ui.theme.FridgeMissingRed
@@ -103,7 +103,11 @@ fun RecipeDetailScreen(
                 actions = {
                     IconButton(onClick = { viewModel.toggleFavorite(recipe.id) }) {
                         Icon(
-                            imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                            // A heart, not a star -- the star is already used for prioritized
+                            // fridge ingredients (see IngredientScreen), a different concept
+                            // (boosts ranking dynamically) from favoriting a specific recipe
+                            // (a static pin). Same icon for both read as "the same feature."
+                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                             contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                             tint = if (isFavorite) MaterialTheme.colorScheme.primary else LocalContentColor.current
                         )

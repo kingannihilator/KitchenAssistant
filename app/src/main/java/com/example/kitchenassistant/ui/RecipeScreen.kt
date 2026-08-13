@@ -19,7 +19,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -185,7 +185,7 @@ private fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
                 Text(recipe.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 if (recipe.isFavorite) {
                     Icon(
-                        imageVector = Icons.Filled.Star,
+                        imageVector = Icons.Filled.Favorite,
                         contentDescription = "Favorited",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(start = 4.dp)
