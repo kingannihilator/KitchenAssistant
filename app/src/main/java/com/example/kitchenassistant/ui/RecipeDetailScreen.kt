@@ -250,10 +250,15 @@ fun RecipeDetailScreen(
                                 }
                             )
                         }
-                        IconButton(
+                        Spacer(Modifier.width(8.dp))
+                        // A labeled button, not a bare icon -- an icon-only control next to a
+                        // full-width text button read as decoration rather than something
+                        // tappable.
+                        OutlinedButton(
                             enabled = directions.isNotEmpty(),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                             onClick = {
-                                val engine = textToSpeech.value ?: return@IconButton
+                                val engine = textToSpeech.value ?: return@OutlinedButton
                                 if (isSpeaking) {
                                     engine.stop()
                                     isSpeaking = false
@@ -272,8 +277,11 @@ fun RecipeDetailScreen(
                         ) {
                             Icon(
                                 imageVector = if (isSpeaking) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                                contentDescription = if (isSpeaking) "Stop reading directions" else "Read directions aloud"
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
                             )
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (isSpeaking) "Stop" else "Play")
                         }
                     }
                 }
