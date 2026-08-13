@@ -27,3 +27,13 @@ val FridgeMissingRed = Color(0xFFF44336)
 // color rather than a theme role, since a red heart reads as "favorited" regardless of light/dark
 // mode (same reasoning as FridgeMatchGreen/FridgeMissingRed above).
 val FavoriteHeart = Color(0xFFE91E63)
+
+// Permanent, subtle backgrounds for available/missing ingredient rows on the recipe detail
+// screen -- light enough to sit calmly behind text at all times, but still a visibly different
+// hue from each other and from the page background, and deliberately paler than
+// FridgeMissingRed's own "highlight what's missing" flash (up to 0.7 alpha) so that flash still
+// reads as a distinct, temporary emphasis layered on top rather than blending into the baseline.
+val IngredientAvailableBgLight = Color(0xFFE3F3E6)
+val IngredientAvailableBgDark = Color(0xFF1E3323)
+val IngredientMissingBgLight = Color(0xFFFCEAEA)
+val IngredientMissingBgDark = Color(0xFF3A2223)

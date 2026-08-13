@@ -26,17 +26,23 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.size
 import com.example.kitchenassistant.ui.theme.FavoriteHeart
 import com.example.kitchenassistant.ui.theme.FridgeMatchGreen
 import com.example.kitchenassistant.ui.theme.FridgeMissingRed
+import com.example.kitchenassistant.ui.theme.IngredientAvailableBgDark
+import com.example.kitchenassistant.ui.theme.IngredientAvailableBgLight
+import com.example.kitchenassistant.ui.theme.IngredientMissingBgDark
+import com.example.kitchenassistant.ui.theme.IngredientMissingBgLight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -70,6 +76,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Locale
 
+/** The read-aloud control's 3-state cycle -- see the doc where it's declared in the composable. */
+private enum class ReadAloudState { IDLE, SPEAKING, PAUSED }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeDetailScreen(
@@ -87,6 +96,7 @@ fun RecipeDetailScreen(
     val isLoading by viewModel.isLoadingDetail.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     val isFavorite = favoriteIds.contains(recipe.id)
+    val isDark = isSystemInDarkTheme()
 
     // Toggles a highlight over the missing (X) rows in the Ingredients checklist above -- always
     // enabled (no disabled/greyed state), since "what am I missing" is meaningful to ask even
@@ -120,12 +130,15 @@ fun RecipeDetailScreen(
 
     // Reads Directions aloud via the platform TTS engine -- no bundled voice data, no network,
     // consistent with the rest of the app. Android's TTS API has no true pause (only stop, which
-    // can't resume mid-sentence), so Stop always leaves off at a step boundary, never mid-sentence
-    // -- Play then resumes from that same step (currentStepIndex) rather than restarting from the
-    // very first one, which is as close to "pause/resume" as the platform API actually allows.
+    // can't resume mid-sentence), so this is a 3-state cycle rather than a plain toggle: IDLE
+    // ("Read to me") -> tap -> SPEAKING ("Pause") -> tap (or natural completion) -> PAUSED
+    // ("Stop") -> tap -> back to IDLE. PAUSED and SPEAKING both stop at the same step boundary
+    // either way -- the distinction is what happens next: from PAUSED, resuming (Previous/Next,
+    // or IDLE's own Play) continues from currentStepIndex, while explicitly tapping "Stop"
+    // resets currentStepIndex to 0, the one place this cycle offers a real "start over."
     val context = LocalContext.current
     val mainScope = rememberCoroutineScope()
-    var isSpeaking by remember { mutableStateOf(false) }
+    var readAloudState by remember { mutableStateOf(ReadAloudState.IDLE) }
     // Which direction is currently playing (or, once playback finishes or before it ever starts,
     // which one would play next / just finished) -- drives both the highlighted row below and the
     // Previous/Next bounds. Starts at 0 so the first step is highlighted as "up next" even before
@@ -149,15 +162,17 @@ fun RecipeDetailScreen(
             override fun onDone(utteranceId: String?) {
                 // Reads the live direction count (not one captured when this listener was
                 // created) since DisposableEffect(Unit) only runs once, before the recipe's
-                // directions have necessarily finished loading.
+                // directions have necessarily finished loading. Finishing naturally lands on
+                // PAUSED, same as an explicit Pause tap -- either way, currentStepIndex is where
+                // playback left off, and only an explicit Stop resets it.
                 val lastStepId = "step_${viewModel.detailDirections.value.size - 1}"
                 if (utteranceId == lastStepId) {
-                    mainScope.launch(Dispatchers.Main) { isSpeaking = false }
+                    mainScope.launch(Dispatchers.Main) { readAloudState = ReadAloudState.PAUSED }
                 }
             }
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
-                mainScope.launch(Dispatchers.Main) { isSpeaking = false }
+                mainScope.launch(Dispatchers.Main) { readAloudState = ReadAloudState.IDLE }
             }
         })
         textToSpeech.value = engine
@@ -181,7 +196,7 @@ fun RecipeDetailScreen(
             )
         }
         currentStepIndex = fromIndex
-        isSpeaking = true
+        readAloudState = ReadAloudState.SPEAKING
         hasStartedReading = true
     }
 
@@ -274,11 +289,23 @@ fun RecipeDetailScreen(
                         // coveredBy computed above, exactly as before.
                         val inFridge = detail.matched ?: (coveredBy.getOrNull(index) != null)
                         val isMissing = detail.canonical != null && !inFridge
+                        val isAvailable = detail.canonical != null && inFridge
+                        val baseColor = when {
+                            isAvailable -> if (isDark) IngredientAvailableBgDark else IngredientAvailableBgLight
+                            isMissing -> if (isDark) IngredientMissingBgDark else IngredientMissingBgLight
+                            else -> Color.Transparent
+                        }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
+                                // Two layered backgrounds, not one blended color: baseColor is the
+                                // permanent available/missing tint, drawn first; the second
+                                // (transparent except mid-blink) draws over it, so the flash still
+                                // reads as a distinct, temporary emphasis rather than changing
+                                // what "missing" normally looks like.
+                                .background(baseColor, RoundedCornerShape(4.dp))
                                 .background(
                                     if (isMissing) FridgeMissingRed.copy(alpha = missingHighlightAlpha.value)
                                     else Color.Transparent,
@@ -311,38 +338,51 @@ fun RecipeDetailScreen(
                 item {
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Compact (wrap-content), not full-width -- this row also holds the
+                        // read-aloud control now, and a button that stretches to fill whatever
+                        // space is left crowds it out.
                         OutlinedButton(
                             onClick = { highlightMissing = !highlightMissing },
-                            modifier = Modifier.weight(1f)
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Text(if (highlightMissing) "Hide what's missing" else "Highlight what's missing")
+                            Text(
+                                if (highlightMissing) "Hide what's missing" else "Highlight what's missing",
+                                style = MaterialTheme.typography.labelMedium
+                            )
                         }
                         Spacer(Modifier.width(8.dp))
-                        // A labeled button, not a bare icon -- an icon-only control next to a
-                        // full-width text button read as decoration rather than something
-                        // tappable.
+                        // A labeled button, not a bare icon -- an icon-only control next to
+                        // another text button read as decoration rather than something tappable.
                         OutlinedButton(
                             enabled = directions.isNotEmpty(),
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                             onClick = {
-                                if (isSpeaking) {
-                                    textToSpeech.value?.stop()
-                                    isSpeaking = false
-                                } else {
-                                    // Resumes from currentStepIndex, not always 0 -- after a Stop
-                                    // this continues from the step that was playing, the closest
-                                    // this platform API gets to real pause/resume.
-                                    speakFrom(directions, currentStepIndex)
+                                when (readAloudState) {
+                                    ReadAloudState.IDLE -> speakFrom(directions, currentStepIndex)
+                                    ReadAloudState.SPEAKING -> {
+                                        textToSpeech.value?.stop()
+                                        readAloudState = ReadAloudState.PAUSED
+                                    }
+                                    ReadAloudState.PAUSED -> {
+                                        currentStepIndex = 0
+                                        readAloudState = ReadAloudState.IDLE
+                                    }
                                 }
                             }
                         ) {
-                            Icon(
-                                imageVector = if (isSpeaking) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            val icon = when (readAloudState) {
+                                ReadAloudState.IDLE -> Icons.Filled.PlayArrow
+                                ReadAloudState.SPEAKING -> Icons.Filled.Pause
+                                ReadAloudState.PAUSED -> Icons.Filled.Stop
+                            }
+                            val label = when (readAloudState) {
+                                ReadAloudState.IDLE -> "Read to me"
+                                ReadAloudState.SPEAKING -> "Pause"
+                                ReadAloudState.PAUSED -> "Stop"
+                            }
+                            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(if (isSpeaking) "Stop" else "Play")
+                            Text(label)
                         }
                     }
                 }
