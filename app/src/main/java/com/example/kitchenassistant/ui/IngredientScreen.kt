@@ -605,12 +605,15 @@ private fun AddIngredientCard(
                         }
                         DropdownMenu(
                             expanded = unitDropdownExpanded,
-                            onDismissRequest = { unitDropdownExpanded = false }
+                            onDismissRequest = { unitDropdownExpanded = false },
+                            modifier = Modifier.heightIn(max = 200.dp)
                         ) {
                             unitOptions.forEach { unit ->
                                 DropdownMenuItem(
-                                    text = { Text(unit) },
-                                    onClick = { selectedUnit = unit; unitDropdownExpanded = false }
+                                    text = { Text(unit, style = MaterialTheme.typography.bodyMedium) },
+                                    onClick = { selectedUnit = unit; unitDropdownExpanded = false },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                    modifier = Modifier.heightIn(min = 36.dp)
                                 )
                             }
                         }
