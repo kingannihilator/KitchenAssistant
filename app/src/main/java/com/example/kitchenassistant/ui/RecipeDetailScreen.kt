@@ -1,5 +1,7 @@
 package com.example.kitchenassistant.ui
 
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +24,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.foundation.layout.size
 import com.example.kitchenassistant.ui.theme.FavoriteHeart
 import com.example.kitchenassistant.ui.theme.FridgeMatchGreen
@@ -38,20 +42,26 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.data.IngredientMatcher
 import com.example.kitchenassistant.model.Ingredient
 import com.example.kitchenassistant.model.Recipe
 import com.example.kitchenassistant.viewmodel.RecipeViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,6 +96,42 @@ fun RecipeDetailScreen(
         }
     }
     val cookIngredients = remember(coveredBy) { coveredBy.filterNotNull().distinctBy { it.id } }
+
+    // Reads Directions aloud via the platform TTS engine -- no bundled voice data, no network,
+    // consistent with the rest of the app. Android's TTS API has no true pause (only stop, which
+    // can't resume mid-sentence), so this is Play/Stop, not Play/Pause: stopping and playing again
+    // always restarts from the first step rather than pretending to resume exactly where it left off.
+    val context = LocalContext.current
+    val mainScope = rememberCoroutineScope()
+    var isSpeaking by remember { mutableStateOf(false) }
+    val textToSpeech = remember { mutableStateOf<TextToSpeech?>(null) }
+    DisposableEffect(Unit) {
+        val engine = TextToSpeech(context) { }
+        engine.language = Locale.getDefault()
+        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {}
+            // Fires on the TTS service's own callback thread, not the UI thread -- Compose state
+            // must only be written from the main thread, hence the explicit dispatch.
+            override fun onDone(utteranceId: String?) {
+                // Reads the live direction count (not one captured when this listener was
+                // created) since DisposableEffect(Unit) only runs once, before the recipe's
+                // directions have necessarily finished loading.
+                val lastStepId = "step_${viewModel.detailDirections.value.size - 1}"
+                if (utteranceId == lastStepId) {
+                    mainScope.launch(Dispatchers.Main) { isSpeaking = false }
+                }
+            }
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                mainScope.launch(Dispatchers.Main) { isSpeaking = false }
+            }
+        })
+        textToSpeech.value = engine
+        onDispose {
+            engine.stop()
+            engine.shutdown()
+        }
+    }
 
     LaunchedEffect(recipe.id, fridgeIngredients) {
         viewModel.loadRecipeDetail(recipe.id, fridgeIngredients.map { it.name })
@@ -181,6 +227,57 @@ fun RecipeDetailScreen(
                     }
                 }
 
+                // Cook button + read-aloud control, sitting right below the ingredient checklist
+                // above (rather than after Directions, far away from it) so it's obvious the
+                // button is answering "do you have what that checklist says you need" -- always
+                // shown, disabled (not hidden) when the fridge has none of this recipe's
+                // ingredients, same convention as the Add button on the fridge screen: a missing
+                // button reads as "this feature doesn't exist here," a greyed-out one reads as
+                // "not right now, and here's why."
+                item {
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedButton(
+                            onClick = { showCookSection = !showCookSection },
+                            enabled = cookIngredients.isNotEmpty(),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                when {
+                                    cookIngredients.isEmpty() -> "Let's cook (nothing in your fridge yet)"
+                                    showCookSection -> "Hide cook mode"
+                                    else -> "Have everything? Let's cook"
+                                }
+                            )
+                        }
+                        IconButton(
+                            enabled = directions.isNotEmpty(),
+                            onClick = {
+                                val engine = textToSpeech.value ?: return@IconButton
+                                if (isSpeaking) {
+                                    engine.stop()
+                                    isSpeaking = false
+                                } else {
+                                    directions.forEachIndexed { index, step ->
+                                        engine.speak(
+                                            step,
+                                            if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD,
+                                            null,
+                                            "step_$index"
+                                        )
+                                    }
+                                    isSpeaking = true
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = if (isSpeaking) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                                contentDescription = if (isSpeaking) "Stop reading directions" else "Read directions aloud"
+                            )
+                        }
+                    }
+                }
+
                 // Directions section
                 if (directions.isNotEmpty()) {
                     item {
@@ -190,27 +287,6 @@ fun RecipeDetailScreen(
                     }
                     itemsIndexed(directions) { _, step ->
                         Text(step, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-
-                // Cook section toggle -- always shown, disabled (not hidden) when the fridge has
-                // none of this recipe's ingredients, same convention as the Add button on the
-                // fridge screen: a missing button reads as "this feature doesn't exist here,"
-                // a greyed-out one reads as "not right now, and here's why."
-                item {
-                    Spacer(Modifier.height(4.dp))
-                    OutlinedButton(
-                        onClick = { showCookSection = !showCookSection },
-                        enabled = cookIngredients.isNotEmpty(),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            when {
-                                cookIngredients.isEmpty() -> "Cook this recipe (nothing in your fridge)"
-                                showCookSection -> "Hide cook mode"
-                                else -> "Cook this recipe"
-                            }
-                        )
                     }
                 }
 
