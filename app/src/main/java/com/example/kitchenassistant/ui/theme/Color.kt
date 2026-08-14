@@ -37,3 +37,10 @@ val IngredientAvailableBgLight = Color(0xFFE3F3E6)
 val IngredientAvailableBgDark = Color(0xFF1E3323)
 val IngredientMissingBgLight = Color(0xFFFCEAEA)
 val IngredientMissingBgDark = Color(0xFF3A2223)
+
+// The loading-screen illustration's woman -- fixed, not theme-derived (same reasoning as
+// FavoriteHeart above): skin/hair/outfit need to read as a person consistently, regardless of the
+// device's dynamic Material You palette, which could otherwise tint skin an unnatural hue.
+val LoadingSceneSkin = Color(0xFFE8B08C)
+val LoadingSceneHair = Color(0xFF4A3728)
+val LoadingSceneOutfit = Color(0xFF5C6BC0)

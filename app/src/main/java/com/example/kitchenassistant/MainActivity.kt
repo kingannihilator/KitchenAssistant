@@ -13,12 +13,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.model.Recipe
 import com.example.kitchenassistant.ui.FavoritesScreen
 import com.example.kitchenassistant.ui.IngredientScreen
+import com.example.kitchenassistant.ui.LoadingScreen
 import com.example.kitchenassistant.ui.RecipeDetailScreen
 import com.example.kitchenassistant.ui.RecipeScreen
 import com.example.kitchenassistant.ui.theme.KitchenAssistantTheme
 import com.example.kitchenassistant.viewmodel.IngredientViewModel
 
 sealed class Screen {
+    object Loading : Screen()
     object Ingredients : Screen()
     object Favorites : Screen()
     data class Recipes(val fridgeIngredients: List<String>, val prioritizedIngredients: List<String>) : Screen()
@@ -41,8 +43,11 @@ class MainActivity : ComponentActivity() {
             KitchenAssistantTheme {
                 val ingredientViewModel: IngredientViewModel = viewModel()
                 val fridgeIngredients by ingredientViewModel.ingredients.collectAsState()
-                var currentScreen by remember { mutableStateOf<Screen>(Screen.Ingredients) }
+                var currentScreen by remember { mutableStateOf<Screen>(Screen.Loading) }
                 when (val screen = currentScreen) {
+                    is Screen.Loading -> LoadingScreen(
+                        onFinished = { currentScreen = Screen.Ingredients }
+                    )
                     is Screen.Ingredients -> IngredientScreen(
                         onFindRecipes = { fridge, prioritized ->
                             currentScreen = Screen.Recipes(fridge, prioritized)
