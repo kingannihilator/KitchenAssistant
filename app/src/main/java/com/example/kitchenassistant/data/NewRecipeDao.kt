@@ -35,13 +35,17 @@ data class RecipeIngredientTextRow(
 /** One recipe_steps row, trimmed to what the detail screen needs. */
 data class RecipeStepRow(val instruction: String)
 
-/** Per-recipe score from [NewRecipeDao.scoreChunk] -- mirrors RecipeMatch in RecipeViewModel. */
+/** Per-recipe score from [NewRecipeDao.scoreChunk] -- mirrors RecipeMatch in RecipeViewModel.
+ * [matchedIds]/[definingIds] are comma-separated lists of matched ingredient_ids (not just a
+ * count) so [com.example.kitchenassistant.viewmodel.RecipeViewModel.scoreRecipesNew] can collapse
+ * ids that trace back to the same fridge entry -- e.g. several kinds of cheese matched by one
+ * generic fridge "cheese" -- into a single credit instead of counting each separately. */
 data class NewRecipeMatchRow(
     @ColumnInfo(name = "recipe_id") val recipeId: Int,
     val total: Int,
-    val matched: Int,
+    @ColumnInfo(name = "matched_ids") val matchedIds: String?,
     val prioritized: Int,
-    val defining: Int
+    @ColumnInfo(name = "defining_ids") val definingIds: String?
 )
 
 data class RecipeIdRow(@ColumnInfo(name = "recipe_id") val recipeId: Int)

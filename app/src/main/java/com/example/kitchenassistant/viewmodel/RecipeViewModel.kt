@@ -310,7 +310,8 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                     // cases (fridge "beef" also reaching "ribeye"/"chuck") -- see
                     // NewIngredientIndex's class doc.
                     val index = NewIngredientIndex.get(dao, BLOB_NAME_LENGTH_THRESHOLD_NEW)
-                    val matchedIds = index.matching(fridgeSet)
+                    val matchOrigins = index.matchOrigins(fridgeSet)
+                    val matchedIds = matchOrigins.keys
                     if (matchedIds.isEmpty()) {
                         _totalMatchCount.value = 0
                         return@run emptyList<Recipe>()
@@ -321,7 +322,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                         if (prioritizedSet.isEmpty()) emptySet()
                         else index.matching(prioritizedSet) intersect matchedIds
 
-                    val scored = scoreRecipesNew(dao, matchedIds, prioritizedIds)
+                    val scored = scoreRecipesNew(dao, matchedIds, prioritizedIds, matchOrigins)
                     if (scored.isEmpty()) {
                         _totalMatchCount.value = 0
                         return@run emptyList<Recipe>()
@@ -358,11 +359,18 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
      * either. `DEFINING`-tier matches are separately counted (not excluded from anything) so
      * [recipeOrder]/[matchOrder] can give them their own ranking boost, the same way starred
      * ingredients already do.
+     *
+     * [matchOrigins] maps each matched ingredient_id to the fridge entry that satisfied it (see
+     * [com.example.kitchenassistant.data.NewIngredientIndex.matchOrigins]) -- the raw matched-id
+     * set is collapsed by that origin before counting, so a recipe calling for several kinds of
+     * cheese only gets credit for as many as the fridge can actually distinguish (one, for a
+     * generic "cheese" entry; more, if the fridge lists them by specific name).
      */
     private suspend fun scoreRecipesNew(
         dao: NewRecipeDao,
         matchedIds: Set<Int>,
-        prioritizedIds: Set<Int>
+        prioritizedIds: Set<Int>,
+        matchOrigins: Map<Int, String>
     ): List<RecipeMatch> {
         val junkIds = if (SUPPRESS_BLOB_RECIPES_NEW) {
             blobRecipeIdsNew ?: dao.getBlobRecipeIds(BLOB_NAME_LENGTH_THRESHOLD_NEW).toSet().also {
@@ -374,47 +382,58 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
 
         // Chunks partition the matched set; `total` is NOT chunk-dependent (it's every
         // non-SEASONING ingredient the recipe calls for, computed the same regardless of which
-        // chunk is running), so it's taken once per recipe and never summed across chunks — only
-        // matched/prioritized/defining accumulate.
-        val accumulated = HashMap<Int, RecipeMatch>()
+        // chunk is running), so it's taken once per recipe and never summed across chunks. The
+        // matched/defining ingredient_ids themselves accumulate as sets (a chunk only ever sees
+        // its own slice), and the deduped counts are derived from those sets once all chunks are
+        // in; prioritized stays a simple per-chunk sum.
+        data class Accumulator(
+            var total: Int = 0,
+            val matchedIds: MutableSet<Int> = mutableSetOf(),
+            val definingIds: MutableSet<Int> = mutableSetOf(),
+            var prioritized: Int = 0
+        )
+        fun originsOf(ids: Set<Int>) = ids.mapTo(HashSet()) { matchOrigins[it] ?: it.toString() }
+
+        val accumulated = HashMap<Int, Accumulator>()
         for (chunk in chunkIntLiterals(matchedIds)) {
             val prioritizedChunk = chunk.filter { it in prioritizedIds }
             val rows = dao.scoreChunk(SimpleSQLiteQuery(buildScoreQuerySql(chunk, prioritizedChunk)))
             for (row in rows) {
                 if (row.recipeId in junkIds) continue
-                val existing = accumulated[row.recipeId]
-                accumulated[row.recipeId] = if (existing == null) {
-                    RecipeMatch(
-                        id = row.recipeId,
-                        matched = row.matched,
-                        total = row.total,
-                        prioritized = row.prioritized,
-                        defining = row.defining
-                    )
-                } else {
-                    existing.copy(
-                        matched = existing.matched + row.matched,
-                        prioritized = existing.prioritized + row.prioritized,
-                        defining = existing.defining + row.defining
-                    )
-                }
+                val acc = accumulated.getOrPut(row.recipeId) { Accumulator() }
+                acc.total = row.total
+                row.matchedIds?.splitToSequence(',')?.forEach { acc.matchedIds.add(it.toInt()) }
+                row.definingIds?.splitToSequence(',')?.forEach { acc.definingIds.add(it.toInt()) }
+                acc.prioritized += row.prioritized
             }
         }
-        return accumulated.values.toList()
+        return accumulated.map { (recipeId, acc) ->
+            RecipeMatch(
+                id = recipeId,
+                matched = originsOf(acc.matchedIds).size,
+                total = acc.total,
+                prioritized = acc.prioritized,
+                defining = originsOf(acc.definingIds).size
+            )
+        }
     }
 
     private fun buildScoreQuerySql(matchedChunk: List<Int>, prioritizedChunk: List<Int>): String = buildString {
         append("SELECT recipe_id, ")
         append("COUNT(DISTINCT CASE WHEN tier != 'SEASONING' THEN ingredient_id END) AS total, ")
-        append("COUNT(DISTINCT CASE WHEN tier != 'SEASONING' AND ingredient_id IN (")
+        // The actual matched ingredient_ids, not just a count -- scoreRecipesNew collapses ids
+        // that trace back to the same fridge entry (see NewIngredientIndex.matchOrigins) before
+        // counting, so it needs the list, not an aggregate.
+        append("GROUP_CONCAT(DISTINCT CASE WHEN tier != 'SEASONING' AND ingredient_id IN (")
         append(matchedChunk.joinToString(","))
-        append(") THEN ingredient_id END) AS matched, ")
+        append(") THEN ingredient_id END) AS matched_ids, ")
         // Defining-tier ingredients the fridge covers -- a subset of `matched` (DEFINING is never
         // SEASONING, so no tier != 'SEASONING' guard is needed here), used purely for the ranking
-        // boost in recipeOrder/matchOrder, not for the total/matched counts themselves.
-        append("COUNT(DISTINCT CASE WHEN tier = 'DEFINING' AND ingredient_id IN (")
+        // boost in recipeOrder/matchOrder, not for the total/matched counts themselves. Also
+        // returned as ids, not a count, so it gets the same fridge-origin dedup as matched_ids.
+        append("GROUP_CONCAT(DISTINCT CASE WHEN tier = 'DEFINING' AND ingredient_id IN (")
         append(matchedChunk.joinToString(","))
-        append(") THEN ingredient_id END) AS defining, ")
+        append(") THEN ingredient_id END) AS defining_ids, ")
         if (prioritizedChunk.isNotEmpty()) {
             append("COUNT(DISTINCT CASE WHEN tier != 'SEASONING' AND ingredient_id IN (")
             append(prioritizedChunk.joinToString(","))
@@ -422,7 +441,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         } else {
             append("0 AS prioritized")
         }
-        append(" FROM recipe_ingredients GROUP BY recipe_id HAVING matched > 0")
+        append(" FROM recipe_ingredients GROUP BY recipe_id HAVING matched_ids IS NOT NULL")
     }
 
     /** Loads titles and ingredient lists for the recipes that will actually be shown.

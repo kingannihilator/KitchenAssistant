@@ -46,7 +46,25 @@ class NewIngredientIndex private constructor(
      * expansion described in the class doc. Feeds straight into the scoring query's
      * `ingredient_id IN (...)` list, so it is the full set, not a ranked one.
      */
-    fun matching(fridgeNames: List<String>): Set<Int> {
+    fun matching(fridgeNames: List<String>): Set<Int> = matchOrigins(fridgeNames).keys
+
+    /**
+     * Like [matching], but also tags each matched ingredient_id with the fridge entry that
+     * satisfied it -- a stable string built from that fridge term's own words, so two different
+     * fridge rows that happen to normalize the same way collapse to one key, and two genuinely
+     * distinct fridge rows never share a key.
+     *
+     * This is what lets scoring collapse "cheddar cheese" and "mozzarella cheese" in the same
+     * recipe down to a single matched credit when the fridge only holds one generic "cheese" --
+     * both trace back to that one fridge entry -- while still crediting both separately when the
+     * fridge actually lists "cheddar cheese" and "mozzarella cheese" as their own entries. Fridge
+     * terms are processed most-specific-first (by word count) so a specific entry claims its own
+     * exact ingredient before a broader one (e.g. plain "cheese") sweeps in and swallows the claim;
+     * a category-expansion sibling (no shared words with any fridge term at all, e.g. "ribeye" via
+     * fridge "beef") inherits the origin of whichever matched ingredient first pulled its category
+     * in.
+     */
+    fun matchOrigins(fridgeNames: List<String>): Map<Int, String> {
         val fridgeTerms = fridgeNames.map { IngredientMatcher.parseFridge(it) }
         // Same-head lookup for the category-expansion guard below -- a candidate can only be
         // "explicitly rejected" by a fridge item whose head it shares.
@@ -54,19 +72,28 @@ class NewIngredientIndex private constructor(
 
         // Indices into the parallel arrays, not ingredient_ids yet -- resolved at the end.
         val matchedIndices = LinkedHashSet<Int>()
-        for (fridgeTerm in fridgeTerms) {
+        val origin = HashMap<Int, String>()
+        for (fridgeTerm in fridgeTerms.sortedByDescending { it.words.size }) {
             val head = fridgeTerm.head ?: continue
             val bucket = byHead[head] ?: continue
+            val key = fridgeTerm.words.sorted().joinToString(" ")
             for (i in bucket) {
                 if (i in matchedIndices) continue
                 if (IngredientMatcher.matches(fridgeTerm, IngredientMatcher.parseRecipe(normalizedNames[i]))) {
                     matchedIndices.add(i)
+                    origin[i] = key
                 }
             }
         }
 
-        val categoriesToExpand = matchedIndices.mapNotNull { categoryIds[it] }.toSet()
-        for (categoryId in categoriesToExpand) {
+        // Representative origin per category, so every sibling pulled in by that category's
+        // expansion traces back to the same fridge entry that triggered it.
+        val categoryOrigin = HashMap<Int, String>()
+        for (i in matchedIndices) {
+            val categoryId = categoryIds[i] ?: continue
+            categoryOrigin.putIfAbsent(categoryId, origin.getValue(i))
+        }
+        for (categoryId in categoryOrigin.keys) {
             val siblings = byCategory[categoryId] ?: continue
             for (i in siblings) {
                 if (i in matchedIndices) continue
@@ -75,11 +102,18 @@ class NewIngredientIndex private constructor(
                 val explicitlyRejected = sameHeadFridgeTerms?.any {
                     IngredientMatcher.isDifferentSubstance(it, candidateTerm)
                 } ?: false
-                if (!explicitlyRejected) matchedIndices.add(i)
+                if (!explicitlyRejected) {
+                    matchedIndices.add(i)
+                    origin[i] = categoryOrigin.getValue(categoryId)
+                }
             }
         }
 
-        return matchedIndices.mapTo(LinkedHashSet()) { ingredientIds[it] }
+        val result = LinkedHashMap<Int, String>(matchedIndices.size)
+        for (i in matchedIndices) {
+            result[ingredientIds[i]] = origin.getValue(i)
+        }
+        return result
     }
 
     companion object {
