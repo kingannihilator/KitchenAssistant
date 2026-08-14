@@ -33,10 +33,7 @@ data class RecipeIngredientTextRow(
 )
 
 /** One recipe_steps row, trimmed to what the detail screen needs. */
-data class RecipeStepRow(
-    @ColumnInfo(name = "step_title") val stepTitle: String?,
-    val instruction: String
-)
+data class RecipeStepRow(val instruction: String)
 
 /** Per-recipe score from [NewRecipeDao.scoreChunk] -- mirrors RecipeMatch in RecipeViewModel. */
 data class NewRecipeMatchRow(
@@ -69,7 +66,7 @@ interface NewRecipeDao {
     @Query("SELECT ingredient_id, normalized_name, category_id FROM ingredients WHERE LENGTH(normalized_name) <= :blobLengthThreshold")
     suspend fun getMatchableIngredients(blobLengthThreshold: Int): List<IngredientForIndexRow>
 
-    @Query("SELECT step_title, instruction FROM recipe_steps WHERE recipe_id = :recipeId ORDER BY step_no")
+    @Query("SELECT instruction FROM recipe_steps WHERE recipe_id = :recipeId ORDER BY step_no")
     suspend fun getSteps(recipeId: Int): List<RecipeStepRow>
 
     // --- Everything below touches recipe_ingredients, so it's all @RawQuery, not @Query. ---

@@ -133,11 +133,7 @@ fun RecipeScreen(
                 },
                 actions = {
                     IconButton(onClick = onViewFavorites) {
-                        Icon(
-                            imageVector = Icons.Filled.Favorite,
-                            contentDescription = "View favorite recipes",
-                            tint = FavoriteHeart
-                        )
+                        FavoritesShortcutIcon()
                     }
                 }
             )

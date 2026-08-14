@@ -46,7 +46,7 @@ Kitchen Assistant helps users manage their fridge ingredients and get personaliz
 - Recipes are matched against the current fridge contents from a bundled offline recipe database (no network calls)
 - Results are scored by percentage of recipe ingredients present in the fridge and sorted best-match-first, with favorites pinned to the top
 - Recipe cards are color-coded by match tier: 100% match, ≥75% match, and below 75%
-- Recipe detail view shows full ingredient list (checkmarked against the fridge) and directions, plus a "cook mode" that lets the user deduct used ingredients from fridge counts
+- Recipe detail view shows full ingredient list (checkmarked against the fridge) and directions
 - Favorites are persisted via SharedPreferences
 
 ### Current State
@@ -82,14 +82,14 @@ Single `app` module. Source root: `app/src/main/java/com/example/kitchenassistan
 **Data flow:** `MainActivity` owns a single `IngredientViewModel` shared across screens; `RecipeViewModel` is scoped per recipe/detail screen. `IngredientScreen` collects `IngredientViewModel` StateFlows; typing in the add-ingredient field filters an in-memory list of names loaded once from `assets/ingredients.db` (no debounce, no network). `RecipeScreen` triggers `RecipeViewModel.searchRecipes(fridgeIngredients)` on entry, which queries `assets/recipes.db` on a background dispatcher and exposes `sortedRecipes`/`filteredRecipes`. `RecipeDetailScreen` loads full ingredients/directions for one recipe on demand and lets the user deduct fridge quantities while cooking.
 
 **Key ViewModel functions:**
-- `IngredientViewModel`: `addIngredient`, `removeIngredient`, `setCount`/`incrementCount`/`decrementCount`, `setCountByIdOrRemove` (used from cook mode, where 0 means "used it all up"), `setExpirationDate`, `togglePrioritized`, `clearAll`, `onSearchQueryChange`, `clearSuggestions`
+- `IngredientViewModel`: `addIngredient`, `removeIngredient`, `setCount`/`incrementCount`/`decrementCount`, `setExpirationDate`, `togglePrioritized`, `clearAll`, `onSearchQueryChange`, `clearSuggestions`
 - `RecipeViewModel`: `searchRecipes`, `loadRecipeDetail`, `toggleFavorite`, `setFilterQuery`
 
 **Ingredient states:** default (`surfaceVariant`) vs. prioritized/starred (`primaryContainer`, boosts ranking). The excluded/negative state is disabled — see Current State above.
 
 ## Recipe matching
 
-`data/IngredientMatcher.kt` is the single source of truth for "does this fridge item satisfy this recipe ingredient" — recipe scoring, the detail screen's check/X icons, and cook mode all call it, so the card's "X/Y ingredients" and the detail screen can't disagree.
+`data/IngredientMatcher.kt` is the single source of truth for "does this fridge item satisfy this recipe ingredient" — recipe scoring and the detail screen's check/X icons both call it, so the card's "X/Y ingredients" and the detail screen can't disagree.
 
 Matching is **word-level and head-anchored**, not substring. A name reduces to a set of content words plus a *head* (the last word, skipping trailing part-words like `breast`/`half`/`clove`). Two names match when their heads are equal, one word set contains the other, and the extra words aren't in `BLOCK_MODIFIERS`. Consequences worth knowing:
 

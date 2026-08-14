@@ -45,7 +45,6 @@ import androidx.compose.material.icons.filled.Add
 // import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -97,12 +96,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.model.Ingredient
-import com.example.kitchenassistant.ui.theme.FavoriteHeart
 import com.example.kitchenassistant.viewmodel.IngredientViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+
+/** Units offered by both the add-ingredient form and each fridge row's unit dropdown. */
+private val UNIT_OPTIONS = listOf(
+    "units", "pounds", "ounces", "grams", "kilograms",
+    "cups", "tablespoons", "teaspoons",
+    "quarts", "pints", "gallons", "liters", "milliliters",
+    "cloves", "cans", "bunches", "slices"
+)
 
 /**
  * Root screen composable for the ingredient management UI.
@@ -152,11 +158,7 @@ fun IngredientScreen(
                 title = { Text("Kitchen Assistant") },
                 actions = {
                     IconButton(onClick = onViewFavorites) {
-                        Icon(
-                            imageVector = Icons.Filled.Favorite,
-                            contentDescription = "View favorite recipes",
-                            tint = FavoriteHeart
-                        )
+                        FavoritesShortcutIcon()
                     }
                 }
             )
@@ -282,6 +284,7 @@ fun IngredientScreen(
                                     onIncrement = { viewModel.incrementCount(ingredient.id) },
                                     onDecrement = { viewModel.decrementCount(ingredient.id) },
                                     onSetCount = { viewModel.setCount(ingredient.id, it) },
+                                    onSetUnit = { viewModel.setUnit(ingredient.id, it) },
                                     onRename = { viewModel.renameIngredient(ingredient.id, it) },
                                     isValidName = { viewModel.isKnownIngredientName(it) }
                                 )
@@ -463,12 +466,7 @@ private fun AddIngredientCard(
     }
 
     // Selected unit of measurement for the ingredient being added.
-    val unitOptions = listOf(
-        "units", "pounds", "ounces", "grams", "kilograms",
-        "cups", "tablespoons", "teaspoons",
-        "quarts", "pints", "gallons", "liters", "milliliters",
-        "cloves", "cans", "bunches", "slices"
-    )
+    val unitOptions = UNIT_OPTIONS
     var selectedUnit by remember { mutableStateOf("units") }
     var unitDropdownExpanded by remember { mutableStateOf(false) }
 
@@ -706,6 +704,7 @@ private fun IngredientItem(
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
     onSetCount: (Int) -> Unit,
+    onSetUnit: (String) -> Unit,
     onRename: (String) -> Unit,
     isValidName: (String) -> Boolean
 ) {
@@ -876,11 +875,51 @@ private fun IngredientItem(
                     onIncrement = onIncrement,
                     onSetCount = onSetCount
                 )
-                Text(
-                    text = ingredient.unit,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                // Unit dropdown, same pattern as the add-ingredient form's (own ScrollState so a
+                // visible scrollbar thumb can be drawn on top of DropdownMenu's internal one).
+                var unitDropdownExpanded by remember { mutableStateOf(false) }
+                val unitScrollState = rememberScrollState()
+                Box {
+                    TextButton(
+                        onClick = { unitDropdownExpanded = true },
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                        modifier = Modifier.height(20.dp)
+                    ) {
+                        Text(
+                            text = ingredient.unit,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = unitDropdownExpanded,
+                        onDismissRequest = { unitDropdownExpanded = false }
+                    ) {
+                        Box(modifier = Modifier.heightIn(max = 170.dp)) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(unitScrollState)
+                            ) {
+                                UNIT_OPTIONS.forEach { unit ->
+                                    DropdownMenuItem(
+                                        text = { Text(unit, style = MaterialTheme.typography.bodyMedium) },
+                                        onClick = { onSetUnit(unit); unitDropdownExpanded = false },
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                        modifier = Modifier.height(40.dp)
+                                    )
+                                }
+                            }
+                            ScrollStateScrollbar(
+                                state = unitScrollState,
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .fillMaxHeight()
+                                    .width(6.dp)
+                            )
+                        }
+                    }
+                }
             }
 
             // Exclude/block button — commented out.

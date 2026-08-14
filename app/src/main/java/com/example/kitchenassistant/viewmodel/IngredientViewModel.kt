@@ -320,6 +320,13 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /** Updates the unit of measurement of the ingredient with the given [id]. */
+    fun setUnit(id: String, unit: String) {
+        _ingredients.update { list ->
+            list.map { if (it.id == id) it.copy(unit = unit) else it }
+        }
+    }
+
     /** Updates the expiration date of the ingredient with the given [id]. Pass null to clear it. */
     fun setExpirationDate(id: String, date: Long?) {
         _ingredients.update { list ->
@@ -350,16 +357,6 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
 //            }
 //        }
 //    }
-
-    /**
-     * Sets the count of the ingredient with the given [id], removing it once the count reaches 0.
-     *
-     * Used by cook mode, where typing 0 into the stepper means "I've used it all up" rather than
-     * being ignored the way [setCount] would.
-     */
-    fun setCountByIdOrRemove(id: String, count: Int) {
-        if (count <= 0) removeIngredient(id) else setCount(id, count)
-    }
 
     /**
      * Toggles the prioritized state of the ingredient with the given [id].

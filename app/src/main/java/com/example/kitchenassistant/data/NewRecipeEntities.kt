@@ -18,8 +18,10 @@ import androidx.room.PrimaryKey
  * reads from `recipe_ingredients` (never inserts/updates through Room), there is no need to
  * force that mismatch -- [NewRecipeDao] queries it directly via `@Query`/`@RawQuery` into
  * plain result classes, which Room maps by column name with no schema validation against the
- * table. `cuisines`/`recipe_cuisines`/the FTS tables are similarly unmapped (empty/unused in
- * this build, see ANDROID_HANDOFF.md in porting-reference/).
+ * table. `cuisines`/`recipe_cuisines`/the FTS tables don't exist at all anymore -- along with
+ * `source_datasets` and a set of always-NULL `recipes`/`recipe_steps` columns, they were dropped
+ * by `porting-reference/cleanup_unused_schema.py` after an audit found them 100% empty and unread
+ * by any app code (see that script's docstring for the full list and reasoning).
  *
  * IMPORTANT: Room's runtime schema validation (confirmed via a real on-device crash, not
  * theorized -- `IllegalStateException: Pre-packaged database has an invalid schema`) compares
@@ -34,24 +36,10 @@ import androidx.room.PrimaryKey
  * companion migration in the same session's history for both fixes.
  */
 
-@Entity(
-    tableName = "recipes",
-    indices = [Index(value = ["country"], name = "idx_recipes_country")]
-)
+@Entity(tableName = "recipes")
 data class RecipeEntity(
     @PrimaryKey @ColumnInfo(name = "recipe_id") val recipeId: Int,
     val title: String,
-    @ColumnInfo(name = "local_name") val localName: String?,
-    val country: String?,
-    val region: String?,
-    val cuisine: String?,
-    val category: String?,
-    @ColumnInfo(name = "prep_time") val prepTime: String?,
-    @ColumnInfo(name = "cook_time") val cookTime: String?,
-    @ColumnInfo(name = "total_time") val totalTime: String?,
-    val servings: String?,
-    val description: String?,
-    @ColumnInfo(name = "instructions_raw") val instructionsRaw: String?,
     @ColumnInfo(name = "source_id") val sourceId: Int?
 )
 
@@ -100,7 +88,6 @@ data class NewIngredientEntity(
 data class RecipeStepEntity(
     @ColumnInfo(name = "recipe_id") val recipeId: Int,
     @ColumnInfo(name = "step_no") val stepNo: Int,
-    @ColumnInfo(name = "step_title") val stepTitle: String?,
     val instruction: String
 )
 

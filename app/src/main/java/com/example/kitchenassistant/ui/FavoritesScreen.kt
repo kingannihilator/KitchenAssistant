@@ -98,7 +98,13 @@ fun FavoritesScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    // Extra bottom padding so the list can keep scrolling past its natural end --
+                    // otherwise, once there are enough favorites/history rows to reach the bottom
+                    // of the screen, the last row would hit the PeekingMascot cameo below and get
+                    // stuck sitting right behind her forever, with no way to scroll it clear of
+                    // her head. Same fix as RecipeDetailScreen's WorkingMascotScene padding, sized
+                    // to this screen's smaller 120dp-tall cameo instead of that one's 150dp scene.
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 130.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (favorites.isEmpty()) {
@@ -155,9 +161,15 @@ fun FavoritesScreen(
                 // recipes she's already happy with rather than an open question. Drawn on top of
                 // the list (declared last): if she covers a card at the current scroll position,
                 // scrolling past her is a trivial nudge.
+                //
+                // leanTowardCenter = true here, not false -- per PeekingMascot's own doc, true
+                // tilts her head left ("toward center") when she's in the bottom-right corner,
+                // which this screen's BottomEnd placement is. false tilted her head further right,
+                // off the edge of the canvas and the screen with it -- see the conversation this
+                // was fixed in for a pixel-level before/after.
                 PeekingMascot(
                     expression = MascotExpression.SMILING,
-                    leanTowardCenter = false,
+                    leanTowardCenter = true,
                     modifier = Modifier.align(Alignment.BottomEnd)
                 )
             }

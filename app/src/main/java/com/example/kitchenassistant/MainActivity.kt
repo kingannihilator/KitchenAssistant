@@ -87,9 +87,7 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 Screen.Recipes(screen.fridgeIngredients, screen.prioritizedIngredients)
                             }
-                        },
-                        onDeductIngredient = { id -> ingredientViewModel.decrementCount(id) },
-                        onSetCount = { id, count -> ingredientViewModel.setCountByIdOrRemove(id, count) }
+                        }
                     )
                 }
             }

@@ -93,15 +93,11 @@ fun DrawScope.drawMascot(
                 drawLine(colors.skin, rightShoulder, hand, strokeWidth = headRadius * 0.22f, cap = StrokeCap.Round)
             }
             MascotExpression.WORKING -> {
-                // Both arms reach down and forward to a shared point in front of her -- roughly
-                // where a rolling pin sits. The caller draws the pin/dough itself (see
-                // ui/RollingDoughIllustration.kt); this just gets her hands to the right spot.
-                val leftShoulder = Offset(torsoTopLeft.x + torsoW * 0.12f, torsoTopLeft.y + torsoH * 0.18f)
-                val handsCenter = Offset(hip.x + torsoW * 0.12f, torsoTopLeft.y + torsoH * 1.05f)
-                val leftHand = handsCenter - Offset(headRadius * 0.55f, 0f)
-                val rightHand = handsCenter + Offset(headRadius * 0.55f, 0f)
-                drawLine(colors.skin, leftShoulder, leftHand, strokeWidth = headRadius * 0.22f, cap = StrokeCap.Round)
-                drawLine(colors.skin, rightShoulder, rightHand, strokeWidth = headRadius * 0.22f, cap = StrokeCap.Round)
+                // Deliberately no arms here -- see drawWorkingArms below. WORKING is built for
+                // scenes (ui/RollingDoughIllustration.kt) where a prop (a board, dough) needs to
+                // sit visually *between* her body and her hands, so her hands read as gripping the
+                // prop rather than being buried behind it. Callers using WORKING must call
+                // drawWorkingArms themselves, wherever they want it in their own draw order.
             }
         }
         // Hair (behind the head), then the head itself, then a short hair wisp at the crown.
@@ -187,6 +183,47 @@ fun DrawScope.drawMascot(
         }
     }
     return rotateAroundPivot(headCenter, hip, leanDeg)
+}
+
+/**
+ * Draws [MascotExpression.WORKING]'s two bent arms on their own, without the rest of the body --
+ * pairs with [drawMascot] called with `expression = MascotExpression.WORKING`, which draws
+ * everything else but skips the arms specifically so a caller can layer scene props (a board,
+ * dough) in between: body first, then the props, then this on top, so her hands read as gripping
+ * whatever she's working on rather than sinking behind it. Must be called with the same
+ * [hip]/[headRadius]/[leanDeg] passed to that [drawMascot] call so the arms line up with the
+ * shoulders drawn there.
+ */
+fun DrawScope.drawWorkingArms(
+    hip: Offset,
+    headRadius: Float,
+    leanDeg: Float,
+    colors: MascotColors = MascotColors()
+) {
+    val torsoW = headRadius * 2.5f
+    val torsoH = headRadius * 4.25f
+    val torsoTopLeft = Offset(hip.x - torsoW / 2f, hip.y - torsoH)
+
+    rotate(degrees = leanDeg, pivot = hip) {
+        // Both arms bend at the elbow down to a shared point in front of her -- roughly where a
+        // rolling pin sits (see ui/RollingDoughIllustration.kt, which derives the pin/dough
+        // position from where handsCenter lands here). A single straight shoulder-to-hand segment
+        // read as an unnaturally long reach; the elbow bend keeps each segment short while
+        // covering the same distance.
+        val leftShoulder = Offset(torsoTopLeft.x + torsoW * 0.12f, torsoTopLeft.y + torsoH * 0.18f)
+        val rightShoulder = Offset(torsoTopLeft.x + torsoW * 0.88f, torsoTopLeft.y + torsoH * 0.18f)
+        // 0.58, not all the way down near the hip -- a short reach, per direct feedback that an
+        // earlier, longer version read as too long.
+        val handsCenter = Offset(hip.x + torsoW * 0.12f, torsoTopLeft.y + torsoH * 0.58f)
+        val leftElbow = Offset(leftShoulder.x - headRadius * 0.35f, (leftShoulder.y + handsCenter.y) / 2f)
+        val rightElbow = Offset(rightShoulder.x + headRadius * 0.35f, (rightShoulder.y + handsCenter.y) / 2f)
+        val leftHand = handsCenter - Offset(headRadius * 0.4f, 0f)
+        val rightHand = handsCenter + Offset(headRadius * 0.4f, 0f)
+        drawLine(colors.skin, leftShoulder, leftElbow, strokeWidth = headRadius * 0.22f, cap = StrokeCap.Round)
+        drawLine(colors.skin, leftElbow, leftHand, strokeWidth = headRadius * 0.22f, cap = StrokeCap.Round)
+        drawLine(colors.skin, rightShoulder, rightElbow, strokeWidth = headRadius * 0.22f, cap = StrokeCap.Round)
+        drawLine(colors.skin, rightElbow, rightHand, strokeWidth = headRadius * 0.22f, cap = StrokeCap.Round)
+    }
 }
 
 /** Rotates [p] by [degrees] around [pivot] -- used to find where a body part painted inside

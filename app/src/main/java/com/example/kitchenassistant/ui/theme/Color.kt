@@ -52,3 +52,7 @@ val MascotOutfit = Color(0xFF5C6BC0)
 // device's Material You palette, same reasoning as the mascot's own colors above.
 val MascotCounter = Color(0xFF9C7B54)
 val MascotDough = Color(0xFFF3E4C8)
+// A lighter wood tone than MascotCounter, deliberately -- the pin used to be drawn in the same
+// color as the counter beneath it, which read as a hole cut through the dough (revealing the
+// counter) rather than a cylinder resting on top of it.
+val MascotPin = Color(0xFFC9A66B)

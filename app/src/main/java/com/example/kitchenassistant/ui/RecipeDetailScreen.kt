@@ -93,10 +93,6 @@ fun RecipeDetailScreen(
     recipe: Recipe,
     fridgeIngredients: List<Ingredient> = emptyList(),
     onBack: () -> Unit,
-    // Keyed by Ingredient.id, not name: two fridge entries can share a name prefix, and the old
-    // name-based lookup resolved "eggplant" to "egg" and decremented the wrong one.
-    onDeductIngredient: (String) -> Unit = {},
-    onSetCount: (String, Int) -> Unit = { _, _ -> },
     viewModel: RecipeViewModel = viewModel()
 ) {
     val ingredients by viewModel.detailIngredients.collectAsState()
@@ -122,8 +118,8 @@ fun RecipeDetailScreen(
     }
 
     // Which fridge ingredient covers each recipe line, parallel to [ingredients]. Computed once
-    // and used for both the checkmarks and the cook-mode rows, through the same IngredientMatcher
-    // the search scored with — so this screen can no longer disagree with the card's "X/Y".
+    // and used for the checkmarks, through the same IngredientMatcher the search scored with —
+    // so this screen can no longer disagree with the card's "X/Y".
     val coveredBy: List<Ingredient?> = remember(ingredients, fridgeIngredients) {
         val fridgeTerms = fridgeIngredients.map { it to IngredientMatcher.parseFridge(it.name) }
         ingredients.map { detail ->
@@ -134,7 +130,6 @@ fun RecipeDetailScreen(
             }?.first
         }
     }
-    val cookIngredients = remember(coveredBy) { coveredBy.filterNotNull().distinctBy { it.id } }
 
     // Reads Directions aloud via the platform TTS engine -- no bundled voice data, no network,
     // consistent with the rest of the app. Android's TTS API has no true pause (only stop, which
@@ -267,7 +262,16 @@ fun RecipeDetailScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                // Extra bottom padding when the working-mascot cameo is showing (see below), so
+                // the list can keep scrolling past its natural end -- otherwise the last
+                // Directions row would hit the bottom of the screen and get stuck sitting right
+                // behind her forever, with no way to scroll it clear of her head.
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 12.dp,
+                    bottom = if (directions.isNotEmpty()) 160.dp else 12.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Metadata row
@@ -457,26 +461,6 @@ fun RecipeDetailScreen(
                     }
                 }
 
-                // Cook section — ingredient rows with editable count and minus button. Always
-                // shown once there's something to deduct, rather than gated behind a toggle: it's
-                // a natural continuation of reading through Directions, and a remote toggle up
-                // near Ingredients had the same "looks like nothing happened" problem the
-                // highlight button above just got fixed for.
-                if (cookIngredients.isNotEmpty()) {
-                    item {
-                        Spacer(Modifier.height(4.dp))
-                        Text("Use from fridge", style = MaterialTheme.typography.titleMedium)
-                        HorizontalDivider(modifier = Modifier.padding(top = 4.dp))
-                    }
-                    itemsIndexed(cookIngredients, key = { _, ing -> ing.id }) { _, ingredient ->
-                        CookIngredientRow(
-                            ingredient = ingredient,
-                            onDeduct = { onDeductIngredient(ingredient.id) },
-                            onSetCount = { onSetCount(ingredient.id, it) }
-                        )
-                    }
-                }
-
                 if (ingredients.isEmpty() && directions.isEmpty()) {
                     item {
                         Text(
@@ -496,36 +480,12 @@ fun RecipeDetailScreen(
             )
             // The mascot, hard at work rolling dough, anchored to the screen (not the list) so
             // she stays put at the bottom-center as you scroll -- deliberately overlapping the
-            // "Use from fridge" section below her, the same "she's on top, just scroll past her"
-            // tradeoff as the corner cameos on the results/favorites screens.
-            if (cookIngredients.isNotEmpty()) {
+            // end of the Directions section below her, the same "she's on top, just scroll past
+            // her" tradeoff as the corner cameos on the results/favorites screens.
+            if (directions.isNotEmpty()) {
                 WorkingMascotScene(modifier = Modifier.align(Alignment.BottomCenter))
             }
             } // end Box
         }
-    }
-}
-
-@Composable
-private fun CookIngredientRow(
-    ingredient: Ingredient,
-    onDeduct: () -> Unit,
-    onSetCount: (Int) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            "${ingredient.name} (${ingredient.unit})",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
-        )
-        CountStepper(
-            count = ingredient.count,
-            onDecrement = onDeduct,
-            onIncrement = { onSetCount(ingredient.count + 1) },
-            onSetCount = onSetCount
-        )
     }
 }
