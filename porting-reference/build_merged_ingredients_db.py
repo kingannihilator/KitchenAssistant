@@ -125,16 +125,26 @@ MEASUREMENT_STOPWORDS = {
 # QUANTITY_PREFIXES's own reasoning) rather than checking every STOPWORDS entry as a
 # prefix/suffix, which risks false splits on real words that just happen to end in "as" or start
 # with "can" (candy, canteloupe, ...).
+# Singular form listed before its plural within each unit family (tablespoon before tablespoons,
+# etc.) -- _split_fused checks in order and returns on the first match, so "teaspoonsalt" (glued
+# from "teaspoon salt", singular) must hit "teaspoon" before it ever reaches "teaspoons", or the
+# plural's extra "s" coincidentally swallows the next word's leading letter too: matching
+# "teaspoons" first left "alt" (from "salt") instead of "salt" itself. Plural-first was the actual
+# bug behind that -- found by testing this exact token, not a hypothetical.
 QUANTITY_PREFIXES = [
-    "tablespoons", "tablespoon", "tbsp", "tbl", "teaspoons", "teaspoon", "tsp",
-    "cups", "cup", "cans", "can", "grams", "gram", "gr", "ounces", "ounce", "oz",
-    "pounds", "pound", "lbs", "lb", "packages", "package",
-    "containers", "container", "jars", "jar", "tubs", "tub", "pinch",
+    "tablespoon", "tablespoons", "tbsp", "tbl", "teaspoon", "teaspoons", "tsp",
+    "cup", "cups", "can", "cans", "gram", "grams", "gr", "ounce", "ounces", "oz",
+    "pound", "pounds", "lbs", "lb", "package", "packages",
+    "container", "containers", "jar", "jars", "tub", "tubs", "pinch",
 ]
 PREP_SUFFIXES = [
     "chopped", "minced", "sliced", "diced", "grated", "shredded", "crushed",
     "finely", "coarsely", "thinly", "quartered", "halved", "peeled", "trimmed",
     "ground", "lightly",
+    # Added after finding "buttersoftened", "margarinemelted" surviving whole in ingredients.db --
+    # both are already in STOPWORDS (so recognized as noise once split), just missing from this
+    # separate fusion-suffix list.
+    "softened", "melted",
 ]
 
 # Deliberately no single-letter prefixes ("g", "c" for grams/cups) here, unlike
@@ -158,13 +168,25 @@ def _split_fused(token: str) -> list[str]:
     *correct* split, since the caller's normal stopword filter drops it right after, same as if it
     had never been fused in the first place. An earlier version rejected exactly that case, which
     silently broke as soon as "ground" was added to the stopword lists.
+
+    Loops rather than stopping at the first strip: "tbspalmondssliced" ("2 tbsp almonds, sliced")
+    needs both a prefix AND a suffix removed to reach "almonds", and a single pass only recovered
+    "almondssliced", still fused.
     """
-    for prefix in QUANTITY_PREFIXES:
-        if len(token) > len(prefix) + 2 and token.startswith(prefix):
-            return [token[len(prefix):]]
-    for suffix in PREP_SUFFIXES:
-        if len(token) > len(suffix) + 2 and token.endswith(suffix):
-            return [token[: -len(suffix)]]
+    changed = True
+    while changed:
+        changed = False
+        for prefix in QUANTITY_PREFIXES:
+            if len(token) > len(prefix) + 2 and token.startswith(prefix):
+                token = token[len(prefix):]
+                changed = True
+                break
+        else:
+            for suffix in PREP_SUFFIXES:
+                if len(token) > len(suffix) + 2 and token.endswith(suffix):
+                    token = token[: -len(suffix)]
+                    changed = True
+                    break
     return [token]
 
 
@@ -237,12 +259,57 @@ def extract_corpus_vocabulary(min_frequency: int) -> list[str]:
         # sensible name for one ingredient, even though it's short.
         candidates = [ex for ex in data["examples"] if not _CONNECTIVE_PHRASE.search(ex)]
         pool = candidates or list(data["examples"])
-        best = min(pool, key=len)
-        names.append(best.strip())
+        # _split_fused recovers a clean *grouping key* even from a raw example that's still glued
+        # together (e.g. "cornflakescrushed" groups correctly under "cornflake"), but the display
+        # string itself is a verbatim raw example -- so a singleton group whose only raw mention
+        # was glued has no clean sibling to fall back to, and would otherwise surface that same
+        # glued text as an "ingredient" (found via manual inspection of the shipped ingredients.db:
+        # "buttersoftened", "5gsalt", "salt and pepperto taste", ...). Try every raw example
+        # shortest-first and take the first one that doesn't still look glued, rather than only
+        # ever considering the single shortest; drop the group entirely if none qualify, since
+        # inventing a display string from the cleaned word set risks an awkward phrase no recipe
+        # actually uses (see the comment above about "pepper flakes or cayenne pepper").
+        clean_pool = [ex for ex in sorted(pool, key=len) if not _looks_glued(ex)]
+        if not clean_pool:
+            continue
+        names.append(clean_pool[0].strip())
     return names
 
 
 _CONNECTIVE_PHRASE = re.compile(r"\b(or|and)\b")
+
+# A digit sitting directly against a letter, with no separating space or punctuation, is quantity
+# text ("170grams", "5g", "milk1") that the corpus's own parsing failed to strip -- no real
+# ingredient name does this. A single alphabetic run this long is virtually always two-plus real
+# words glued together (the fusion _split_fused's word lists didn't happen to cover) rather than
+# one genuine word: the longest confirmed-real single-word entries in this corpus top out at
+# "worcestershire" (14 chars, whitelisted below); everything observed past that during manual
+# review was contamination.
+_DIGIT_ADJACENT_LETTER = re.compile(r"\d[a-zA-Z]|[a-zA-Z]\d")
+_LONG_RUN = re.compile(r"[a-zA-Z]{14,}")
+_LONG_RUN_ALLOWLIST = {"worcestershire"}
+
+# A short remainder, found by manual review of the shipped ingredients.db, not a general rule:
+# fusions on a short connective word ("to", "of") can't be recovered by stripping the connective
+# generically -- "to"/"of" are common word-*endings* too ("potato", "tomato", "offal"), so a blind
+# strip would corrupt those instead of just rejecting the rare glued case. Since this list only
+# ever REJECTS a candidate (never rewrites one), the failure mode of a false positive is losing one
+# corpus-mined synonym, not corrupting real data -- a much cheaper mistake, and in practice moot
+# here since "potato"/"tomato"/"offal" are already separate entries from the OpenFoodFacts baseline
+# and would never be re-mined from the corpus in the first place.
+_KNOWN_GLUED_SUBSTRINGS = {"pepperto", "saltto", "tastesalt", "ofsalt", "oilfor", "mlcold", "lemonlemon"}
+
+
+def _looks_glued(raw: str) -> bool:
+    lowered = raw.lower()
+    if _DIGIT_ADJACENT_LETTER.search(raw):
+        return True
+    if any(s in lowered for s in _KNOWN_GLUED_SUBSTRINGS):
+        return True
+    return any(
+        len(run) >= 14 and run.lower() not in _LONG_RUN_ALLOWLIST
+        for run in re.findall(r"[a-zA-Z]+", raw)
+    )
 
 
 def slugify(name: str) -> str:
