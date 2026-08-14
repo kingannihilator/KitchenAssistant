@@ -83,8 +83,8 @@ private enum class ReadAloudState { IDLE, SPEAKING, PAUSED }
 // audio playback doesn't get exercised incidentally -- flip back to true to re-enable. When
 // false, the TTS engine is never created and the button/Previous-Next row/step highlight don't
 // render, rather than rendering disabled -- consistent with how the rest of the app treats
-// data-quality mitigations (SUPPRESS_UNDERPARSED_RECIPES, USE_NEW_RECIPE_DATABASE): a named,
-// reversible flag rather than deleting the feature.
+// data-quality mitigations (e.g. RecipeViewModel.SUPPRESS_BLOB_RECIPES_NEW): a named, reversible
+// flag rather than deleting the feature.
 private const val READ_ALOUD_ENABLED = false
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -21,8 +21,7 @@ package com.example.kitchenassistant.data
  * [NewIngredientIndex]'s head-bucketing for the same reason: only a candidate's own head bucket
  * can possibly contain a hit.
  *
- * Built once per process and held for the app's lifetime, same rationale as [CanonicalIndex] and
- * [NewIngredientIndex].
+ * Built once per process and held for the app's lifetime, same rationale as [NewIngredientIndex].
  */
 class IngredientPopularityIndex private constructor(
     private val terms: Array<IngredientMatcher.Term>,

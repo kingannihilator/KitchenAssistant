@@ -51,7 +51,7 @@ Kitchen Assistant helps users manage their fridge ingredients and get personaliz
 
 ### Current State
 
-Working single-activity app with two main screens (ingredient list, recipe list) plus a recipe detail screen, navigated via a simple sealed-class `Screen` state machine in `MainActivity`. No network layer — ingredient autocomplete runs against `ingredients.db`, and recipe search runs against *one of two* bundled recipe corpora depending on `RecipeViewModel.USE_NEW_RECIPE_DATABASE` (see "Two recipe corpora" below) — all bundled in `app/src/main/assets/`, copied to app-internal storage (`recipes.db`) or opened in place via Room (`database/recipe_database.sqlite`) on first use. Ingredient list itself is still in-memory only (lost on process death); favorites are the only persisted state.
+Working single-activity app with two main screens (ingredient list, recipe list) plus a recipe detail screen, navigated via a simple sealed-class `Screen` state machine in `MainActivity`. No network layer — ingredient autocomplete runs against `ingredients.db` (bundled in `app/src/main/assets/`, copied to app-internal storage on first use), and recipe search runs against the bundled recipe corpus (see "The recipe corpus" below), opened in place via Room (`database/recipe_database.sqlite`). Ingredient list itself is still in-memory only (lost on process death); favorites are the only persisted state.
 
 The exclude/negative-ingredient feature (`isNegative` on `Ingredient`) exists in the data model but its UI and toggle logic are commented out, not deleted — see `viewmodel/IngredientViewModel.kt` and `ui/IngredientScreen.kt` for the intentionally-disabled code paths.
 
@@ -61,7 +61,7 @@ The exclude/negative-ingredient feature (`isNegative` on `Ingredient`) exists in
 - **UI**: Jetpack Compose with Material3 (BOM 2024.09.00)
 - **Min SDK**: 24 (Android 7.0), **Target/Compile SDK**: 36
 - **AGP**: 9.3.1
-- **Persistence**: bundled read-only SQLite for ingredients/recipes — `recipes.db` via raw `android.database.sqlite` (see `data/BundledDatabase.kt`), the new `recipe_database.sqlite` via Room 2.8.4 (see `data/NewRecipeDatabase.kt`) — plus `SharedPreferences` for favorites
+- **Persistence**: `ingredients.db` via raw `android.database.sqlite` (see `data/BundledDatabase.kt`), `recipe_database.sqlite` via Room 2.8.4 (see `data/NewRecipeDatabase.kt`) — plus `SharedPreferences` for favorites
 - **Build system**: Gradle with Kotlin DSL (`.gradle.kts`) and version catalog (`gradle/libs.versions.toml`); Room's annotation processing runs through KSP (`com.google.devtools.ksp`, pinned to `2.2.10-2.0.2` to match the project's Kotlin version)
 
 No networking library (no Retrofit/OkHttp) is currently in the dependency graph — all data is local.
@@ -73,19 +73,21 @@ Single `app` module. Source root: `app/src/main/java/com/example/kitchenassistan
 ```
 ├── MainActivity.kt   Screen navigation (sealed class Screen: Ingredients / Recipes / RecipeDetail)
 ├── model/            Ingredient.kt, Recipe.kt, DetailIngredient.kt — core data classes
-├── data/             FavoritesRepository.kt (SharedPreferences-backed favorite IDs), IngredientMatcher.kt (the matching rule, shared by both recipe sources), CanonicalIndex.kt (in-memory index of the old corpus's canonical names), NewRecipeEntities.kt/NewRecipeDao.kt/NewRecipeDatabase.kt (Room layer for the new corpus), NewIngredientIndex.kt (in-memory index for the new corpus, category-aware)
-├── viewmodel/        IngredientViewModel.kt, RecipeViewModel.kt — StateFlow-based state, both AndroidViewModel (need Application/assets access)
+├── data/             FavoritesRepository.kt (SharedPreferences-backed favorite IDs), IngredientMatcher.kt (the matching rule), NewRecipeEntities.kt/NewRecipeDao.kt/NewRecipeDatabase.kt (Room layer for the recipe corpus), NewIngredientIndex.kt (in-memory index, category-aware)
+├── viewmodel/        IngredientViewModel.kt, RecipeViewModel.kt — StateFlow-based state, both AndroidViewModel (need Application/assets access); RecipeRanking.kt — pure scoring/ranking math, split out for testability (see below)
 ├── ui/               IngredientScreen.kt, RecipeScreen.kt, RecipeDetailScreen.kt, Scrollbar.kt
 └── ui/theme/         KitchenAssistantTheme — dynamic color (Android 12+), dark/light modes; Color.kt has match-tier colors (FullMatch*, PartialMatch*, FridgeMatchGreen/FridgeMissingRed)
 ```
 
-**Data flow:** `MainActivity` owns a single `IngredientViewModel` shared across screens; `RecipeViewModel` is scoped per recipe/detail screen. `IngredientScreen` collects `IngredientViewModel` StateFlows; typing in the add-ingredient field filters an in-memory list of names loaded once from `assets/ingredients.db` (no debounce, no network). `RecipeScreen` triggers `RecipeViewModel.searchRecipes(fridgeIngredients)` on entry, which queries `assets/recipes.db` on a background dispatcher and exposes `sortedRecipes`/`filteredRecipes`. `RecipeDetailScreen` loads full ingredients/directions for one recipe on demand and lets the user deduct fridge quantities while cooking.
+**Data flow:** `MainActivity` owns a single `IngredientViewModel` shared across screens; `RecipeViewModel` is scoped per recipe/detail screen. `IngredientScreen` collects `IngredientViewModel` StateFlows; typing in the add-ingredient field filters an in-memory list of names loaded once from `assets/ingredients.db` (no debounce, no network). `RecipeScreen` triggers `RecipeViewModel.searchRecipes(fridgeIngredients)` on entry, which queries `assets/database/recipe_database.sqlite` on a background dispatcher and exposes `sortedRecipes`/`filteredRecipes`. `RecipeDetailScreen` loads full ingredients/directions for one recipe on demand and lets the user deduct fridge quantities while cooking.
 
 **Key ViewModel functions:**
 - `IngredientViewModel`: `addIngredient`, `removeIngredient`, `setCount`/`incrementCount`/`decrementCount`, `setExpirationDate`, `togglePrioritized`, `clearAll`, `onSearchQueryChange`, `clearSuggestions`
 - `RecipeViewModel`: `searchRecipes`, `loadRecipeDetail`, `toggleFavorite`, `setFilterQuery`
 
 **Ingredient states:** default (`surfaceVariant`) vs. prioritized/starred (`primaryContainer`, boosts ranking). The excluded/negative state is disabled — see Current State above.
+
+**Why `RecipeRanking.kt` is a separate file:** `RecipeMatch`, `ratioScore`, `matchTier`, `recipeOrder`, `matchOrder`, and `chunkIntLiterals` used to live as file-private declarations at the bottom of `RecipeViewModel.kt`. They're pure functions/comparators with no `Application`/`NewRecipeDao`/coroutine dependency — the actual scoring math, as opposed to the DB access and StateFlow plumbing around it — so nothing about them requires being co-located with the ViewModel. Splitting them into their own file and changing `private` to `internal` (same visibility trick `IngredientViewModel.rankSuggestions` already used) makes them directly unit-testable under plain JUnit, with no Room/Robolectric/instrumented-test setup needed — see `RecipeRankingTest.kt`. This is a narrower move than a full ViewModel→repository split: the DB-access code (`searchRecipesNew`, `scoreRecipesNew`, `hydrateNew`, etc.) stays in `RecipeViewModel.kt`, since after the legacy-corpus removal (see "The recipe corpus" above) that file is back down to a size where a bigger split isn't earning its complexity yet.
 
 ## Recipe matching
 
@@ -100,26 +102,25 @@ Matching is **word-level and head-anchored**, not substring. A name reduces to a
 
 The four word lists (`PART_WORDS`, `STOPWORDS`, `FRIDGE_CUT`, `BLOCK_MODIFIERS`) are tuned against the real corpus and guarded by `app/src/test/java/.../IngredientMatcherTest.kt`. **Change a list only alongside that test** — `IngredientMatcher` has no Android imports specifically so it runs under plain JUnit.
 
-**Query strategy:** matching runs against the indexed `clean_ingredients.canonical` column, never `text`. `CanonicalIndex` caches all 93k distinct canonicals bucketed by head word (~9MB, built once per process), and `searchRecipes` resolves the fridge to a canonical set, then scores every recipe in one `GROUP BY recipe_id` pass using inline SQL literals — bound parameters can't be used, the set is far past SQLite's 999-parameter limit. `COUNT(DISTINCT canonical)` is used for both numerator and denominator (19% of recipes list a duplicate). Recipes with `parse_ok = 0` are dropped. Search time is independent of fridge size (~3s), where the old substring scan grew from 1.8s at 5 items to 12.7s at 25.
+**Query strategy:** `NewIngredientIndex` resolves the fridge to the set of `ingredient_id`s it can supply (head-word matching plus category-taxonomy expansion — see "Category taxonomy" below), and `searchRecipes` scores every recipe in one `GROUP BY recipe_id` pass over `recipe_ingredients` using inline SQL literals — bound parameters can't be used, the matched set can be far past SQLite's 999-parameter limit (`RecipeViewModel.chunkIntLiterals` splits it into multiple queries if needed). `COUNT(DISTINCT ingredient_id)` is used for both numerator and denominator, and `SEASONING`-tier rows are excluded from both (see "Schema differences that matter" below).
 
 **Ranking** (`recipeOrder`/`matchOrder`, which must stay in sync — the cut to `MAX_RESULTS` happens before favorites are known): favorites, then `prioritizedCount`, then a *smoothed* ratio `matched / (total + 2)`, then `matchedCount`, then title. The smoothing is what stops trivial one-ingredient recipes from monopolizing the first page at a perfect 1.0. Card tier colors deliberately use the **unsmoothed** ratio so a real 3/3 still shows green.
 
 **Recipe match-tier coloring** (`RecipeScreen.kt`, `RecipeCard`): `matchRatio = matchedCount / totalCount` (unsmoothed, unlike the ranking) → 100% uses `FullMatchContainer*`, ≥75% uses `PartialMatchContainer*`, below 75% falls back to the default `surfaceVariant` theme color. Both card background and ingredient-count text switch per tier, with separate light/dark values from `ui/theme/Color.kt`.
 
-## Two recipe corpora, switched at compile time
+## The recipe corpus
 
-`RecipeViewModel.searchRecipes`/`loadRecipeDetail` are thin dispatchers: `USE_NEW_RECIPE_DATABASE`
-(a `const val` in `RecipeViewModel`'s companion object) picks between `*Legacy` (the original
-`recipes.db` path described above, completely unmodified) and `*New` (the newer, much smaller
-`recipe_database.sqlite`, ~88MB vs. `recipes.db`'s ~620MB — odunola/foodie, 16,090 recipes after
+`recipe_database.sqlite` (~88MB, odunola/foodie, 16,090 recipes after
 `porting-reference/dedupe_exact_recipes.py` removed 3,476 exact-duplicate rows the source dataset
-itself shipped with, see `NEW_CORPUS_DATA_QUALITY.md`). Both
-implementations are fully intact and reachable by flipping the flag; nothing about the legacy path
-was rewritten to make room for the new one. `porting-reference/` (outside the app module, not
-bundled) holds the build scripts, taxonomy-construction scripts, and two write-ups —
-`INGREDIENT_MATCHING_CONCEPTS.md` (the ideas behind both matching schemes) and
-`NEW_CORPUS_DATA_QUALITY.md` (the new corpus's known data-quality issues) — worth reading before
-touching either recipe-search code path.
+itself shipped with — see `NEW_CORPUS_DATA_QUALITY.md`) is the app's only recipe data source,
+opened via Room. An earlier, much larger corpus (`recipes.db`, ~620MB, raw SQLite) existed
+alongside it for a time, switched between at compile time; that path has since been removed
+outright (not just disabled) to keep the large file from ever shipping in an APK build — see
+`porting-reference/legacy-recipe-path/README.md` if it's ever needed for reference.
+`porting-reference/` (outside the app module, not bundled) holds the build scripts,
+taxonomy-construction scripts, and two write-ups — `INGREDIENT_MATCHING_CONCEPTS.md` (the ideas
+behind the matching scheme) and `NEW_CORPUS_DATA_QUALITY.md` (the corpus's known data-quality
+issues) — worth reading before touching the recipe-search code path.
 
 **Schema differences that matter:** the new corpus tags every ingredient `DEFINING`/`SEASONING`/
 `SUPPORTING` relative to its recipe (`recipe_ingredients.tier`). `SEASONING` rows are excluded from
@@ -139,13 +140,10 @@ is added too. An ingredient with `category_id = NULL` (blob name, or a head not 
 taxonomy — see `NEW_CORPUS_DATA_QUALITY.md` for the coverage numbers) just falls back to plain
 string matching; nothing is ever removed by having no category, only possibly not boosted.
 
-**Data-quality mitigations, one pattern, two independent switches:** `SUPPRESS_UNDERPARSED_RECIPES`
-(old corpus, a corpus-generation bug that collapses multiple ingredients into one unparseable line)
-and `SUPPRESS_BLOB_RECIPES_NEW` (new corpus, ~2.7% of `recipe_ingredients` rows are un-stripped raw
-text — a different bug in different code, see `NEW_CORPUS_DATA_QUALITY.md`) both suppress affected
-recipes from ranking rather than deleting anything, and both are named, reversible, app-side flags
-in `RecipeViewModel`'s companion object — deliberately not shared, since fixing or removing one
-mitigation says nothing about the other's bug still being present.
+**Data-quality mitigation:** `SUPPRESS_BLOB_RECIPES_NEW` (~2.7% of `recipe_ingredients` rows are
+un-stripped raw text, see `NEW_CORPUS_DATA_QUALITY.md`) suppresses affected recipes from ranking
+rather than deleting anything, and is a named, reversible, app-side flag in `RecipeViewModel`'s
+companion object.
 
 **Room specifics:** `recipe_ingredients` is deliberately *not* a Room `@Entity` — its real composite
 primary key `(recipe_id, ingredient_id, position)` has `position` declared without `NOT NULL`

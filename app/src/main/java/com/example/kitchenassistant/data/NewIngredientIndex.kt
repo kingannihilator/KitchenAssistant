@@ -5,9 +5,9 @@ package com.example.kitchenassistant.data
  * excluding blob-length names -- see [NewRecipeDao.getMatchableIngredients]), bucketed both by
  * [IngredientMatcher] head word and by category, for [RecipeViewModel]'s new-corpus search path.
  *
- * Structurally this mirrors [CanonicalIndex] exactly for the string-matching half: recipe scoring
- * needs to know which ingredients a fridge satisfies, and since [IngredientMatcher] requires equal
- * heads, only a fridge item's own head bucket can possibly contain a hit.
+ * For the string-matching half: recipe scoring needs to know which ingredients a fridge satisfies,
+ * and since [IngredientMatcher] requires equal heads, only a fridge item's own head bucket can
+ * possibly contain a hit.
  *
  * What's new here is the category expansion pass: once string-matching confirms a fridge item
  * satisfies some ingredient (e.g. fridge "beef" matching ingredient "beef"), every *other*
@@ -28,7 +28,7 @@ package com.example.kitchenassistant.data
  * whose head no fridge item shares (the actual "ribeye is beef" case) is untouched by this check
  * and expands exactly as before.
  *
- * Built once per process and held for the app's lifetime, same rationale as [CanonicalIndex].
+ * Built once per process and held for the app's lifetime.
  */
 class NewIngredientIndex private constructor(
     private val ingredientIds: IntArray,

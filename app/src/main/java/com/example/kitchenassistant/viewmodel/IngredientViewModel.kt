@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.kitchenassistant.model.Ingredient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,6 +17,7 @@ import com.example.kitchenassistant.data.NewRecipeDao
 import com.example.kitchenassistant.data.NewRecipeDatabase
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * ViewModel for the ingredient list screen.
@@ -66,6 +69,11 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         private val WHITESPACE = Regex("\\s+")
+
+        // rankSuggestions scans the full ~8k-row ingredient list and sorts twice; cheap in
+        // isolation, but a fast typist can fire it once per keystroke. Debouncing lets a run of
+        // keystrokes collapse into a single recompute instead of one per character.
+        private const val SEARCH_DEBOUNCE_MS = 200L
     }
 
     // --- State: ingredient list ---
@@ -98,30 +106,39 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
     private val _hasNoRecipeMatch = MutableStateFlow(false)
     val hasNoRecipeMatch: StateFlow<Boolean> = _hasNoRecipeMatch.asStateFlow()
 
-    // Full list of ingredient names loaded once from assets/ingredients.db at startup.
-    // Kept in memory for instant, no-network filtering.
-    private val allIngredients: List<String>
+    // Full list of ingredient names loaded once from assets/ingredients.db, off the main thread
+    // (see init below). Kept in memory for instant, no-network filtering once loaded. @Volatile:
+    // written from the IO dispatcher, read from the main thread on every keystroke/rename check.
+    // Empty until the load finishes -- autocomplete and rename validation just see no matches yet,
+    // self-correcting the moment it's populated; LoadingScreen's own startup delay means a real
+    // user is very unlikely to type anything before this small file finishes loading anyway.
+    @Volatile
+    private var allIngredients: List<String> = emptyList()
 
     init {
         // BundledDatabase copies assets/ingredients.db into the app's internal databases directory
         // (SQLiteDatabase needs a real file path) and re-copies it whenever the bundled asset
-        // changes, so a regenerated taxonomy actually reaches an existing install.
+        // changes, so a regenerated taxonomy actually reaches an existing install. Run off the
+        // main thread: this is real I/O (and, on first run, a SHA-256 hash of the asset), not
+        // something a ViewModel constructor should block on.
         //
         // If the file is missing or the query fails for any reason, we fall back to an empty
         // list so the app still works — autocomplete just won't offer suggestions.
-        allIngredients = try {
-            BundledDatabase.openReadOnly(application, "ingredients.db").use { database ->
-                // Pull every non-blank name from the ingredients table.
-                database.rawQuery("SELECT name_en FROM ingredients", null).use { cursor ->
-                    val names = mutableListOf<String>()
-                    while (cursor.moveToNext()) {
-                        cursor.getString(0)?.takeIf { it.isNotBlank() }?.let { names.add(it) }
+        viewModelScope.launch(Dispatchers.IO) {
+            allIngredients = try {
+                BundledDatabase.openReadOnly(application, "ingredients.db").use { database ->
+                    // Pull every non-blank name from the ingredients table.
+                    database.rawQuery("SELECT name_en FROM ingredients", null).use { cursor ->
+                        val names = mutableListOf<String>()
+                        while (cursor.moveToNext()) {
+                            cursor.getString(0)?.takeIf { it.isNotBlank() }?.let { names.add(it) }
+                        }
+                        names
                     }
-                    names
                 }
+            } catch (e: Exception) {
+                emptyList()
             }
-        } catch (e: Exception) {
-            emptyList()
         }
     }
 
@@ -135,36 +152,53 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
 
     private fun newRecipeDao(): NewRecipeDao = NewRecipeDatabase.getInstance(getApplication()).newRecipeDao()
 
+    // The in-flight debounced recompute from the most recent [onSearchQueryChange] call, if any --
+    // cancelled and replaced on every keystroke so only the last one in a fast run actually runs.
+    private var searchJob: Job? = null
+
     /**
      * Called on every keystroke in the ingredient name field.
      *
-     * Updates the search query and immediately recomputes suggestions by filtering
-     * [allIngredients] for entries that contain the query (case-insensitive), ranked by
-     * [rankSuggestions]. Suggestions are only shown when the query is at least 2 characters long
-     * to avoid flooding the dropdown on a single-character prefix.
+     * The query itself updates immediately, so the text field stays responsive and in sync with
+     * what the user typed. The suggestion recompute -- a scan over all of [allIngredients] plus
+     * two sorts in [rankSuggestions] -- is debounced by [SEARCH_DEBOUNCE_MS] and run off the main
+     * thread, so a fast typist collapses a run of keystrokes into one recompute instead of paying
+     * for every intermediate one. Suggestions are only shown when the query is at least 2
+     * characters long to avoid flooding the dropdown on a single-character prefix.
      */
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
 
-        // Matching uses the trimmed query, not the raw one: many IME word-suggestion strips
-        // insert a trailing space when a word is tapped (to prime the next word), so selecting
-        // "chicken" from that strip can leave the field holding "chicken " (with a trailing
-        // space). Left untrimmed, that space makes the plain "chicken" entry fail both an exact
-        // match ("chicken " != "chicken") and a substring match against itself, while multi-word
-        // entries like "chicken fat" still match, since the space just falls before "fat" —
-        // exactly backwards from what the user picked. The field itself keeps the raw text so
-        // the user can keep typing past that space normally.
-        val trimmed = query.trim()
-        _isQueryValid.value = allIngredients.any { it.equals(trimmed, ignoreCase = true) }
-        _suggestions.value = if (trimmed.length >= 2) rankWithCurrentFrequencies(trimmed) else emptyList()
-        ensurePopularityIndexLoaded()
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
 
-        if (_isQueryValid.value) {
-            checkRecipeMatch(trimmed)
-        } else {
-            // Nothing addable yet, so nothing to hint about -- and this also clears a hint left
-            // over from a previous exact match now that the user has typed past it.
-            _hasNoRecipeMatch.value = false
+            // Matching uses the trimmed query, not the raw one: many IME word-suggestion strips
+            // insert a trailing space when a word is tapped (to prime the next word), so
+            // selecting "chicken" from that strip can leave the field holding "chicken " (with a
+            // trailing space). Left untrimmed, that space makes the plain "chicken" entry fail
+            // both an exact match ("chicken " != "chicken") and a substring match against itself,
+            // while multi-word entries like "chicken fat" still match, since the space just falls
+            // before "fat" — exactly backwards from what the user picked. The field itself keeps
+            // the raw text so the user can keep typing past that space normally.
+            val trimmed = query.trim()
+            val (isValid, newSuggestions) = withContext(Dispatchers.Default) {
+                val valid = allIngredients.any { it.equals(trimmed, ignoreCase = true) }
+                val suggestions = if (trimmed.length >= 2) rankWithCurrentFrequencies(trimmed) else emptyList()
+                valid to suggestions
+            }
+
+            _isQueryValid.value = isValid
+            _suggestions.value = newSuggestions
+            ensurePopularityIndexLoaded()
+
+            if (isValid) {
+                checkRecipeMatch(trimmed)
+            } else {
+                // Nothing addable yet, so nothing to hint about -- and this also clears a hint
+                // left over from a previous exact match now that the user has typed past it.
+                _hasNoRecipeMatch.value = false
+            }
         }
     }
 
@@ -223,6 +257,7 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
 
     /** Clears the autocomplete dropdown, e.g. after the user selects a suggestion or taps away. */
     fun clearSuggestions() {
+        searchJob?.cancel()
         _suggestions.value = emptyList()
     }
 
@@ -237,6 +272,7 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
         _ingredients.update {
             it + Ingredient(name = name.trim(), expirationDate = expirationDate, count = count, unit = unit)
         }
+        searchJob?.cancel()
         _searchQuery.value = ""
         _suggestions.value = emptyList()
         _isQueryValid.value = false
