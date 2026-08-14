@@ -10,7 +10,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import com.example.kitchenassistant.data.BundledDatabase
+import com.example.kitchenassistant.data.FridgeRepository
 import com.example.kitchenassistant.data.IngredientPopularityIndex
 import com.example.kitchenassistant.data.NewIngredientIndex
 import com.example.kitchenassistant.data.NewRecipeDao
@@ -29,7 +31,9 @@ import kotlinx.coroutines.withContext
  * automatically whenever a value changes. Mutations go through the private MutableStateFlow
  * backing properties to prevent the UI from writing state directly.
  *
- * The ingredient list is currently held in memory only — it is lost when the app process ends.
+ * The ingredient list is persisted to this device via [FridgeRepository] (SharedPreferences-backed,
+ * same mechanism as favorites) -- survives app close and process death, cleared only by
+ * uninstalling the app. No account-level sync yet; see [FridgeRepository]'s doc.
  */
 class IngredientViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -78,11 +82,25 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
 
     // --- State: ingredient list ---
 
-    // Backing mutable flow; only this class can write to it.
-    private val _ingredients = MutableStateFlow<List<Ingredient>>(emptyList())
+    private val fridgeRepository = FridgeRepository(application)
+
+    // Backing mutable flow; only this class can write to it. Seeded synchronously from the saved
+    // fridge (a small SharedPreferences read, not worth a loading state) so the very first
+    // composition already shows real data instead of a flash of "fridge is empty".
+    private val _ingredients = MutableStateFlow(fridgeRepository.load())
 
     // Public read-only view exposed to the UI.
     val ingredients: StateFlow<List<Ingredient>> = _ingredients.asStateFlow()
+
+    init {
+        // Persist on every change rather than sprinkling a save call through every mutator
+        // (addIngredient, removeIngredient, setCount, togglePrioritized, ...) -- one place that
+        // can't be forgotten when a new mutation is added later. drop(1) skips the replay of the
+        // value _ingredients already starts with (the load above), which hasn't actually changed.
+        viewModelScope.launch(Dispatchers.IO) {
+            ingredients.drop(1).collect { list -> fridgeRepository.save(list) }
+        }
+    }
 
     // --- State: search / autocomplete ---
 
@@ -203,6 +221,25 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     /**
+     * Called when the user taps a suggestion in the autocomplete dropdown. A suggestion is always
+     * an exact [allIngredients] match by construction, so -- unlike [onSearchQueryChange] --
+     * [isQueryValid] is set immediately rather than going through the debounce: the caller also
+     * clears the dropdown right after selecting, and that clear used to race the just-launched
+     * debounced job in [onSearchQueryChange], cancelling it via [searchJob] before its delay
+     * elapsed. [isQueryValid] and [hasNoRecipeMatch] were left stale as a result -- picking a
+     * suggestion that has zero recipe matches silently skipped the "not used in any of our
+     * recipes" hint, since the check that would have set it never got to run.
+     */
+    fun selectSuggestion(name: String) {
+        searchJob?.cancel()
+        _searchQuery.value = name
+        _suggestions.value = emptyList()
+        _isQueryValid.value = true
+        checkRecipeMatch(name.trim())
+        ensurePopularityIndexLoaded()
+    }
+
+    /**
      * Checks whether [trimmed] (already confirmed to be an exact `ingredients.db` match) matches
      * anything at all in the recipe corpus, via [NewIngredientIndex.matching] -- the identical
      * logic real search runs, so this can never disagree with what search actually finds.
@@ -299,6 +336,18 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
     /** Removes the ingredient with the given [id] from the list. */
     fun removeIngredient(id: String) {
         _ingredients.update { it.filter { ing -> ing.id != id } }
+    }
+
+    /**
+     * Re-inserts [ingredient] as-is (same id, star/count/unit/expiration) at [atIndex], for the
+     * delete-with-undo row in [com.example.kitchenassistant.ui.IngredientScreen] -- unlike
+     * [addIngredient], which always mints a fresh id/defaults and appends, this restores exactly
+     * what was removed, back where it was, rather than at the end of the list.
+     */
+    fun restoreIngredient(ingredient: Ingredient, atIndex: Int) {
+        _ingredients.update { list ->
+            list.toMutableList().apply { add(atIndex.coerceIn(0, size), ingredient) }
+        }
     }
 
     /**

@@ -1,5 +1,11 @@
 package com.example.kitchenassistant.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -75,6 +81,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -97,6 +104,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.model.Ingredient
 import com.example.kitchenassistant.viewmodel.IngredientViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -151,6 +161,29 @@ fun IngredientScreen(
     // Used to clear focus (and thus dismiss the keyboard / exit count edit mode) when the
     // user taps anywhere outside an active text field.
     val focusManager = LocalFocusManager.current
+
+    val scope = rememberCoroutineScope()
+
+    // Delete-with-undo safety net, replacing what used to be an instant delete below a count of
+    // 5 and a confirm dialog at or above it -- an arbitrary threshold that made "how safe is
+    // this delete" depend on quantity. Rendered as a row *inline in the fridge list, at the
+    // deleted item's own position* (see PendingDelete/UndoRow below) rather than a Material
+    // Snackbar docked to the bottom of the screen -- the whole point of undo is reversing what
+    // you just did, and that's a shorter reach right where your finger already is than the
+    // opposite corner of the screen. Only one pending delete is tracked at a time: deleting a
+    // second item while the first's undo window is still open finalizes the first (matches how
+    // a second Snackbar would have dismissed the first one anyway).
+    var pendingDelete by remember { mutableStateOf<PendingDelete?>(null) }
+
+    fun deleteWithUndo(ingredient: Ingredient, index: Int) {
+        pendingDelete?.autoDismissJob?.cancel()
+        viewModel.removeIngredient(ingredient.id)
+        val job = scope.launch {
+            delay(4000)
+            pendingDelete = null
+        }
+        pendingDelete = PendingDelete(ingredient, index, job)
+    }
 
     Scaffold(
         topBar = {
@@ -229,11 +262,7 @@ fun IngredientScreen(
                     expirationDate = expirationDate,
                     dateFormat = dateFormat,
                     onQueryChange = { viewModel.onSearchQueryChange(it) },
-                    onSuggestionSelect = { name ->
-                        // Fill the text field with the tapped suggestion and close the dropdown.
-                        viewModel.onSearchQueryChange(name)
-                        viewModel.clearSuggestions()
-                    },
+                    onSuggestionSelect = { name -> viewModel.selectSuggestion(name) },
                     onDismissSuggestions = { viewModel.clearSuggestions() },
                     onDateSelect = { expirationDate = it },
                     onClearDate = { expirationDate = null },
@@ -247,47 +276,103 @@ fun IngredientScreen(
             // The fridge list gets the remaining vertical space and scrolls on its own,
             // independent of the fixed quick-add row and add form above it.
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                // The undo row for [pendingDelete] is spliced into the display list at the index
+                // the ingredient was removed from, so it appears right below where that card used
+                // to be rather than at a fixed screen position. Computed here, not inside the
+                // LazyColumn's content lambda -- that lambda is a LazyListScope DSL builder, not
+                // a composable context, so remember() can't be called directly inside it.
+                val rows: List<FridgeRow> = remember(ingredients, pendingDelete) {
+                    val items = ingredients.map { FridgeRow.Item(it) }
+                    val pending = pendingDelete
+                    if (pending == null) {
+                        items
+                    } else {
+                        items.toMutableList<FridgeRow>().apply {
+                            add(pending.index.coerceIn(0, size), FridgeRow.Undo(pending))
+                        }
+                    }
+                }
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Only render the section header and list when there is at least one ingredient.
-                    if (ingredients.isEmpty()) {
+                    // Only render the section header and list when there is at least one ingredient
+                    // -- or a just-deleted one is still showing its undo row (see PendingDelete).
+                    if (ingredients.isEmpty() && pendingDelete == null) {
                         item(key = "empty_fridge") {
                             EmptyFridgeMessage()
                         }
                     } else {
                         item(key = "header_ingredients") {
-                            Text(
-                                "My Fridge",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
-                            )
-                        }
-                        // Each ingredient gets a stable key (its UUID) so Compose can animate
-                        // additions/removals correctly and avoid unnecessary recomposition.
-                        items(ingredients, key = { it.id }) { ingredient ->
-                            Box(
-                                // Tapping an ingredient card is "outside the manual add form" too.
-                                modifier = Modifier.clearFocusOnTap(focusManager)
-                            ) {
-                                IngredientItem(
-                                    ingredient = ingredient,
-                                    dateFormat = dateFormat,
-                                    onDelete = { viewModel.removeIngredient(ingredient.id) },
-                                    onToggleStar = { viewModel.togglePrioritized(ingredient.id) },
-                                    // onToggleExclude = { viewModel.toggleExclude(ingredient.id) },
-                                    onSetExpirationDate = { viewModel.setExpirationDate(ingredient.id, it) },
-                                    onIncrement = { viewModel.incrementCount(ingredient.id) },
-                                    onDecrement = { viewModel.decrementCount(ingredient.id) },
-                                    onSetCount = { viewModel.setCount(ingredient.id, it) },
-                                    onSetUnit = { viewModel.setUnit(ingredient.id, it) },
-                                    onRename = { viewModel.renameIngredient(ingredient.id, it) },
-                                    isValidName = { viewModel.isKnownIngredientName(it) }
+                            Column(modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) {
+                                Text(
+                                    "My Fridge",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                // Reassurance, not a warning -- IngredientViewModel persists via
+                                // FridgeRepository (SharedPreferences) as items change, so this is
+                                // just making that fact visible. Only worth saying once there's
+                                // something to reassure the user about.
+                                Text(
+                                    "Saved on this device — stays unless you uninstall the app",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                        // Each row gets a stable key (the ingredient's UUID, prefixed for the undo
+                        // variant so it never collides with a real card sharing the same
+                        // underlying id) so Compose can animate additions/removals correctly.
+                        items(
+                            rows,
+                            key = { row ->
+                                when (row) {
+                                    is FridgeRow.Item -> row.ingredient.id
+                                    is FridgeRow.Undo -> "undo_${row.pendingDelete.ingredient.id}"
+                                }
+                            }
+                        ) { row ->
+                            when (row) {
+                                is FridgeRow.Item -> {
+                                    val ingredient = row.ingredient
+                                    Box(
+                                        // Tapping an ingredient card is "outside the manual add form" too.
+                                        modifier = Modifier.clearFocusOnTap(focusManager)
+                                    ) {
+                                        IngredientItem(
+                                            ingredient = ingredient,
+                                            dateFormat = dateFormat,
+                                            onDelete = {
+                                                deleteWithUndo(ingredient, ingredients.indexOf(ingredient))
+                                            },
+                                            onToggleStar = { viewModel.togglePrioritized(ingredient.id) },
+                                            // onToggleExclude = { viewModel.toggleExclude(ingredient.id) },
+                                            onSetExpirationDate = { viewModel.setExpirationDate(ingredient.id, it) },
+                                            onIncrement = { viewModel.incrementCount(ingredient.id) },
+                                            onDecrement = { viewModel.decrementCount(ingredient.id) },
+                                            onSetCount = { viewModel.setCount(ingredient.id, it) },
+                                            onSetUnit = { viewModel.setUnit(ingredient.id, it) },
+                                            onRename = { viewModel.renameIngredient(ingredient.id, it) },
+                                            isValidName = { viewModel.isKnownIngredientName(it) }
+                                        )
+                                    }
+                                }
+                                is FridgeRow.Undo -> {
+                                    UndoRow(
+                                        ingredientName = row.pendingDelete.ingredient.name,
+                                        onUndo = {
+                                            row.pendingDelete.autoDismissJob.cancel()
+                                            viewModel.restoreIngredient(
+                                                row.pendingDelete.ingredient,
+                                                row.pendingDelete.index
+                                            )
+                                            pendingDelete = null
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -318,6 +403,63 @@ private fun Modifier.clearFocusOnTap(focusManager: FocusManager): Modifier = poi
     awaitEachGesture {
         awaitFirstDown(pass = PointerEventPass.Initial)
         focusManager.clearFocus()
+    }
+}
+
+/**
+ * A just-deleted ingredient still eligible for undo, tracked by [IngredientScreen] so its undo
+ * row can be spliced back into the fridge list at [index] -- the position it was removed from --
+ * rather than shown as a Material Snackbar docked to the bottom of the screen.
+ *
+ * @param autoDismissJob Cancels the pending 4s auto-dismiss (see IngredientScreen's
+ *   deleteWithUndo) when Undo is tapped, so it can't fire late and null out a *different*,
+ *   already-restored ingredient's [IngredientScreen] state.
+ */
+private data class PendingDelete(
+    val ingredient: Ingredient,
+    val index: Int,
+    val autoDismissJob: Job
+)
+
+/** One row of the fridge [LazyColumn]: either a real ingredient card, or the undo row standing
+ * in for a [PendingDelete] at its original position. */
+private sealed interface FridgeRow {
+    data class Item(val ingredient: Ingredient) : FridgeRow
+    data class Undo(val pendingDelete: PendingDelete) : FridgeRow
+}
+
+/**
+ * Inline replacement for the card at [PendingDelete.index] while its ingredient is pending undo.
+ * Styled like a Material Snackbar (inverse surface colors) so it still reads as transient,
+ * temporary feedback despite living in the list rather than docked to the screen edge.
+ */
+@Composable
+private fun UndoRow(ingredientName: String, onUndo: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.inverseSurface
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Removed $ingredientName",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.inverseOnSurface,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onUndo) {
+                Text(
+                    "Undo",
+                    color = MaterialTheme.colorScheme.inversePrimary
+                )
+            }
+        }
     }
 }
 
@@ -554,9 +696,19 @@ private fun AddIngredientCard(
                             }
                             ScrollStateScrollbar(
                                 state = dropdownScrollState,
+                                // matchParentSize, not fillMaxHeight: fillMaxHeight would size
+                                // itself to the *available* max height (200dp/170dp), forcing the
+                                // whole Box -- and thus the popup's own background -- to that
+                                // height even for a short list. That leaves an empty-looking but
+                                // very real gap below a one-item list, where a tap has nothing to
+                                // hit and falls through to whatever's visually underneath (e.g.
+                                // the Exp. date button once, mid-testing). matchParentSize instead
+                                // takes the Box's *content-driven* size (the scrollable Column's
+                                // actual height, already capped at the same max), so the scrollbar
+                                // -- and the popup's visible bounds -- never outgrow real content.
                                 modifier = Modifier
                                     .align(Alignment.CenterEnd)
-                                    .fillMaxHeight()
+                                    .matchParentSize()
                                     .width(6.dp)
                             )
                         }
@@ -578,7 +730,14 @@ private fun AddIngredientCard(
 
             // Bottom row: expiration date selector | quantity stepper | Add button.
             // Hidden until the name field is focused so the card stays compact at rest.
-            if (isFieldFocused) {
+            // AnimatedVisibility softens what used to be an instant layout jump into a reveal --
+            // 100ms (not the ~300ms default) so it still reads as snappy, not sluggish, on a
+            // field the user is actively typing into.
+            AnimatedVisibility(
+                visible = isFieldFocused,
+                enter = fadeIn(tween(100)) + expandVertically(tween(100)),
+                exit = fadeOut(tween(100)) + shrinkVertically(tween(100))
+            ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -649,9 +808,11 @@ private fun AddIngredientCard(
                                 }
                                 ScrollStateScrollbar(
                                     state = unitScrollState,
+                                    // matchParentSize, not fillMaxHeight -- see the identical
+                                    // comment on the ingredient-name suggestions dropdown above.
                                     modifier = Modifier
                                         .align(Alignment.CenterEnd)
-                                        .fillMaxHeight()
+                                        .matchParentSize()
                                         .width(6.dp)
                                 )
                             }
@@ -709,21 +870,6 @@ private fun IngredientItem(
     isValidName: (String) -> Boolean
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete ingredient?") },
-            text = { Text("You still have ${ingredient.count} ${ingredient.unit} of ${ingredient.name}. Are you sure you want to remove it?") },
-            confirmButton = {
-                TextButton(onClick = { onDelete(); showDeleteConfirm = false }) { Text("Delete") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
-            }
-        )
-    }
 
     if (showDatePicker) {
         MonthYearPickerDialog(
@@ -912,9 +1058,11 @@ private fun IngredientItem(
                             }
                             ScrollStateScrollbar(
                                 state = unitScrollState,
+                                // matchParentSize, not fillMaxHeight -- see the identical comment
+                                // on the ingredient-name suggestions dropdown above.
                                 modifier = Modifier
                                     .align(Alignment.CenterEnd)
-                                    .fillMaxHeight()
+                                    .matchParentSize()
                                     .width(6.dp)
                             )
                         }
@@ -936,9 +1084,10 @@ private fun IngredientItem(
 //                )
 //            }
 
-            // Delete button — asks for confirmation when count >= 5.
+            // Delete button — protected by an undo snackbar (see deleteWithUndo in
+            // IngredientScreen), not a confirm dialog, regardless of count.
             IconButton(
-                onClick = { if (ingredient.count >= 5) showDeleteConfirm = true else onDelete() },
+                onClick = onDelete,
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(

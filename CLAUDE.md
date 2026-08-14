@@ -48,10 +48,11 @@ Kitchen Assistant helps users manage their fridge ingredients and get personaliz
 - Recipe cards are color-coded by match tier: 100% match, ≥75% match, and below 75%
 - Recipe detail view shows full ingredient list (checkmarked against the fridge) and directions
 - Favorites are persisted via SharedPreferences
+- The fridge ingredient list is persisted via SharedPreferences too (`data/FridgeRepository.kt`, JSON-encoded) — survives app close/process death, cleared only on uninstall; no account-level sync yet
 
 ### Current State
 
-Working single-activity app with two main screens (ingredient list, recipe list) plus a recipe detail screen, navigated via a simple sealed-class `Screen` state machine in `MainActivity`. No network layer — ingredient autocomplete runs against `ingredients.db` (bundled in `app/src/main/assets/`, copied to app-internal storage on first use), and recipe search runs against the bundled recipe corpus (see "The recipe corpus" below), opened in place via Room (`database/recipe_database.sqlite`). Ingredient list itself is still in-memory only (lost on process death); favorites are the only persisted state.
+Working single-activity app with two main screens (ingredient list, recipe list) plus a recipe detail screen, navigated via a simple sealed-class `Screen` state machine in `MainActivity`. No network layer — ingredient autocomplete runs against `ingredients.db` (bundled in `app/src/main/assets/`, copied to app-internal storage on first use), and recipe search runs against the bundled recipe corpus (see "The recipe corpus" below), opened in place via Room (`database/recipe_database.sqlite`). The ingredient list and favorites are both persisted via SharedPreferences (`data/FridgeRepository.kt`, `data/FavoritesRepository.kt`).
 
 The exclude/negative-ingredient feature (`isNegative` on `Ingredient`) exists in the data model but its UI and toggle logic are commented out, not deleted — see `viewmodel/IngredientViewModel.kt` and `ui/IngredientScreen.kt` for the intentionally-disabled code paths.
 
@@ -61,7 +62,7 @@ The exclude/negative-ingredient feature (`isNegative` on `Ingredient`) exists in
 - **UI**: Jetpack Compose with Material3 (BOM 2024.09.00)
 - **Min SDK**: 24 (Android 7.0), **Target/Compile SDK**: 36
 - **AGP**: 9.3.1
-- **Persistence**: `ingredients.db` via raw `android.database.sqlite` (see `data/BundledDatabase.kt`), `recipe_database.sqlite` via Room 2.8.4 (see `data/NewRecipeDatabase.kt`) — plus `SharedPreferences` for favorites
+- **Persistence**: `ingredients.db` via raw `android.database.sqlite` (see `data/BundledDatabase.kt`), `recipe_database.sqlite` via Room 2.8.4 (see `data/NewRecipeDatabase.kt`) — plus `SharedPreferences` for favorites and the fridge ingredient list (JSON via `org.json`, no external serialization dependency)
 - **Build system**: Gradle with Kotlin DSL (`.gradle.kts`) and version catalog (`gradle/libs.versions.toml`); Room's annotation processing runs through KSP (`com.google.devtools.ksp`, pinned to `2.2.10-2.0.2` to match the project's Kotlin version)
 
 No networking library (no Retrofit/OkHttp) is currently in the dependency graph — all data is local.
@@ -73,7 +74,7 @@ Single `app` module. Source root: `app/src/main/java/com/example/kitchenassistan
 ```
 ├── MainActivity.kt   Screen navigation (sealed class Screen: Ingredients / Recipes / RecipeDetail)
 ├── model/            Ingredient.kt, Recipe.kt, DetailIngredient.kt — core data classes
-├── data/             FavoritesRepository.kt (SharedPreferences-backed favorite IDs), IngredientMatcher.kt (the matching rule), NewRecipeEntities.kt/NewRecipeDao.kt/NewRecipeDatabase.kt (Room layer for the recipe corpus), NewIngredientIndex.kt (in-memory index, category-aware)
+├── data/             FavoritesRepository.kt (SharedPreferences-backed favorite IDs), FridgeRepository.kt (SharedPreferences-backed fridge contents, JSON), IngredientMatcher.kt (the matching rule), NewRecipeEntities.kt/NewRecipeDao.kt/NewRecipeDatabase.kt (Room layer for the recipe corpus), NewIngredientIndex.kt (in-memory index, category-aware)
 ├── viewmodel/        IngredientViewModel.kt, RecipeViewModel.kt — StateFlow-based state, both AndroidViewModel (need Application/assets access); RecipeRanking.kt — pure scoring/ranking math, split out for testability (see below)
 ├── ui/               IngredientScreen.kt, RecipeScreen.kt, RecipeDetailScreen.kt, Scrollbar.kt
 └── ui/theme/         KitchenAssistantTheme — dynamic color (Android 12+), dark/light modes; Color.kt has match-tier colors (FullMatch*, PartialMatch*, FridgeMatchGreen/FridgeMissingRed)
