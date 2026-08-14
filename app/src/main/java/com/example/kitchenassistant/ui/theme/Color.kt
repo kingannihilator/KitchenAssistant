@@ -38,9 +38,17 @@ val IngredientAvailableBgDark = Color(0xFF1E3323)
 val IngredientMissingBgLight = Color(0xFFFCEAEA)
 val IngredientMissingBgDark = Color(0xFF3A2223)
 
-// The loading-screen illustration's woman -- fixed, not theme-derived (same reasoning as
-// FavoriteHeart above): skin/hair/outfit need to read as a person consistently, regardless of the
-// device's dynamic Material You palette, which could otherwise tint skin an unnatural hue.
-val LoadingSceneSkin = Color(0xFFE8B08C)
-val LoadingSceneHair = Color(0xFF4A3728)
-val LoadingSceneOutfit = Color(0xFF5C6BC0)
+// The app's recurring illustrated mascot (see ui/Mascot.kt) -- fixed, not theme-derived (same
+// reasoning as FavoriteHeart above): skin/hair/outfit need to read as a person consistently,
+// regardless of the device's dynamic Material You palette, which could otherwise tint skin an
+// unnatural hue. One shared set of colors so every appearance (loading screen, empty fridge,
+// corner cameos) is visibly the same character.
+val MascotSkin = Color(0xFFE8B08C)
+val MascotHair = Color(0xFF4A3728)
+val MascotOutfit = Color(0xFF5C6BC0)
+
+// Props for the "rolling dough" scene (see ui/RollingDoughIllustration.kt) -- also fixed rather
+// than theme-derived: a wood counter and pale dough need to read as themselves regardless of the
+// device's Material You palette, same reasoning as the mascot's own colors above.
+val MascotCounter = Color(0xFF9C7B54)
+val MascotDough = Color(0xFFF3E4C8)

@@ -150,6 +150,16 @@ fun FavoritesScreen(
                         .fillMaxHeight()
                         .width(6.dp)
                 )
+                // A small, smiling cameo of the mascot -- the opposite corner from its "thinking"
+                // appearance on the search results list (see RecipeScreen), since these are
+                // recipes she's already happy with rather than an open question. Drawn on top of
+                // the list (declared last): if she covers a card at the current scroll position,
+                // scrolling past her is a trivial nudge.
+                PeekingMascot(
+                    expression = MascotExpression.SMILING,
+                    leanTowardCenter = false,
+                    modifier = Modifier.align(Alignment.BottomEnd)
+                )
             }
         }
     }

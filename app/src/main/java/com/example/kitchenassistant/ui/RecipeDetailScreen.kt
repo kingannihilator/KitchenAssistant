@@ -494,6 +494,13 @@ fun RecipeDetailScreen(
                     .fillMaxHeight()
                     .width(6.dp)
             )
+            // The mascot, hard at work rolling dough, anchored to the screen (not the list) so
+            // she stays put at the bottom-center as you scroll -- deliberately overlapping the
+            // "Use from fridge" section below her, the same "she's on top, just scroll past her"
+            // tradeoff as the corner cameos on the results/favorites screens.
+            if (cookIngredients.isNotEmpty()) {
+                WorkingMascotScene(modifier = Modifier.align(Alignment.BottomCenter))
+            }
             } // end Box
         }
     }

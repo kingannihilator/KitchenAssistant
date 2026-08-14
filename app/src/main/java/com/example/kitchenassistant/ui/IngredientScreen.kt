@@ -252,7 +252,11 @@ fun IngredientScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Only render the section header and list when there is at least one ingredient.
-                    if (ingredients.isNotEmpty()) {
+                    if (ingredients.isEmpty()) {
+                        item(key = "empty_fridge") {
+                            EmptyFridgeMessage()
+                        }
+                    } else {
                         item(key = "header_ingredients") {
                             Text(
                                 "My Fridge",

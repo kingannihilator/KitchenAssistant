@@ -207,6 +207,16 @@ fun RecipeScreen(
                                 .fillMaxHeight()
                                 .width(6.dp)
                         )
+                        // A small cameo of the loading screen's mascot, peeking in on the results
+                        // -- only while there's an actual list to look at, not during loading or
+                        // the "no results" messages, which already speak for themselves. Drawn on
+                        // top of the list (declared last): if she covers a card at the current
+                        // scroll position, scrolling past her is a trivial nudge.
+                        PeekingMascot(
+                            expression = MascotExpression.THINKING,
+                            leanTowardCenter = true,
+                            modifier = Modifier.align(Alignment.BottomStart)
+                        )
                     }
                 }
             }
