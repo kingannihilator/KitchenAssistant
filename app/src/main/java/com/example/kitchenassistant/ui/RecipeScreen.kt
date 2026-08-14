@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -51,14 +53,17 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.model.Recipe
 import com.example.kitchenassistant.viewmodel.RecipeViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,6 +86,21 @@ fun RecipeScreen(
     val totalMatchCount by viewModel.totalMatchCount.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    // The running mascot only earns its place on a search slow enough to actually be seen and
+    // read as "working on it" -- most searches finish well under this, and popping in a full
+    // illustration only to immediately swap back to results would read as a flicker, not
+    // personality. Reset the instant loading ends (not just left true from a stale search), so a
+    // second, slower search still gets its own fresh 2s grace period.
+    var showMascot by remember { mutableStateOf(false) }
+    LaunchedEffect(isLoading) {
+        showMascot = if (isLoading) {
+            delay(2000)
+            true
+        } else {
+            false
+        }
+    }
 
     // Undo-on-remove safety net, kept only on this screen (not FavoritesScreen/RecipeDetailScreen
     // -- there, re-tapping the same heart is just as fast as an "Undo" button, so the snackbar
@@ -168,9 +188,23 @@ fun RecipeScreen(
                 contentAlignment = Alignment.Center
             ) {
                 when {
-                    isLoading -> CircularProgressIndicator()
-                    allRecipes.isEmpty() -> Text("No matching recipes")
-                    recipes.isEmpty() -> Text("No results for \"$filterQuery\"")
+                    isLoading -> if (showMascot) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            RunningMascotScene()
+                            Spacer(Modifier.height(16.dp))
+                            CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                        }
+                    } else {
+                        CircularProgressIndicator()
+                    }
+                    allRecipes.isEmpty() -> RecipeEmptyMessage(
+                        title = "No matching recipes",
+                        subtitle = "Try adding a few more ingredients to your fridge"
+                    )
+                    recipes.isEmpty() -> RecipeEmptyMessage(
+                        title = "No results",
+                        subtitle = "Nothing matches \"$filterQuery\""
+                    )
                     else -> {
                         val listState = rememberLazyListState(
                             initialFirstVisibleItemIndex = viewModel.scrollIndex,

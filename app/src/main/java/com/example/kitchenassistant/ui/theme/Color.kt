@@ -56,3 +56,8 @@ val MascotDough = Color(0xFFF3E4C8)
 // color as the counter beneath it, which read as a hole cut through the dough (revealing the
 // counter) rather than a cylinder resting on top of it.
 val MascotPin = Color(0xFFC9A66B)
+
+// Sweat droplets for MascotExpression.RUNNING -- fixed rather than theme-derived, same reasoning
+// as the mascot's own colors above: a "sweat blue" needs to read as itself, not shift with a
+// device's dynamic Material You palette.
+val MascotSweat = Color(0xFF64B5F6)

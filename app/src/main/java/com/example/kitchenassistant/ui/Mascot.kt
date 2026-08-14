@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import com.example.kitchenassistant.ui.theme.MascotHair
 import com.example.kitchenassistant.ui.theme.MascotOutfit
 import com.example.kitchenassistant.ui.theme.MascotSkin
+import com.example.kitchenassistant.ui.theme.MascotSweat
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -21,7 +22,7 @@ import kotlin.math.sin
  * Kept to one shared drawing function so every appearance is visibly the same person, just a
  * different expression/pose -- see [drawMascot].
  */
-enum class MascotExpression { THINKING, SMILING, WORKING }
+enum class MascotExpression { THINKING, SMILING, WORKING, RUNNING }
 
 /** Fixed (not Material-theme-derived) coloring for [drawMascot] -- see [MascotSkin]'s doc for why. */
 data class MascotColors(
@@ -58,19 +59,36 @@ fun DrawScope.drawMascot(
     val headCenter = Offset(hip.x + torsoW * 0.12f, torsoTopLeft.y - headRadius * 0.75f)
 
     rotate(degrees = leanDeg, pivot = hip) {
-        // Legs.
-        drawRoundRect(
-            color = colors.outfit,
-            topLeft = Offset(hip.x - legW * 1.4f, hip.y),
-            size = Size(legW, legH),
-            cornerRadius = CornerRadius(legW * 0.3f)
-        )
-        drawRoundRect(
-            color = colors.outfit,
-            topLeft = Offset(hip.x + legW * 0.4f, hip.y),
-            size = Size(legW, legH),
-            cornerRadius = CornerRadius(legW * 0.3f)
-        )
+        // Legs: a straight standing pair for every expression except RUNNING, which needs an
+        // actual knee bend (drawRoundRect can't bend) to read as a mid-stride, not just a lean --
+        // drawn as two line segments (thigh, then shin) per leg instead, the same technique the
+        // arms below already use.
+        if (expression == MascotExpression.RUNNING) {
+            val legStroke = legW * 1.15f
+            // Front (leading) leg: knee driven up and forward, foot landing back under her.
+            val frontKnee = Offset(hip.x + legW * 2.2f, hip.y + legH * 0.35f)
+            val frontFoot = Offset(hip.x + legW * 1.0f, hip.y + legH * 0.95f)
+            drawLine(colors.outfit, hip, frontKnee, strokeWidth = legStroke, cap = StrokeCap.Round)
+            drawLine(colors.outfit, frontKnee, frontFoot, strokeWidth = legStroke, cap = StrokeCap.Round)
+            // Back (trailing) leg: kicked up and back behind her.
+            val backKnee = Offset(hip.x - legW * 1.6f, hip.y + legH * 0.55f)
+            val backFoot = Offset(hip.x - legW * 2.6f, hip.y + legH * 0.30f)
+            drawLine(colors.outfit, hip, backKnee, strokeWidth = legStroke, cap = StrokeCap.Round)
+            drawLine(colors.outfit, backKnee, backFoot, strokeWidth = legStroke, cap = StrokeCap.Round)
+        } else {
+            drawRoundRect(
+                color = colors.outfit,
+                topLeft = Offset(hip.x - legW * 1.4f, hip.y),
+                size = Size(legW, legH),
+                cornerRadius = CornerRadius(legW * 0.3f)
+            )
+            drawRoundRect(
+                color = colors.outfit,
+                topLeft = Offset(hip.x + legW * 0.4f, hip.y),
+                size = Size(legW, legH),
+                cornerRadius = CornerRadius(legW * 0.3f)
+            )
+        }
         // Torso.
         drawRoundRect(
             color = colors.outfit,
@@ -98,6 +116,20 @@ fun DrawScope.drawMascot(
                 // sit visually *between* her body and her hands, so her hands read as gripping the
                 // prop rather than being buried behind it. Callers using WORKING must call
                 // drawWorkingArms themselves, wherever they want it in their own draw order.
+            }
+            MascotExpression.RUNNING -> {
+                // Pumping arms, opposite the legs' stride (right arm back while the front/leading
+                // leg is on the right side, left arm forward) -- the classic running-figure cue.
+                val leftShoulder = Offset(torsoTopLeft.x + torsoW * 0.12f, torsoTopLeft.y + torsoH * 0.18f)
+                val rightElbow = Offset(rightShoulder.x + headRadius * 0.15f, rightShoulder.y + headRadius * 1.1f)
+                val rightHand = Offset(rightShoulder.x - headRadius * 0.55f, rightShoulder.y + headRadius * 1.6f)
+                drawLine(colors.skin, rightShoulder, rightElbow, strokeWidth = headRadius * 0.22f, cap = StrokeCap.Round)
+                drawLine(colors.skin, rightElbow, rightHand, strokeWidth = headRadius * 0.22f, cap = StrokeCap.Round)
+
+                val leftElbow = Offset(leftShoulder.x - headRadius * 0.15f, leftShoulder.y + headRadius * 0.5f)
+                val leftHand = Offset(leftShoulder.x + headRadius * 0.65f, leftShoulder.y - headRadius * 0.15f)
+                drawLine(colors.skin, leftShoulder, leftElbow, strokeWidth = headRadius * 0.22f, cap = StrokeCap.Round)
+                drawLine(colors.skin, leftElbow, leftHand, strokeWidth = headRadius * 0.22f, cap = StrokeCap.Round)
             }
         }
         // Hair (behind the head), then the head itself, then a short hair wisp at the crown.
@@ -179,6 +211,32 @@ fun DrawScope.drawMascot(
                     strokeWidth = headRadius * 0.09f,
                     cap = StrokeCap.Round
                 )
+            }
+            MascotExpression.RUNNING -> {
+                // A furrowed brow + small open oval mouth (breathing hard, not smiling or
+                // frowning) reads as effort; a couple of small sweat droplets flung off her
+                // temple -- opposite the direction she's running toward -- sell "hurrying" even
+                // in a still image, the same cheap-but-legible cue as the thought bubble's
+                // trailing circles elsewhere in this file.
+                val browStart = headCenter + Offset(-headRadius * 0.35f, -headRadius * 0.10f)
+                drawLine(
+                    color = colors.faceLine,
+                    start = browStart,
+                    end = browStart + Offset(headRadius * 0.35f, -headRadius * 0.12f),
+                    strokeWidth = headRadius * 0.10f,
+                    cap = StrokeCap.Round
+                )
+                drawOval(
+                    color = colors.faceLine,
+                    topLeft = headCenter + Offset(-headRadius * 0.12f, headRadius * 0.20f),
+                    size = Size(headRadius * 0.24f, headRadius * 0.30f)
+                )
+                for ((dx, dy, r) in listOf(
+                    Triple(-headRadius * 1.15f, -headRadius * 0.55f, headRadius * 0.14f),
+                    Triple(-headRadius * 1.45f, -headRadius * 0.15f, headRadius * 0.10f)
+                )) {
+                    drawCircle(color = MascotSweat, radius = r, center = headCenter + Offset(dx, dy))
+                }
             }
         }
     }
