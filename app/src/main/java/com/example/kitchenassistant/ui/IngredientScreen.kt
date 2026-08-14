@@ -1237,10 +1237,19 @@ internal fun CountStepper(
 private fun ScrollStateScrollbar(state: ScrollState, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val maxScroll = state.maxValue
-        if (maxScroll == 0) return@Canvas
+        // size.height now tracks the real (matchParentSize'd) track height rather than always
+        // being at least ~200dp, so a short track is a real, reachable case here -- not just a
+        // theoretical one. Bail before the track itself is drawable.
+        if (maxScroll == 0 || size.height <= 0f) return@Canvas
 
         val totalContentHeight = size.height + maxScroll
-        val thumbHeight = ((size.height / totalContentHeight) * size.height).coerceAtLeast(40f)
+        // Keeping the thumb at least 40px tall (so it stays visible/grabbable on a long list)
+        // must never push it past the track's own height -- coerceAtMost after coerceAtLeast
+        // keeps that always true, where a bare coerceAtLeast(40f) could previously ask for a
+        // thumb taller than a short track and make the thumbTop range below invalid.
+        val thumbHeight = ((size.height / totalContentHeight) * size.height)
+            .coerceAtLeast(40f)
+            .coerceAtMost(size.height)
         val scrollFraction = state.value.toFloat() / maxScroll
         val thumbTop = (scrollFraction * (size.height - thumbHeight)).coerceIn(0f, size.height - thumbHeight)
 
