@@ -93,11 +93,6 @@ private fun KitchenScene(modifier: Modifier = Modifier) {
     val outlineColor = MaterialTheme.colorScheme.onSurfaceVariant
     val shelfColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
     val handleColor = MaterialTheme.colorScheme.primary
-    val foodColors = listOf(
-        MaterialTheme.colorScheme.primary,
-        MaterialTheme.colorScheme.tertiary,
-        MaterialTheme.colorScheme.secondary
-    )
     val bubbleColor = MaterialTheme.colorScheme.primaryContainer
     val bubbleTextColor = MaterialTheme.colorScheme.onPrimaryContainer
     val faceLineColor = Color.Black.copy(alpha = 0.55f)
@@ -111,14 +106,26 @@ private fun KitchenScene(modifier: Modifier = Modifier) {
         // true isometric projection -- enough to read as a room without needing real 3D math. ---
         val wallBottom = h * 0.48f
         drawRect(color = wallColor, size = Size(w, wallBottom))
+        // A symmetric trapezoid -- narrower back edge (at the wall seam) than front edge (at the
+        // canvas bottom) -- rather than the earlier lopsided quadrilateral, which had its two
+        // slanted edges leaning in unrelated directions and read as a stray rug, not a floor.
+        // Converging toward the back like this is the classic cheap "floor with perspective" cue.
+        val floorBackLeft = Offset(w * 0.15f, wallBottom)
+        val floorBackRight = Offset(w * 0.85f, wallBottom)
         val floorPath = Path().apply {
-            moveTo(0f, wallBottom)
-            lineTo(w * 0.95f, wallBottom - h * 0.05f)
+            moveTo(floorBackLeft.x, floorBackLeft.y)
+            lineTo(floorBackRight.x, floorBackRight.y)
             lineTo(w, h)
-            lineTo(0f, h * 0.90f)
+            lineTo(0f, h)
             close()
         }
         drawPath(floorPath, color = floorColor)
+        drawLine(
+            color = outlineColor.copy(alpha = 0.35f),
+            start = floorBackLeft,
+            end = floorBackRight,
+            strokeWidth = 1.dp.toPx()
+        )
 
         // --- Fridge, door open: a flat-shaded box (top face + right-side face) with the front
         // left open to show shelves, plus a door swung out to the left on a hinge at FTL/FBL. ---
@@ -167,18 +174,20 @@ private fun KitchenScene(modifier: Modifier = Modifier) {
                 strokeWidth = 2.dp.toPx()
             )
         }
-        val blob = 9.dp.toPx()
-        val blobSpots = listOf(
-            Offset(il + 5.dp.toPx(), shelfY1 - blob - 2.dp.toPx()),
-            Offset(il + 20.dp.toPx(), shelfY1 - blob - 2.dp.toPx()),
-            Offset(il + 9.dp.toPx(), shelfY2 - blob - 2.dp.toPx())
+        // Food on the shelves, drawn as the same emoji the app's own Quick Add row uses (see
+        // IngredientScreen's QUICK_ADD_ITEMS) -- ties the illustration to what the app is
+        // actually for, rather than abstract colored blocks standing in for "some food".
+        val foodStyle = TextStyle(fontSize = 15.sp)
+        val foodSpots = listOf(
+            "🍗" to Offset(il + (ir - il) * 0.26f, shelfY1),
+            "🧀" to Offset(il + (ir - il) * 0.62f, shelfY1),
+            "🥕" to Offset(il + (ir - il) * 0.42f, shelfY2)
         )
-        blobSpots.forEachIndexed { index, spot ->
-            drawRoundRect(
-                color = foodColors[index % foodColors.size],
-                topLeft = spot,
-                size = Size(blob, blob),
-                cornerRadius = CornerRadius(2.5.dp.toPx())
+        for ((emoji, anchor) in foodSpots) {
+            val emojiLayout = textMeasurer.measure(emoji, style = foodStyle)
+            drawText(
+                emojiLayout,
+                topLeft = Offset(anchor.x - emojiLayout.size.width / 2f, anchor.y - emojiLayout.size.height - 1.dp.toPx())
             )
         }
         drawRoundRect(
