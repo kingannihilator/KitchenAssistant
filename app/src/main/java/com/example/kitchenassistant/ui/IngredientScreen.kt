@@ -89,6 +89,7 @@ import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -99,6 +100,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -162,6 +164,11 @@ fun IngredientScreen(
     // user taps anywhere outside an active text field.
     val focusManager = LocalFocusManager.current
 
+    // Hoisted out of AddIngredientCard so clearFocusOnTap's wrapped composables (quick-add row,
+    // ingredient cards, bottom bar) can check whether the add form's own field is actually
+    // focused before clearing focus -- see clearFocusOnTap's doc for why "always clear" was wrong.
+    var isAddFormFieldFocused by remember { mutableStateOf(false) }
+
     val scope = rememberCoroutineScope()
 
     // Delete-with-undo safety net, replacing what used to be an instant delete below a count of
@@ -205,7 +212,7 @@ fun IngredientScreen(
                         .navigationBarsPadding() // respect the system navigation bar inset
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                         // Tapping this bar is "outside the manual add form" too.
-                        .clearFocusOnTap(focusManager),
+                        .clearFocusOnTap(focusManager) { isAddFormFieldFocused },
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Disabled until there's something in the fridge to search with. Starring is
@@ -251,7 +258,7 @@ fun IngredientScreen(
                 QuickAddRow(
                     onQuickAdd = { name -> viewModel.quickAddIngredient(name) },
                     // Tapping a thumbnail is "outside the manual add form" too.
-                    modifier = Modifier.clearFocusOnTap(focusManager)
+                    modifier = Modifier.clearFocusOnTap(focusManager) { isAddFormFieldFocused }
                 )
 
                 AddIngredientCard(
@@ -261,6 +268,7 @@ fun IngredientScreen(
                     hasNoRecipeMatch = hasNoRecipeMatch,
                     expirationDate = expirationDate,
                     dateFormat = dateFormat,
+                    onFieldFocusChange = { isAddFormFieldFocused = it },
                     onQueryChange = { viewModel.onSearchQueryChange(it) },
                     onSuggestionSelect = { name -> viewModel.selectSuggestion(name) },
                     onDismissSuggestions = { viewModel.clearSuggestions() },
@@ -340,7 +348,7 @@ fun IngredientScreen(
                                     val ingredient = row.ingredient
                                     Box(
                                         // Tapping an ingredient card is "outside the manual add form" too.
-                                        modifier = Modifier.clearFocusOnTap(focusManager)
+                                        modifier = Modifier.clearFocusOnTap(focusManager) { isAddFormFieldFocused }
                                     ) {
                                         IngredientItem(
                                             ingredient = ingredient,
@@ -397,14 +405,42 @@ fun IngredientScreen(
  * (quick-add thumbnails, ingredient cards, the bottom bar) and not just on empty space.
  *
  * Used to collapse the manual add form's expiration/quantity/Add row whenever the user
- * interacts with anything outside it.
+ * interacts with anything outside it -- [shouldClear] gates that on the add form's own field
+ * actually being focused right now, not "clear absolutely whatever has focus." Without that
+ * gate, this fired on *every* tap anywhere in a wrapped composable's bounds, Initial pass
+ * meaning before any descendant even gets a look -- including a tap on an ingredient card's own
+ * in-progress rename field (e.g. its clear button), which has nothing to do with the add form
+ * but would still get its focus yanked and the rename silently closed. Since a tap on something
+ * genuinely elsewhere that itself requests focus (starting a different rename, focusing another
+ * field) already blurs the add form for free via Android's single-focus-owner model, this was
+ * only ever load-bearing for taps that don't request focus themselves (the star icon, the delete
+ * icon) -- exactly the case [shouldClear] still covers.
  */
-private fun Modifier.clearFocusOnTap(focusManager: FocusManager): Modifier = pointerInput(focusManager) {
+private fun Modifier.clearFocusOnTap(focusManager: FocusManager, shouldClear: () -> Boolean): Modifier =
+    pointerInput(focusManager) {
     awaitEachGesture {
         awaitFirstDown(pass = PointerEventPass.Initial)
-        focusManager.clearFocus()
+        if (shouldClear()) focusManager.clearFocus()
     }
 }
+
+/**
+ * Expands the touch target to at least [minWidth]/[minHeight] without changing the composable's
+ * own drawn size -- same invisible-padding idea as Material3's `minimumInteractiveComponentSize`,
+ * but with a smaller, configurable target. The full 48dp minimum, applied to a small control
+ * inside a fridge row's stepper column, grows that column (and so the whole card) taller in a
+ * long list where every row's height compounds -- a worse tradeoff than a still-improved but
+ * shorter target here.
+ */
+private fun Modifier.minimumTouchTargetSize(minWidth: Dp = 0.dp, minHeight: Dp = 0.dp): Modifier =
+    layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        val width = maxOf(placeable.width, minWidth.roundToPx())
+        val height = maxOf(placeable.height, minHeight.roundToPx())
+        layout(width, height) {
+            placeable.placeRelative((width - placeable.width) / 2, (height - placeable.height) / 2)
+        }
+    }
 
 /**
  * A just-deleted ingredient still eligible for undo, tracked by [IngredientScreen] so its undo
@@ -567,6 +603,8 @@ private fun QuickAddThumbnail(item: QuickAddItem, onClick: () -> Unit) {
  *   find any recipe. Rendered as a hint in the dropdown's spot once [suggestions] is empty.
  * @param expirationDate     Currently selected expiration date in epoch millis, or null.
  * @param dateFormat         Formatter used to display the selected date in the chip label.
+ * @param onFieldFocusChange Called whenever the name field's own focus state changes, so the
+ *   caller can gate its clearFocusOnTap wrappers on this form specifically being focused.
  * @param onQueryChange      Called on every keystroke with the new query string.
  * @param onSuggestionSelect Called when the user taps a suggestion; receives the suggestion text.
  * @param onDismissSuggestions Called when the dropdown should close (e.g. tap outside).
@@ -583,6 +621,7 @@ private fun AddIngredientCard(
     hasNoRecipeMatch: Boolean,
     expirationDate: Long?,
     dateFormat: SimpleDateFormat,
+    onFieldFocusChange: (Boolean) -> Unit = {},
     onQueryChange: (String) -> Unit,
     onSuggestionSelect: (String) -> Unit,
     onDismissSuggestions: () -> Unit,
@@ -650,6 +689,7 @@ private fun AddIngredientCard(
                             .fillMaxWidth()
                             .onFocusChanged { focusState ->
                                 isFieldFocused = focusState.isFocused
+                                onFieldFocusChange(focusState.isFocused)
                                 // Move cursor to end when the field is tapped.
                                 if (focusState.isFocused) {
                                     val text = textFieldValue.text
@@ -783,7 +823,15 @@ private fun AddIngredientCard(
                         OutlinedButton(
                             onClick = { unitDropdownExpanded = true },
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                            modifier = Modifier.height(28.dp)
+                            // A compromise, not the full 48dp: that made this card noticeably
+                            // taller (visible padding, not just an invisible hit area, once every
+                            // sibling in the stepper column had to grow to match). 40dp height is
+                            // still a real improvement over the original 28dp with much less
+                            // height cost; widened well past the "units" label's own width too,
+                            // so the tap target isn't just barely wider than the text.
+                            modifier = Modifier
+                                .minimumTouchTargetSize(minWidth = 64.dp, minHeight = 40.dp)
+                                .height(28.dp)
                         ) {
                             Text(selectedUnit, style = MaterialTheme.typography.labelMedium)
                         }
@@ -938,15 +986,13 @@ private fun IngredientItem(
                 if (isEditingName) {
                     val isCurrentValid = isValidName(nameEditText.text)
                     val nameShape = RoundedCornerShape(4.dp)
-                    BasicTextField(
-                        value = nameEditText,
-                        onValueChange = { nameEditText = it },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { commitName() }),
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
+                    // A Row, not a bare BasicTextField, so a trailing clear button can sit inside
+                    // the same bordered/backgrounded pill -- doubles as a hint that this is a live
+                    // text input, not just a label, and as a one-tap way to clear a typo without
+                    // holding backspace. Clears only the text being typed here, not the fridge
+                    // item itself (that's the trash icon at the end of the outer Row).
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(nameShape)
@@ -960,16 +1006,46 @@ private fun IngredientItem(
                                 if (isCurrentValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                 nameShape
                             )
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                            .focusRequester(nameFocusRequester)
-                            .onFocusChanged { focusState ->
-                                if (focusState.isFocused) {
-                                    nameHasFocused = true
-                                } else if (nameHasFocused) {
-                                    commitName()
+                    ) {
+                        BasicTextField(
+                            value = nameEditText,
+                            onValueChange = { nameEditText = it },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { commitName() }),
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 6.dp, top = 2.dp, bottom = 2.dp)
+                                .focusRequester(nameFocusRequester)
+                                .onFocusChanged { focusState ->
+                                    if (focusState.isFocused) {
+                                        nameHasFocused = true
+                                    } else if (nameHasFocused) {
+                                        commitName()
+                                    }
                                 }
+                        )
+                        // Plain clear button, same idea as the manual-add form's OutlinedTextField
+                        // trailing icon above. If this ends up leaving the field empty when it
+                        // loses focus, that's fine as-is: commitName() below already no-ops an
+                        // invalid (including blank) name and just closes the editor, so it
+                        // collapses back to the original name rather than committing an empty one.
+                        if (nameEditText.text.isNotEmpty()) {
+                            IconButton(
+                                onClick = { nameEditText = TextFieldValue("") },
+                                modifier = Modifier.minimumTouchTargetSize(minHeight = 32.dp).size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Clear name",
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
-                    )
+                        }
+                    }
                     LaunchedEffect(Unit) { nameFocusRequester.requestFocus() }
                 } else {
                     Text(
@@ -977,11 +1053,16 @@ private fun IngredientItem(
                         style = MaterialTheme.typography.bodyLarge,
                         // textDecoration = if (ingredient.isNegative) TextDecoration.LineThrough else TextDecoration.None
                         textDecoration = TextDecoration.None,
-                        modifier = Modifier.clickable {
-                            val text = ingredient.name
-                            nameEditText = TextFieldValue(text, selection = TextRange(text.length))
-                            isEditingName = true
-                        }
+                        // fillMaxWidth before clickable: a short name like "Egg" used to only be
+                        // tappable across its own few characters, with the rest of the row's
+                        // width (up to the stepper) doing nothing on tap.
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val text = ingredient.name
+                                nameEditText = TextFieldValue(text, selection = TextRange(text.length))
+                                isEditingName = true
+                            }
                     )
                 }
                 if (ingredient.isPrioritized) {
@@ -1029,7 +1110,12 @@ private fun IngredientItem(
                     TextButton(
                         onClick = { unitDropdownExpanded = true },
                         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                        modifier = Modifier.height(20.dp)
+                        // See the identical minimumTouchTargetSize comment on the add-form's
+                        // unit button above -- 36dp here, not 40dp, since this card already
+                        // carries more rows on screen at once than the add-form ever does.
+                        modifier = Modifier
+                            .minimumTouchTargetSize(minWidth = 64.dp, minHeight = 36.dp)
+                            .height(20.dp)
                     ) {
                         Text(
                             text = ingredient.unit,
