@@ -72,7 +72,7 @@ fun RecipeScreen(
     fridgeIngredients: List<String>,
     prioritizedIngredients: List<String> = emptyList(),
     onBack: () -> Unit,
-    onRecipeClick: (Recipe) -> Unit = {},
+    onRecipeClick: (List<Recipe>, Recipe) -> Unit = { _, _ -> },
     // Lets the undo snackbar's fallback advice ("check Previously Favorited") actually be
     // actionable from here -- without this, reaching the Favorites screen meant backing all the
     // way out to the fridge screen first.
@@ -225,7 +225,7 @@ fun RecipeScreen(
                             items(recipes, key = { it.id }) { recipe ->
                                 RecipeCard(
                                     recipe,
-                                    onClick = { onRecipeClick(recipe) },
+                                    onClick = { onRecipeClick(recipes, recipe) },
                                     onToggleFavorite = { toggleFavoriteWithUndo(recipe) }
                                 )
                             }

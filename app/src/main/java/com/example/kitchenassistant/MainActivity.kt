@@ -25,14 +25,20 @@ sealed class Screen {
     object Favorites : Screen()
     data class Recipes(val fridgeIngredients: List<String>, val prioritizedIngredients: List<String>) : Screen()
     data class RecipeDetail(
-        val recipe: Recipe,
+        // The full list the user was browsing (search results or favorites) and which entry was
+        // opened -- a snapshot at navigation time, not a live StateFlow, so swiping prev/next stays
+        // on the same list even if favoriting/re-sorting would reorder the source screen underneath.
+        val recipes: List<Recipe>,
+        val index: Int,
         val fridgeIngredients: List<String>,
         val prioritizedIngredients: List<String>,
         // Which list to return to on back -- Favorites is a static, fridge-independent bookmark
         // list (see RecipeViewModel.favoriteRecipes), so it carries no fridge/prioritized snapshot
         // of its own to reconstruct like Recipes does.
         val cameFromFavorites: Boolean = false
-    ) : Screen()
+    ) : Screen() {
+        val recipe: Recipe get() = recipes[index]
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -56,9 +62,10 @@ class MainActivity : ComponentActivity() {
                     )
                     is Screen.Favorites -> FavoritesScreen(
                         onBack = { currentScreen = Screen.Ingredients },
-                        onRecipeClick = { recipe ->
+                        onRecipeClick = { recipes, recipe ->
                             currentScreen = Screen.RecipeDetail(
-                                recipe,
+                                recipes,
+                                recipes.indexOfFirst { it.id == recipe.id },
                                 fridgeIngredients = emptyList(),
                                 prioritizedIngredients = emptyList(),
                                 cameFromFavorites = true
@@ -69,9 +76,10 @@ class MainActivity : ComponentActivity() {
                         fridgeIngredients = screen.fridgeIngredients,
                         prioritizedIngredients = screen.prioritizedIngredients,
                         onBack = { currentScreen = Screen.Ingredients },
-                        onRecipeClick = { recipe ->
+                        onRecipeClick = { recipes, recipe ->
                             currentScreen = Screen.RecipeDetail(
-                                recipe,
+                                recipes,
+                                recipes.indexOfFirst { it.id == recipe.id },
                                 screen.fridgeIngredients,
                                 screen.prioritizedIngredients
                             )
@@ -87,6 +95,11 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 Screen.Recipes(screen.fridgeIngredients, screen.prioritizedIngredients)
                             }
+                        },
+                        hasPrevious = screen.index > 0,
+                        hasNext = screen.index < screen.recipes.lastIndex,
+                        onNavigate = { delta ->
+                            currentScreen = screen.copy(index = screen.index + delta)
                         }
                     )
                 }

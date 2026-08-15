@@ -64,11 +64,15 @@ import com.example.kitchenassistant.viewmodel.RecipeViewModel
 @Composable
 fun FavoritesScreen(
     onBack: () -> Unit,
-    onRecipeClick: (Recipe) -> Unit = {},
+    onRecipeClick: (List<Recipe>, Recipe) -> Unit = { _, _ -> },
     viewModel: RecipeViewModel = viewModel()
 ) {
     val favorites by viewModel.favoriteRecipes.collectAsState()
     val history by viewModel.favoriteHistoryRecipes.collectAsState()
+    // Both shelves combined, in on-screen order, so swiping prev/next on the detail screen can
+    // move seamlessly from the current-favorites shelf into "Previously Favorited" the same way
+    // scrolling this list would.
+    val allRecipes = favorites + history
     BackHandler(onBack = onBack)
 
     Scaffold(
@@ -121,7 +125,7 @@ fun FavoritesScreen(
                             FavoriteCard(
                                 recipe = recipe,
                                 isCurrentFavorite = true,
-                                onClick = { onRecipeClick(recipe) },
+                                onClick = { onRecipeClick(allRecipes, recipe) },
                                 onToggleFavorite = { viewModel.toggleFavorite(recipe.id) }
                             )
                         }
@@ -143,7 +147,7 @@ fun FavoritesScreen(
                             FavoriteCard(
                                 recipe = recipe,
                                 isCurrentFavorite = false,
-                                onClick = { onRecipeClick(recipe) },
+                                onClick = { onRecipeClick(allRecipes, recipe) },
                                 onToggleFavorite = { viewModel.toggleFavorite(recipe.id) }
                             )
                         }
