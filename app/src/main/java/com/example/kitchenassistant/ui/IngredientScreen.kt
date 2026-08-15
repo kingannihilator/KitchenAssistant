@@ -50,9 +50,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 // import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Star
@@ -107,6 +109,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.kitchenassistant.model.AppMode
 import com.example.kitchenassistant.model.Ingredient
 import com.example.kitchenassistant.viewmodel.IngredientViewModel
 import kotlinx.coroutines.Job
@@ -151,10 +154,14 @@ fun IngredientScreen(
 ) {
     // Collect the latest values from each StateFlow; any change triggers recomposition.
     val ingredients by viewModel.ingredients.collectAsState()
+    // Display order only -- case-insensitive alphabetical, independent of the backing list's
+    // insertion order (which FridgeRepository just persists as-is and nothing else relies on).
+    val sortedIngredients = remember(ingredients) { ingredients.sortedBy { it.name.lowercase() } }
     val searchQuery by viewModel.searchQuery.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
     val isQueryValid by viewModel.isQueryValid.collectAsState()
     val hasNoRecipeMatch by viewModel.hasNoRecipeMatch.collectAsState()
+    val mode by viewModel.appMode.collectAsState()
 
     // Local UI state for the expiration date picker — lives here so it resets when the form is
     // submitted and is not part of the permanent ingredient data until the user taps Add.
@@ -195,11 +202,47 @@ fun IngredientScreen(
         pendingDelete = PendingDelete(ingredient, index, job)
     }
 
+    // Explains what tapping the mode-toggle button will switch to, before it actually switches --
+    // the icon alone doesn't carry enough meaning to make an instant, silent toggle safe.
+    var showModeDialog by remember { mutableStateOf(false) }
+    if (showModeDialog) {
+        val targetMode = if (mode == AppMode.QUANTITY) AppMode.CHECKLIST else AppMode.QUANTITY
+        AlertDialog(
+            onDismissRequest = { showModeDialog = false },
+            title = { Text(if (targetMode == AppMode.CHECKLIST) "Switch to Checklist mode?" else "Switch to Quantity mode?") },
+            text = {
+                Text(
+                    if (targetMode == AppMode.CHECKLIST)
+                        "Checklist mode just tracks whether you have an ingredient, with no quantities or units."
+                    else
+                        "Quantity mode tracks exact quantities and units, and lets you deduct ingredients from your fridge while cooking a recipe."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.setAppMode(targetMode); showModeDialog = false }) {
+                    Text("Switch")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showModeDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Kitchen Assistant") },
                 actions = {
+                    IconButton(onClick = { showModeDialog = true }) {
+                        Icon(
+                            // A scale for Quantity mode (weighing/measuring exact amounts) vs a
+                            // checklist for Checklist mode (just checking off what's on hand) --
+                            // each icon reads as the mode currently active, not the one it'd switch to.
+                            imageVector = if (mode == AppMode.QUANTITY) Icons.Default.Scale else Icons.Default.Checklist,
+                            contentDescription = if (mode == AppMode.QUANTITY) "Quantity mode -- tap to switch to Checklist mode" else "Checklist mode -- tap to switch to Quantity mode"
+                        )
+                    }
                     IconButton(onClick = onViewFavorites) {
                         FavoritesShortcutIcon()
                     }
@@ -271,6 +314,7 @@ fun IngredientScreen(
                     hasNoRecipeMatch = hasNoRecipeMatch,
                     expirationDate = expirationDate,
                     dateFormat = dateFormat,
+                    mode = mode,
                     onFieldFocusChange = { isAddFormFieldFocused = it },
                     onQueryChange = { viewModel.onSearchQueryChange(it) },
                     onSuggestionSelect = { name -> viewModel.selectSuggestion(name) },
@@ -292,8 +336,8 @@ fun IngredientScreen(
                 // to be rather than at a fixed screen position. Computed here, not inside the
                 // LazyColumn's content lambda -- that lambda is a LazyListScope DSL builder, not
                 // a composable context, so remember() can't be called directly inside it.
-                val rows: List<FridgeRow> = remember(ingredients, pendingDelete) {
-                    val items = ingredients.map { FridgeRow.Item(it) }
+                val rows: List<FridgeRow> = remember(sortedIngredients, pendingDelete) {
+                    val items = sortedIngredients.map { FridgeRow.Item(it) }
                     val pending = pendingDelete
                     if (pending == null) {
                         items
@@ -317,22 +361,12 @@ fun IngredientScreen(
                         }
                     } else {
                         item(key = "header_ingredients") {
-                            Column(modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) {
-                                Text(
-                                    "My Fridge",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                // Reassurance, not a warning -- IngredientViewModel persists via
-                                // FridgeRepository (SharedPreferences) as items change, so this is
-                                // just making that fact visible. Only worth saying once there's
-                                // something to reassure the user about.
-                                Text(
-                                    "Saved on this device — stays unless you uninstall the app",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                            }
+                            Text(
+                                "My Fridge",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+                            )
                         }
                         // Each row gets a stable key (the ingredient's UUID, prefixed for the undo
                         // variant so it never collides with a real card sharing the same
@@ -356,8 +390,9 @@ fun IngredientScreen(
                                         IngredientItem(
                                             ingredient = ingredient,
                                             dateFormat = dateFormat,
+                                            mode = mode,
                                             onDelete = {
-                                                deleteWithUndo(ingredient, ingredients.indexOf(ingredient))
+                                                deleteWithUndo(ingredient, sortedIngredients.indexOf(ingredient))
                                             },
                                             onToggleStar = { viewModel.togglePrioritized(ingredient.id) },
                                             // onToggleExclude = { viewModel.toggleExclude(ingredient.id) },
@@ -526,13 +561,17 @@ private val QUICK_ADD_ITEMS = listOf(
     QuickAddItem("Pork", "🍖"),
     QuickAddItem("Mushroom", "🍄"),
     QuickAddItem("Beans", "🫘"),
-    QuickAddItem("Lemon", "🍋"),
     QuickAddItem("Shrimp", "🦐"),
     QuickAddItem("Pasta", "🍝"),
     QuickAddItem("Cabbage", "🥬"),
     QuickAddItem("Bell Pepper", "🫑"),
     QuickAddItem("Spinach", "🍃"),
     QuickAddItem("Corn", "🌽"),
+    QuickAddItem("Butter", "🧈"),
+    QuickAddItem("Milk", "🥛"),
+    QuickAddItem("Broccoli", "🥦"),
+    QuickAddItem("Cucumber", "🥒"),
+    QuickAddItem("Salmon", "🐟"),
 )
 
 /**
@@ -624,6 +663,7 @@ private fun AddIngredientCard(
     hasNoRecipeMatch: Boolean,
     expirationDate: Long?,
     dateFormat: SimpleDateFormat,
+    mode: AppMode,
     onFieldFocusChange: (Boolean) -> Unit = {},
     onQueryChange: (String) -> Unit,
     onSuggestionSelect: (String) -> Unit,
@@ -784,7 +824,10 @@ private fun AddIngredientCard(
                     }
                 }
 
-                // Quantity stepper and unit selector stacked vertically.
+                // Quantity stepper and unit selector stacked vertically. Hidden entirely in
+                // Basic mode -- see AppMode's doc -- but count/selectedUnit still exist as local
+                // state at their defaults (1 / "units"), so onAdd below is unaffected.
+                if (mode == AppMode.QUANTITY) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     // The minus button is inert at 1 (count cannot go below 1 here;
                     // decrementing an already-added ingredient to 0 removes it instead).
@@ -832,6 +875,7 @@ private fun AddIngredientCard(
                         }
                     }
                 }
+                }
 
                 // Only enabled when the typed name exactly matches a database entry.
                 Button(
@@ -871,6 +915,7 @@ private fun AddIngredientCard(
 private fun IngredientItem(
     ingredient: Ingredient,
     dateFormat: SimpleDateFormat,
+    mode: AppMode,
     onDelete: () -> Unit,
     onToggleStar: () -> Unit,
     // onToggleExclude: () -> Unit,
@@ -1058,8 +1103,9 @@ private fun IngredientItem(
                 }
             }
 
-            // Quantity stepper: − [count] + with unit label below.
+            // Quantity stepper: − [count] + with unit label below. Hidden entirely in Basic mode.
             // Decrementing at count == 1 removes the ingredient via [onDecrement].
+            if (mode == AppMode.QUANTITY) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CountStepper(
                     count = ingredient.count,
@@ -1104,6 +1150,7 @@ private fun IngredientItem(
                         }
                     }
                 }
+            }
             }
 
             // Exclude/block button — commented out.

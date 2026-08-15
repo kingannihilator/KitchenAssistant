@@ -11,12 +11,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.drop
+import com.example.kitchenassistant.data.AppModeRepository
 import com.example.kitchenassistant.data.BundledDatabase
 import com.example.kitchenassistant.data.FridgeRepository
 import com.example.kitchenassistant.data.IngredientPopularityIndex
 import com.example.kitchenassistant.data.NewIngredientIndex
 import com.example.kitchenassistant.data.NewRecipeDao
 import com.example.kitchenassistant.data.NewRecipeDatabase
+import com.example.kitchenassistant.model.AppMode
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -100,6 +102,19 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch(Dispatchers.IO) {
             ingredients.drop(1).collect { list -> fridgeRepository.save(list) }
         }
+    }
+
+    // --- State: app mode (Basic = presence-only, Full = quantities + cook mode) ---
+
+    private val appModeRepository = AppModeRepository(application)
+
+    private val _appMode = MutableStateFlow(appModeRepository.load())
+    val appMode: StateFlow<AppMode> = _appMode.asStateFlow()
+
+    /** Switches the app between Basic (presence-only) and Full (quantities) mode. */
+    fun setAppMode(mode: AppMode) {
+        _appMode.value = mode
+        appModeRepository.save(mode)
     }
 
     // --- State: search / autocomplete ---

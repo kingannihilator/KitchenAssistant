@@ -3,8 +3,8 @@ package com.example.kitchenassistant.ui
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -18,8 +18,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -69,8 +70,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kitchenassistant.data.IngredientMatcher
+import com.example.kitchenassistant.model.AppMode
 import com.example.kitchenassistant.model.Ingredient
 import com.example.kitchenassistant.model.Recipe
+import com.example.kitchenassistant.viewmodel.IngredientViewModel
 import com.example.kitchenassistant.viewmodel.RecipeViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -93,7 +96,14 @@ fun RecipeDetailScreen(
     recipe: Recipe,
     fridgeIngredients: List<Ingredient> = emptyList(),
     onBack: () -> Unit,
-    viewModel: RecipeViewModel = viewModel()
+    // Swipe left/right to move to the next/previous recipe in whatever list the user opened this
+    // one from (search results or favorites) -- see Screen.RecipeDetail in MainActivity, which
+    // owns the actual list/index and recomposes this screen with a new `recipe` on navigate.
+    hasPrevious: Boolean = false,
+    hasNext: Boolean = false,
+    onNavigate: (Int) -> Unit = {},
+    viewModel: RecipeViewModel = viewModel(),
+    ingredientViewModel: IngredientViewModel = viewModel()
 ) {
     val ingredients by viewModel.detailIngredients.collectAsState()
     val directions by viewModel.detailDirections.collectAsState()
@@ -101,21 +111,7 @@ fun RecipeDetailScreen(
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     val isFavorite = favoriteIds.contains(recipe.id)
     val isDark = isSystemInDarkTheme()
-
-    // Toggles a highlight over the missing (X) rows in the Ingredients checklist above -- always
-    // enabled (no disabled/greyed state), since "what am I missing" is meaningful to ask even
-    // with nothing at all in the fridge. missingHighlightAlpha animates a brighter flash down to
-    // a steady tint on turn-on ("blink once"), and fades out on turn-off.
-    var highlightMissing by remember { mutableStateOf(false) }
-    val missingHighlightAlpha = remember { Animatable(0f) }
-    LaunchedEffect(highlightMissing) {
-        if (highlightMissing) {
-            missingHighlightAlpha.snapTo(0.7f)
-            missingHighlightAlpha.animateTo(0.25f, animationSpec = tween(600))
-        } else {
-            missingHighlightAlpha.animateTo(0f, animationSpec = tween(200))
-        }
-    }
+    val mode by ingredientViewModel.appMode.collectAsState()
 
     // Which fridge ingredient covers each recipe line, parallel to [ingredients]. Computed once
     // and used for the checkmarks, through the same IngredientMatcher the search scored with —
@@ -131,6 +127,15 @@ fun RecipeDetailScreen(
         }
     }
 
+    // The fridge ingredients cook mode can deduct from -- deliberately built from [coveredBy]'s
+    // specific per-line match rather than DetailIngredient.matched's category-only verdict (see
+    // its doc): cook mode needs to know *which* fridge row to decrement, not just that some
+    // sibling in the same category exists.
+    val cookIngredients: List<Ingredient> = remember(coveredBy) {
+        coveredBy.filterNotNull().distinctBy { it.id }
+    }
+    var isCooking by remember(recipe.id) { mutableStateOf(false) }
+
     // Reads Directions aloud via the platform TTS engine -- no bundled voice data, no network,
     // consistent with the rest of the app. Android's TTS API has no true pause (only stop, which
     // can't resume mid-sentence), so this is a 3-state cycle rather than a plain toggle: IDLE
@@ -141,16 +146,16 @@ fun RecipeDetailScreen(
     // resets currentStepIndex to 0, the one place this cycle offers a real "start over."
     val context = LocalContext.current
     val mainScope = rememberCoroutineScope()
-    var readAloudState by remember { mutableStateOf(ReadAloudState.IDLE) }
+    var readAloudState by remember(recipe.id) { mutableStateOf(ReadAloudState.IDLE) }
     // Which direction is currently playing (or, once playback finishes or before it ever starts,
     // which one would play next / just finished) -- drives both the highlighted row below and the
     // Previous/Next bounds. Starts at 0 so the first step is highlighted as "up next" even before
     // any playback, rather than showing nothing until the first tap.
-    var currentStepIndex by remember { mutableStateOf(0) }
+    var currentStepIndex by remember(recipe.id) { mutableStateOf(0) }
     // Guards the auto-scroll effect below from firing on initial composition (currentStepIndex
     // starts at 0 to highlight the first step, but the screen shouldn't jump straight to
     // Directions before the user has actually started playback or tapped Next/Previous).
-    var hasStartedReading by remember { mutableStateOf(false) }
+    var hasStartedReading by remember(recipe.id) { mutableStateOf(false) }
     val textToSpeech = remember { mutableStateOf<TextToSpeech?>(null) }
     DisposableEffect(Unit) {
         if (!READ_ALOUD_ENABLED) return@DisposableEffect onDispose {}
@@ -211,6 +216,28 @@ fun RecipeDetailScreen(
     BackHandler(onBack = onBack)
 
     Scaffold(
+        modifier = Modifier.pointerInput(recipe.id, hasPrevious, hasNext) {
+            // A left swipe (negative delta) advances to the next recipe; a right swipe goes back
+            // to the previous one -- the natural "pages flip leftward" direction. Accumulated over
+            // the whole gesture rather than acting on every delta, so a single swipe fires at most
+            // one navigation regardless of how far the finger travels past the threshold.
+            var totalDrag = 0f
+            val threshold = 120f
+            detectHorizontalDragGestures(
+                onDragEnd = { totalDrag = 0f },
+                onDragCancel = { totalDrag = 0f }
+            ) { change, dragAmount ->
+                totalDrag += dragAmount
+                if (totalDrag > threshold && hasPrevious) {
+                    onNavigate(-1)
+                    totalDrag = 0f
+                } else if (totalDrag < -threshold && hasNext) {
+                    onNavigate(1)
+                    totalDrag = 0f
+                }
+                change.consume()
+            }
+        },
         topBar = {
             TopAppBar(
                 navigationIcon = {
@@ -242,14 +269,18 @@ fun RecipeDetailScreen(
                 contentAlignment = Alignment.Center
             ) { CircularProgressIndicator() }
         } else {
-            val listState = rememberLazyListState()
+            val listState = remember(recipe.id) { LazyListState() }
             // Where the Directions section's step rows start in the LazyColumn's flat item
             // index, so the currently-playing step can be scrolled into view. Recomputed
             // whenever the sections above Directions could change size.
-            val directionsStartIndex = remember(ingredients, directions) {
+            val directionsStartIndex = remember(ingredients, directions, mode, isCooking, cookIngredients) {
                 var idx = 1 // metadata row
                 if (ingredients.isNotEmpty()) idx += 1 + ingredients.size // header + rows
-                idx += 1 // cook button / read-aloud row
+                if (mode == AppMode.QUANTITY) {
+                    idx += 1 // "Cook this recipe" button row
+                    if (isCooking) idx += 1 + cookIngredients.size // "Use from fridge" header + rows
+                }
+                if (READ_ALOUD_ENABLED) idx += 1 // read-aloud row
                 if (directions.isNotEmpty()) idx += 2 // Previous/Next row + "Directions" header
                 idx
             }
@@ -314,17 +345,7 @@ fun RecipeDetailScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                // Two layered backgrounds, not one blended color: baseColor is the
-                                // permanent available/missing tint, drawn first; the second
-                                // (transparent except mid-blink) draws over it, so the flash still
-                                // reads as a distinct, temporary emphasis rather than changing
-                                // what "missing" normally looks like.
                                 .background(baseColor, RoundedCornerShape(4.dp))
-                                .background(
-                                    if (isMissing) FridgeMissingRed.copy(alpha = missingHighlightAlpha.value)
-                                    else Color.Transparent,
-                                    RoundedCornerShape(4.dp)
-                                )
                                 .padding(4.dp)
                         ) {
                             if (detail.canonical == null) {
@@ -344,28 +365,59 @@ fun RecipeDetailScreen(
                     }
                 }
 
-                // Highlight-missing toggle + read-aloud control, sitting right below the
-                // ingredient checklist above so the effect (a flash on the X rows right there) is
-                // immediately visible without scrolling -- the previous cook-mode toggle here
-                // revealed a section far below Directions, so tapping it looked like it did
-                // nothing from up here.
+                // "Cook this recipe" -- only in Full mode, since Basic mode tracks no quantities
+                // for it to deduct from. Toggles an inline "Use from fridge" section rather than
+                // navigating to a separate screen.
+                if (mode == AppMode.QUANTITY) {
+                    item {
+                        Spacer(Modifier.height(4.dp))
+                        OutlinedButton(onClick = { isCooking = !isCooking }) {
+                            Text(if (isCooking) "Done cooking" else "Cook this recipe")
+                        }
+                    }
+                    if (isCooking) {
+                        item {
+                            Spacer(Modifier.height(4.dp))
+                            Text("Use from fridge", style = MaterialTheme.typography.titleMedium)
+                            HorizontalDivider(modifier = Modifier.padding(top = 4.dp))
+                        }
+                        if (cookIngredients.isEmpty()) {
+                            item {
+                                Text(
+                                    "None of this recipe's ingredients are specifically matched in your fridge.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            items(cookIngredients, key = { "cook_${it.id}" }) { fridgeIngredient ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        "${fridgeIngredient.name} (${fridgeIngredient.unit})",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    CountStepper(
+                                        count = fridgeIngredient.count,
+                                        onDecrement = { ingredientViewModel.decrementCount(fridgeIngredient.id) },
+                                        onIncrement = { ingredientViewModel.incrementCount(fridgeIngredient.id) },
+                                        onSetCount = { ingredientViewModel.setCount(fridgeIngredient.id, it) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Read-aloud control, sitting right below the ingredient checklist above.
+                if (READ_ALOUD_ENABLED) {
                 item {
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Compact (wrap-content), not full-width -- this row also holds the
-                        // read-aloud control now, and a button that stretches to fill whatever
-                        // space is left crowds it out.
-                        OutlinedButton(
-                            onClick = { highlightMissing = !highlightMissing },
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                if (highlightMissing) "Hide what's missing" else "Highlight what's missing",
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        }
-                        if (READ_ALOUD_ENABLED) {
-                        Spacer(Modifier.width(8.dp))
                         // A labeled button, not a bare icon -- an icon-only control next to
                         // another text button read as decoration rather than something tappable.
                         OutlinedButton(
@@ -399,8 +451,8 @@ fun RecipeDetailScreen(
                             Spacer(Modifier.width(4.dp))
                             Text(label)
                         }
-                        }
                     }
+                }
                 }
 
                 // Previous/Next step controls -- jump to (and read) a specific step directly,
