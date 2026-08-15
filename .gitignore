@@ -27,3 +27,8 @@ local.properties
 
 # Python bytecode cache from running the porting-reference/ scripts.
 __pycache__/
+
+# Release-signing credentials -- never committed. See app/keystore.properties.example.
+/app/keystore.properties
+*.jks
+*.keystore

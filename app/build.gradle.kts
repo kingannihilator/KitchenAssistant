@@ -1,9 +1,19 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
+
+// Release-signing credentials, kept out of git -- see app/keystore.properties.example.
+// Absent on CI/other machines that don't need to produce a signed release build, so this
+// stays null rather than failing the build for every other task (assembleDebug, test, etc).
+val keystorePropertiesFile = file("keystore.properties")
+val keystoreProperties = if (keystorePropertiesFile.exists()) {
+    Properties().apply { load(keystorePropertiesFile.inputStream()) }
+} else null
 
 android {
     namespace = "com.example.kitchenassistant"
@@ -21,6 +31,17 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (keystoreProperties != null) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -29,6 +50,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Falls back to unsigned (debuggable-only install) if keystore.properties is
+            // absent -- see its definition above.
+            signingConfig = if (keystoreProperties != null) signingConfigs.getByName("release") else null
         }
     }
     compileOptions {
