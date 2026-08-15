@@ -69,7 +69,7 @@ def main():
     cur.execute("DROP TABLE IF EXISTS categories")
     cur.execute("""
         CREATE TABLE categories(
-            category_id INTEGER PRIMARY KEY,
+            category_id INTEGER PRIMARY KEY NOT NULL,
             name TEXT NOT NULL,
             parent_id INTEGER REFERENCES categories(category_id),
             UNIQUE(parent_id, name)

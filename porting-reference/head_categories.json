@@ -1146,10 +1146,6 @@
       "Oregano"
     ]
   },
-  "juiced": {
-    "alias_of": "juice",
-    "note": "'juiced' (a participle, not a noun) is not a real ingredient identity -- 'lemon, juiced' and 'lemon juice' are the same ingredient reached via two different algorithmic heads. Rather than duplicate juice's rules under this awkward key, this head is an explicit alias: resolve_ingredient_categories.py follows alias_of to the 'juice' entry. Found instance of the exact cross-head gap this taxonomy exists to fix."
-  },
   "rice": {
     "rules": [
       {
@@ -1613,10 +1609,6 @@
     ],
     "note": "Describes a cut form, not identity -- the real ingredient is embedded in the name (same class of gap as 'juiced'/'frying'), so routed to the base fruit's own category via keyword rules."
   },
-  "thawed": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
-  },
   "walnut": {
     "category_path": [
       "Pantry",
@@ -1744,10 +1736,6 @@
       "Other"
     ]
   },
-  "halved": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
-  },
   "filling": {
     "rules": [
       {
@@ -1796,10 +1784,6 @@
       "Pie Filling",
       "Other"
     ]
-  },
-  "crushed": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized. Also note: 'crushed' is itself missing from STOPWORDS (chopped/minced/sliced/diced/etc. are all there, crushed is not) -- a small, separate gap worth fixing alongside 'as'/'more'/'if' if IngredientMatcher's word lists are ever revisited."
   },
   "raisin": {
     "category_path": [
@@ -1955,10 +1939,6 @@
     "excluded": true,
     "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized. Here specifically a leaked unit-of-measurement word ('cut into 1-inch pieces'), not even a prep participle."
   },
-  "removed": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
-  },
   "topping": {
     "rules": [
       {
@@ -1993,10 +1973,6 @@
       "Pantry",
       "Coconut"
     ]
-  },
-  "quartered": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
   },
   "tortilla": {
     "category_path": [
@@ -2219,10 +2195,6 @@
       "Baking",
       "Shortening"
     ]
-  },
-  "pitted": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
   },
   "blueberry": {
     "category_path": [
@@ -2525,10 +2497,6 @@
       "Coriander"
     ]
   },
-  "deveined": {
-    "alias_of": "shrimp",
-    "note": "Every example is 'shrimp, peeled and deveined' -- deveining is a shrimp-specific prep term, so this head is really just shrimp."
-  },
   "molasses": {
     "category_path": [
       "Pantry",
@@ -2662,54 +2630,6 @@
       "Lentil"
     ]
   },
-  "crumbled": {
-    "rules": [
-      {
-        "contains_any": [
-          "bacon"
-        ],
-        "category_path": [
-          "Meat",
-          "Pork",
-          "Bacon"
-        ]
-      },
-      {
-        "contains_any": [
-          "feta"
-        ],
-        "category_path": [
-          "Dairy",
-          "Cheese",
-          "Feta"
-        ]
-      },
-      {
-        "contains_any": [
-          "blue cheese"
-        ],
-        "category_path": [
-          "Dairy",
-          "Cheese",
-          "Other"
-        ]
-      },
-      {
-        "contains_any": [
-          "goat cheese"
-        ],
-        "category_path": [
-          "Dairy",
-          "Cheese",
-          "Goat Cheese"
-        ]
-      }
-    ],
-    "default_category_path": [
-      "Pantry",
-      "Other"
-    ]
-  },
   "lime": {
     "category_path": [
       "Produce",
@@ -2827,10 +2747,6 @@
       "Shrimp"
     ]
   },
-  "chilled": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state participle with no single consistent embedded ingredient (unlike 'chunk'/'wedge'/'zest', which do have identifiable referents). Same class as as/more/if: STOPWORDS in IngredientMatcher.kt doesn't include this word, so it survives to become the head. Out of scope to fix there (needs a test-covered Kotlin change, affects the old corpus too) -- excluded here rather than mis-categorized."
-  },
   "stick": {
     "rules": [
       {
@@ -2933,32 +2849,6 @@
       "Ice"
     ]
   },
-  "mashed": {
-    "rules": [
-      {
-        "contains_any": [
-          "banana"
-        ],
-        "category_path": [
-          "Produce",
-          "Banana"
-        ]
-      },
-      {
-        "contains_any": [
-          "avocado"
-        ],
-        "category_path": [
-          "Produce",
-          "Avocado"
-        ]
-      }
-    ],
-    "default_category_path": [
-      "Pantry",
-      "Other"
-    ]
-  },
   "applesauce": {
     "category_path": [
       "Pantry",
@@ -3004,10 +2894,6 @@
       "Other"
     ]
   },
-  "toasted": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
-  },
   "roughly": {
     "excluded": true,
     "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
@@ -3024,10 +2910,6 @@
       "Beverages",
       "Beer"
     ]
-  },
-  "separated": {
-    "alias_of": "egg",
-    "note": "Every example is 'eggs, separated' (yolk from white) -- same class of gap as juiced/frying/deveined."
   },
   "glaze": {
     "category_path": [
@@ -3244,10 +3126,6 @@
     "excluded": true,
     "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. No dominant referent (bread rounds, carrot rounds, onion rounds, citrus rounds all appear)."
   },
-  "undrained": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
-  },
   "kale": {
     "category_path": [
       "Produce",
@@ -3298,10 +3176,6 @@
       "Crayfish"
     ]
   },
-  "zested": {
-    "alias_of": "zest",
-    "note": "'lemon, zested' etc. -- same class of gap as juiced/juice."
-  },
   "marjoram": {
     "category_path": [
       "Herbs",
@@ -3340,10 +3214,6 @@
       "Pantry",
       "Marshmallow"
     ]
-  },
-  "warmed": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
   },
   "cashew": {
     "category_path": [
@@ -3788,43 +3658,6 @@
       "Other"
     ]
   },
-  "flaked": {
-    "rules": [
-      {
-        "contains_any": [
-          "tuna"
-        ],
-        "category_path": [
-          "Seafood",
-          "Fish",
-          "Tuna"
-        ]
-      },
-      {
-        "contains_any": [
-          "salmon"
-        ],
-        "category_path": [
-          "Seafood",
-          "Fish",
-          "Salmon"
-        ]
-      },
-      {
-        "contains_any": [
-          "crab"
-        ],
-        "category_path": [
-          "Seafood",
-          "Crab"
-        ]
-      }
-    ],
-    "default_category_path": [
-      "Seafood",
-      "Fish"
-    ]
-  },
   "quarter": {
     "rules": [
       {
@@ -3841,10 +3674,6 @@
       "Pantry",
       "Other"
     ]
-  },
-  "cooled": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
   },
   "liquid": {
     "excluded": true,
@@ -3925,35 +3754,6 @@
       "Cereal"
     ]
   },
-  "sifted": {
-    "rules": [
-      {
-        "contains_any": [
-          "flour"
-        ],
-        "category_path": [
-          "Baking",
-          "Flour",
-          "All-Purpose"
-        ]
-      },
-      {
-        "contains_any": [
-          "sugar",
-          "confectioner"
-        ],
-        "category_path": [
-          "Baking",
-          "Sugar",
-          "Powdered"
-        ]
-      }
-    ],
-    "default_category_path": [
-      "Pantry",
-      "Other"
-    ]
-  },
   "icing": {
     "alias_of": "frosting"
   },
@@ -4026,10 +3826,6 @@
       "Marinade",
       "Other"
     ]
-  },
-  "scrubbed": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
   },
   "gnocchi": {
     "category_path": [
@@ -4285,10 +4081,6 @@
       "Mixed Herbs"
     ]
   },
-  "pressed": {
-    "alias_of": "garlic",
-    "note": "Every example is 'garlic, pressed'."
-  },
   "pepperoni": {
     "category_path": [
       "Meat",
@@ -4386,10 +4178,6 @@
       "Condiments",
       "Sauerkraut"
     ]
-  },
-  "stemmed": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
   },
   "batter": {
     "category_path": [
@@ -4729,10 +4517,6 @@
       "Barley"
     ]
   },
-  "reserved": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
-  },
   "mixture": {
     "excluded": true,
     "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Too generic/heterogeneous (bean mixture, curing mixture, fruit mixture)."
@@ -4760,10 +4544,6 @@
       "Other"
     ],
     "note": "Consistently a vegetable cut-form (bell pepper/carrot/cabbage matchsticks), unlike round/ring/bite which mix in non-food or have no dominant referent -- kept as a low-precision generic bucket rather than excluded."
-  },
-  "cleaned": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
   },
   "meatball": {
     "rules": [
@@ -4877,10 +4657,6 @@
   "food": {
     "excluded": true,
     "reason": "Head is meaningless on its own ('processed cheese food', 'carrot baby food') -- too generic to route."
-  },
-  "squeezed": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('squeezed dry' removes liquid from spinach/sauerkraut -- opposite meaning of 'lemon juice, freshly squeezed', so no safe single rule.)"
   },
   "eggplant": {
     "category_path": [
@@ -5128,10 +4904,6 @@
       "Crouton"
     ]
   },
-  "baked": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
-  },
   "arugula": {
     "category_path": [
       "Produce",
@@ -5182,10 +4954,6 @@
   "only": {
     "excluded": true,
     "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. ('white parts only', 'leaves only')."
-  },
-  "unpeeled": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
   },
   "sake": {
     "category_path": [
@@ -5256,10 +5024,6 @@
   "thickly": {
     "excluded": true,
     "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Pure adverb."
-  },
-  "unwrapped": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
   },
   "tidbit": {
     "alias_of": "pineapple",
@@ -6663,10 +6427,6 @@
     ],
     "note": "Glued-word artifact (no space between two words in the source), same class as onionchopped/saltto. Matches the plant-based-milk rule in the 'milk' head."
   },
-  "heated": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
-  },
   "less": {
     "excluded": true,
     "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Same class as 'more'/'as'."
@@ -6766,10 +6526,6 @@
     "alias_of": "onion",
     "note": "Glued-word artifact (no space between two words in the source), same class as onionchopped/saltto."
   },
-  "boiled": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
-  },
   "teaspoonoregano": {
     "alias_of": "oregano",
     "note": "Glued-word artifact (no space between two words in the source), same class as onionchopped/saltto."
@@ -6824,14 +6580,6 @@
       "Pork"
     ],
     "note": "'Baby back ribs' (pork) dominates; 'beef back ribs' routed separately."
-  },
-  "discarded": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized."
-  },
-  "slivered": {
-    "excluded": true,
-    "reason": "Heterogeneous prep-state/cut-form/meta word with no single consistent embedded ingredient. Same class as as/more/if/thawed/halved/etc. Excluded rather than mis-categorized. Mixed referents (almonds, garlic, onion)."
   },
   "frankfurter": {
     "category_path": [

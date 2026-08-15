@@ -60,6 +60,15 @@ STOPWORDS = {
     "approximately", "about", "approx", "cut", "up", "new", "old", "assorted", "mixed",
     "prepared", "instant", "quick", "ready", "level", "little", "pat", "size", "sized",
     "type", "brand", "style", "divided", "needed", "taste", "desired",
+    # Second batch, kept in sync with IngredientMatcher.kt's STOPWORDS -- these are
+    # preparation participles that were missing here, which let them wrongly surface as
+    # heads (e.g. "separated") for names like "bok choy leaves and stalks separated",
+    # subsequently mis-categorized via head_categories.json's participle aliases.
+    "removed", "quartered", "halved", "thawed", "crushed", "reserved", "crumbled",
+    "toasted", "deveined", "chilled", "juiced", "undrained", "mashed", "warmed",
+    "pitted", "sifted", "flaked", "cooled", "separated", "zested", "scrubbed",
+    "unpeeled", "discarded", "cleaned", "stemmed", "pressed", "heated", "undiluted",
+    "baked", "unwrapped", "blanched", "defrosted", "slivered", "boiled", "pureed", "squeezed",
 }
 
 RECIPE_ONLY_STOPWORDS = {"and", "or", "with", "without", "in", "for", "from", "into", "on", "at", "by"}
