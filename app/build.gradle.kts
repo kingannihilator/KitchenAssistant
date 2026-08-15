@@ -16,13 +16,13 @@ val keystoreProperties = if (keystorePropertiesFile.exists()) {
 } else null
 
 android {
-    namespace = "com.example.kitchenassistant"
+    namespace = "com.pancakeworks.fridgegrub"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.example.kitchenassistant"
+        applicationId = "com.pancakeworks.fridgegrub"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

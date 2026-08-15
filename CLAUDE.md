@@ -17,7 +17,7 @@ All commands use Gradle wrapper from the project root:
 ./gradlew test
 
 # Run a single unit test class
-./gradlew test --tests "com.example.kitchenassistant.ExampleUnitTest"
+./gradlew test --tests "com.pancakeworks.fridgegrub.ExampleUnitTest"
 
 # Run instrumented tests (requires connected device/emulator)
 ./gradlew connectedAndroidTest
