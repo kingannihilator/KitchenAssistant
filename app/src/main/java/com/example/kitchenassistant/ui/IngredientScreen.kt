@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -90,6 +91,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -116,8 +119,8 @@ import java.util.Locale
 
 /** Units offered by both the add-ingredient form and each fridge row's unit dropdown. */
 private val UNIT_OPTIONS = listOf(
-    "units", "pounds", "ounces", "grams", "kilograms",
-    "cups", "tablespoons", "teaspoons",
+    "units", "ounces", "cups", "grams", "kilograms",
+    "pounds", "tablespoons", "teaspoons",
     "quarts", "pints", "gallons", "liters", "milliliters",
     "cloves", "cans", "bunches", "slices"
 )
@@ -721,36 +724,13 @@ private fun AddIngredientCard(
                         modifier = Modifier.width(fieldWidth),
                         properties = PopupProperties(focusable = false)
                     ) {
-                        Box(modifier = Modifier.heightIn(max = 200.dp)) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .verticalScroll(dropdownScrollState)
-                            ) {
-                                suggestions.forEach { suggestion ->
-                                    DropdownMenuItem(
-                                        text = { Text(suggestion) },
-                                        onClick = { onSuggestionSelect(suggestion) }
-                                    )
-                                }
+                        ScrollableDropdownColumn(scrollState = dropdownScrollState, maxHeight = 200.dp) {
+                            suggestions.forEach { suggestion ->
+                                DropdownMenuItem(
+                                    text = { Text(suggestion) },
+                                    onClick = { onSuggestionSelect(suggestion) }
+                                )
                             }
-                            ScrollStateScrollbar(
-                                state = dropdownScrollState,
-                                // matchParentSize, not fillMaxHeight: fillMaxHeight would size
-                                // itself to the *available* max height (200dp/170dp), forcing the
-                                // whole Box -- and thus the popup's own background -- to that
-                                // height even for a short list. That leaves an empty-looking but
-                                // very real gap below a one-item list, where a tap has nothing to
-                                // hit and falls through to whatever's visually underneath (e.g.
-                                // the Exp. date button once, mid-testing). matchParentSize instead
-                                // takes the Box's *content-driven* size (the scrollable Column's
-                                // actual height, already capped at the same max), so the scrollbar
-                                // -- and the popup's visible bounds -- never outgrow real content.
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .matchParentSize()
-                                    .width(6.dp)
-                            )
                         }
                     }
                 }
@@ -839,30 +819,15 @@ private fun AddIngredientCard(
                             expanded = unitDropdownExpanded,
                             onDismissRequest = { unitDropdownExpanded = false }
                         ) {
-                            Box(modifier = Modifier.heightIn(max = 170.dp)) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .verticalScroll(unitScrollState)
-                                ) {
-                                    unitOptions.forEach { unit ->
-                                        DropdownMenuItem(
-                                            text = { Text(unit, style = MaterialTheme.typography.bodyMedium) },
-                                            onClick = { selectedUnit = unit; unitDropdownExpanded = false },
-                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                            modifier = Modifier.height(40.dp)
-                                        )
-                                    }
+                            ScrollableDropdownColumn(scrollState = unitScrollState, maxHeight = 170.dp) {
+                                unitOptions.forEach { unit ->
+                                    DropdownMenuItem(
+                                        text = { Text(unit, style = MaterialTheme.typography.bodyMedium) },
+                                        onClick = { selectedUnit = unit; unitDropdownExpanded = false },
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                        modifier = Modifier.height(40.dp)
+                                    )
                                 }
-                                ScrollStateScrollbar(
-                                    state = unitScrollState,
-                                    // matchParentSize, not fillMaxHeight -- see the identical
-                                    // comment on the ingredient-name suggestions dropdown above.
-                                    modifier = Modifier
-                                        .align(Alignment.CenterEnd)
-                                        .matchParentSize()
-                                        .width(6.dp)
-                                )
                             }
                         }
                     }
@@ -1127,30 +1092,15 @@ private fun IngredientItem(
                         expanded = unitDropdownExpanded,
                         onDismissRequest = { unitDropdownExpanded = false }
                     ) {
-                        Box(modifier = Modifier.heightIn(max = 170.dp)) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .verticalScroll(unitScrollState)
-                            ) {
-                                UNIT_OPTIONS.forEach { unit ->
-                                    DropdownMenuItem(
-                                        text = { Text(unit, style = MaterialTheme.typography.bodyMedium) },
-                                        onClick = { onSetUnit(unit); unitDropdownExpanded = false },
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                        modifier = Modifier.height(40.dp)
-                                    )
-                                }
+                        ScrollableDropdownColumn(scrollState = unitScrollState, maxHeight = 170.dp) {
+                            UNIT_OPTIONS.forEach { unit ->
+                                DropdownMenuItem(
+                                    text = { Text(unit, style = MaterialTheme.typography.bodyMedium) },
+                                    onClick = { onSetUnit(unit); unitDropdownExpanded = false },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                    modifier = Modifier.height(40.dp)
+                                )
                             }
-                            ScrollStateScrollbar(
-                                state = unitScrollState,
-                                // matchParentSize, not fillMaxHeight -- see the identical comment
-                                // on the ingredient-name suggestions dropdown above.
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .matchParentSize()
-                                    .width(6.dp)
-                            )
                         }
                     }
                 }
@@ -1312,6 +1262,46 @@ internal fun CountStepper(
         ) {
             Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(16.dp))
         }
+    }
+}
+
+/**
+ * A vertically scrollable [Column], capped at [maxHeight], with a visible scrollbar thumb tracking
+ * [scrollState] drawn on top -- the shared shape behind the ingredient-name suggestions dropdown
+ * and both unit dropdowns.
+ *
+ * Sizes the thumb's track from the column's own measured size ([androidx.compose.ui.layout.onSizeChanged],
+ * converted back to Dp) rather than `Modifier.matchParentSize()`, which is the idiomatic way to do
+ * this but empirically resolves to a **zero-height** Canvas here -- logged
+ * `canvas size=16.0x0.0 maxValue=1339` inside a live `DropdownMenu` popup, i.e. the sibling Box's
+ * content-driven height isn't visible to a matchParentSize child in that measurement context, so
+ * the thumb never drew at all despite the list genuinely being scrollable (nonzero maxValue). The
+ * measured-size approach sidesteps that entirely.
+ */
+@Composable
+private fun ScrollableDropdownColumn(
+    scrollState: ScrollState,
+    maxHeight: Dp,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val density = LocalDensity.current
+    var trackHeight by remember { mutableStateOf(0.dp) }
+    Box(modifier = modifier.heightIn(max = maxHeight)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(scrollState)
+                .onSizeChanged { trackHeight = with(density) { it.height.toDp() } },
+            content = content
+        )
+        ScrollStateScrollbar(
+            state = scrollState,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .width(6.dp)
+                .height(trackHeight)
+        )
     }
 }
 
