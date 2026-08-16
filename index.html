@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FridgeGrub</title>
+<style>
+  :root {
+    --bg: #faf8f5;
+    --surface: #ffffff;
+    --text: #1c1a17;
+    --text-muted: #6b6459;
+    --accent: #d1592e;
+    --accent-soft: #fbe7dd;
+    --border: #eae4dc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171512;
+      --surface: #211e1a;
+      --text: #f2ede6;
+      --text-muted: #a89f92;
+      --accent: #ef7c4c;
+      --accent-soft: #3a271d;
+      --border: #322d27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem 4rem;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 2.5rem;
+    line-height: 1;
+    margin-bottom: 1rem;
+  }
+  h1 {
+    font-size: 2.2rem;
+    margin: 0 0 0.4rem;
+    letter-spacing: -0.02em;
+  }
+  .tagline {
+    font-size: 1.15rem;
+    color: var(--text-muted);
+    margin: 0 0 2.5rem;
+  }
+  .features {
+    display: grid;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+  .feature {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.1rem 1.3rem;
+  }
+  .feature h3 {
+    margin: 0 0 0.3rem;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .feature p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  .note {
+    background: var(--accent-soft);
+    border-radius: 12px;
+    padding: 1rem 1.3rem;
+    font-size: 0.92rem;
+    color: var(--text);
+    margin-bottom: 2.5rem;
+  }
+  .note strong { color: var(--accent); }
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 1.5rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  footer a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="badge">🍽️</div>
+  <h1>FridgeGrub</h1>
+  <p class="tagline">Track what's in your fridge, get recipes that actually match it.</p>
+
+  <div class="features">
+    <div class="feature">
+      <h3>🥕 Fridge tracking</h3>
+      <p>Add ingredients with autocomplete against a built-in ingredient database. Track quantities and units, or switch to a simple checklist if you'd rather just track what you have.</p>
+    </div>
+    <div class="feature">
+      <h3>🍳 Recipe matching</h3>
+      <p>Recipes are ranked by how much of each one you can already make from what's on hand, with matches color-coded so the best options stand out immediately.</p>
+    </div>
+    <div class="feature">
+      <h3>👩‍🍳 Cook mode</h3>
+      <p>Cooking a recipe deducts the ingredients it uses straight from your fridge, so your list stays accurate without manual bookkeeping.</p>
+    </div>
+    <div class="feature">
+      <h3>⭐ Favorites</h3>
+      <p>Star recipes to keep them pinned at the top of your results, and prioritize fridge ingredients you want used up first.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Fully offline.</strong> FridgeGrub works entirely on your device — no account,
+    no network access, no ads, no tracking. Everything you add stays on your phone.
+  </div>
+
+  <footer>
+    <a href="privacy-policy/">Privacy Policy</a>
+  </footer>
+</div>
+</body>
+</html>
