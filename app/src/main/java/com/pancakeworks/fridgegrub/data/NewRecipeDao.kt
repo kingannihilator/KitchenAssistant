@@ -45,7 +45,16 @@ data class NewRecipeMatchRow(
     val total: Int,
     @ColumnInfo(name = "matched_ids") val matchedIds: String?,
     val prioritized: Int,
-    @ColumnInfo(name = "defining_ids") val definingIds: String?
+    @ColumnInfo(name = "defining_ids") val definingIds: String?,
+    /** How many SEASONING-tier ingredients this recipe calls for in total -- not chunk-dependent,
+     * same rationale as [total]. Paired with [seasoningMatchedIds] so
+     * [com.pancakeworks.fridgegrub.viewmodel.RecipeViewModel.scoreRecipesNew] can compute
+     * [com.pancakeworks.fridgegrub.model.Recipe.unmatchedSeasoningCount] -- SEASONING rows count
+     * toward [total]/[matchedIds] like any other tier now, but a small card indicator still calls
+     * out when the only thing standing between a fridge and a recipe is a seasoning, since that's
+     * a much lower bar to clear than a missing Supportive/Defining ingredient. */
+    @ColumnInfo(name = "seasoning_total") val seasoningTotal: Int,
+    @ColumnInfo(name = "seasoning_matched_ids") val seasoningMatchedIds: String?
 )
 
 data class RecipeIdRow(@ColumnInfo(name = "recipe_id") val recipeId: Int)

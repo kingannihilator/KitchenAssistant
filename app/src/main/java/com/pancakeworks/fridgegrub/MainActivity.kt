@@ -15,6 +15,7 @@ import com.pancakeworks.fridgegrub.ui.AboutScreen
 import com.pancakeworks.fridgegrub.ui.FavoritesScreen
 import com.pancakeworks.fridgegrub.ui.IngredientScreen
 import com.pancakeworks.fridgegrub.ui.LoadingScreen
+import com.pancakeworks.fridgegrub.ui.PantryScreen
 import com.pancakeworks.fridgegrub.ui.RecipeDetailScreen
 import com.pancakeworks.fridgegrub.ui.RecipeScreen
 import com.pancakeworks.fridgegrub.ui.theme.KitchenAssistantTheme
@@ -25,7 +26,14 @@ sealed class Screen {
     object Ingredients : Screen()
     object Favorites : Screen()
     object About : Screen()
-    data class Recipes(val fridgeIngredients: List<String>, val prioritizedIngredients: List<String>) : Screen()
+    data class Pantry(val isOnboarding: Boolean) : Screen()
+    data class Recipes(
+        val fridgeIngredients: List<String>,
+        val prioritizedIngredients: List<String>,
+        // Kept separate from fridgeIngredients (not pre-merged) so RecipeViewModel can tell a
+        // real-fridge match from a pantry-only one -- see RecipeMatch.usesRealFridgeItem's doc.
+        val pantryIngredients: List<String> = emptyList()
+    ) : Screen()
     data class RecipeDetail(
         // The full list the user was browsing (search results or favorites) and which entry was
         // opened -- a snapshot at navigation time, not a live StateFlow, so swiping prev/next stays
@@ -37,7 +45,11 @@ sealed class Screen {
         // Which list to return to on back -- Favorites is a static, fridge-independent bookmark
         // list (see RecipeViewModel.favoriteRecipes), so it carries no fridge/prioritized snapshot
         // of its own to reconstruct like Recipes does.
-        val cameFromFavorites: Boolean = false
+        val cameFromFavorites: Boolean = false,
+        // Only used to reconstruct Screen.Recipes on back navigation, same as fridgeIngredients/
+        // prioritizedIngredients above -- RecipeDetailScreen itself reads pantry items live from
+        // IngredientViewModel, not from here.
+        val pantryIngredients: List<String> = emptyList()
     ) : Screen() {
         val recipe: Recipe get() = recipes[index]
     }
@@ -54,17 +66,28 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember { mutableStateOf<Screen>(Screen.Loading) }
                 when (val screen = currentScreen) {
                     is Screen.Loading -> LoadingScreen(
-                        onFinished = { currentScreen = Screen.Ingredients }
+                        onFinished = {
+                            currentScreen = if (ingredientViewModel.hasSeenPantryOnboarding()) {
+                                Screen.Ingredients
+                            } else {
+                                Screen.Pantry(isOnboarding = true)
+                            }
+                        }
                     )
                     is Screen.Ingredients -> IngredientScreen(
-                        onFindRecipes = { fridge, prioritized ->
-                            currentScreen = Screen.Recipes(fridge, prioritized)
+                        onFindRecipes = { fridge, prioritized, pantry ->
+                            currentScreen = Screen.Recipes(fridge, prioritized, pantry)
                         },
                         onViewFavorites = { currentScreen = Screen.Favorites },
-                        onOpenAbout = { currentScreen = Screen.About }
+                        onOpenAbout = { currentScreen = Screen.About },
+                        onOpenPantry = { currentScreen = Screen.Pantry(isOnboarding = false) }
                     )
                     is Screen.About -> AboutScreen(
                         onBack = { currentScreen = Screen.Ingredients }
+                    )
+                    is Screen.Pantry -> PantryScreen(
+                        isOnboarding = screen.isOnboarding,
+                        onDone = { currentScreen = Screen.Ingredients }
                     )
                     is Screen.Favorites -> FavoritesScreen(
                         onBack = { currentScreen = Screen.Ingredients },
@@ -81,13 +104,15 @@ class MainActivity : ComponentActivity() {
                     is Screen.Recipes -> RecipeScreen(
                         fridgeIngredients = screen.fridgeIngredients,
                         prioritizedIngredients = screen.prioritizedIngredients,
+                        pantryIngredients = screen.pantryIngredients,
                         onBack = { currentScreen = Screen.Ingredients },
                         onRecipeClick = { recipes, recipe ->
                             currentScreen = Screen.RecipeDetail(
                                 recipes,
                                 recipes.indexOfFirst { it.id == recipe.id },
                                 screen.fridgeIngredients,
-                                screen.prioritizedIngredients
+                                screen.prioritizedIngredients,
+                                pantryIngredients = screen.pantryIngredients
                             )
                         },
                         onViewFavorites = { currentScreen = Screen.Favorites }
@@ -99,7 +124,7 @@ class MainActivity : ComponentActivity() {
                             currentScreen = if (screen.cameFromFavorites) {
                                 Screen.Favorites
                             } else {
-                                Screen.Recipes(screen.fridgeIngredients, screen.prioritizedIngredients)
+                                Screen.Recipes(screen.fridgeIngredients, screen.prioritizedIngredients, screen.pantryIngredients)
                             }
                         },
                         hasPrevious = screen.index > 0,

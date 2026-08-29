@@ -18,6 +18,7 @@ import com.pancakeworks.fridgegrub.data.IngredientPopularityIndex
 import com.pancakeworks.fridgegrub.data.NewIngredientIndex
 import com.pancakeworks.fridgegrub.data.NewRecipeDao
 import com.pancakeworks.fridgegrub.data.NewRecipeDatabase
+import com.pancakeworks.fridgegrub.data.PantryRepository
 import com.pancakeworks.fridgegrub.model.AppMode
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -103,6 +104,27 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
             ingredients.drop(1).collect { list -> fridgeRepository.save(list) }
         }
     }
+
+    // --- State: pantry/seasoning checklist ---
+
+    private val pantryRepository = PantryRepository(application)
+
+    private val _pantryItems = MutableStateFlow(pantryRepository.getCheckedItems())
+
+    /** Checked pantry items, merged into the fridge's ingredient names wherever a search or
+     * recipe-detail match is computed -- see [IngredientScreen] and [RecipeDetailScreen]'s call
+     * sites. Never itself passed as a "prioritized" ingredient: starring is a fridge-only boost. */
+    val pantryItems: StateFlow<Set<String>> = _pantryItems.asStateFlow()
+
+    fun togglePantryItem(name: String) {
+        _pantryItems.update { current ->
+            (if (name in current) current - name else current + name).also(pantryRepository::saveCheckedItems)
+        }
+    }
+
+    fun hasSeenPantryOnboarding(): Boolean = pantryRepository.hasSeenOnboarding()
+
+    fun markPantryOnboardingSeen() = pantryRepository.markOnboardingSeen()
 
     // --- State: app mode (Basic = presence-only, Full = quantities + cook mode) ---
 

@@ -112,6 +112,7 @@ fun RecipeDetailScreen(
     val isFavorite = favoriteIds.contains(recipe.id)
     val isDark = isSystemInDarkTheme()
     val mode by ingredientViewModel.appMode.collectAsState()
+    val pantryItems by ingredientViewModel.pantryItems.collectAsState()
 
     // Which fridge ingredient covers each recipe line, parallel to [ingredients]. Computed once
     // and used for the checkmarks, through the same IngredientMatcher the search scored with —
@@ -210,8 +211,12 @@ fun RecipeDetailScreen(
         hasStartedReading = true
     }
 
-    LaunchedEffect(recipe.id, fridgeIngredients) {
-        viewModel.loadRecipeDetail(recipe.id, fridgeIngredients.map { it.name })
+    LaunchedEffect(recipe.id, fridgeIngredients, pantryItems) {
+        // Pantry items merge into the matching name list the same way they do for search (see
+        // IngredientViewModel.pantryItems' doc) so a card's checkmarks agree with its match ratio.
+        // The "Cook this recipe" deduction below still operates on the real fridgeIngredients
+        // list, untouched -- pantry items have no quantity to deduct.
+        viewModel.loadRecipeDetail(recipe.id, (fridgeIngredients.map { it.name } + pantryItems).distinct())
     }
     BackHandler(onBack = onBack)
 

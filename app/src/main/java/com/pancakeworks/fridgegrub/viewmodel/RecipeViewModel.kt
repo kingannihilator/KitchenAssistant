@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.pancakeworks.fridgegrub.data.FavoritesRepository
+import com.pancakeworks.fridgegrub.data.IngredientMatcher
 import com.pancakeworks.fridgegrub.data.NewIngredientIndex
 import com.pancakeworks.fridgegrub.data.NewRecipeDao
 import com.pancakeworks.fridgegrub.data.NewRecipeDatabase
@@ -266,30 +267,49 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
 
     private var lastFridgeIngredients: List<String>? = null
     private var lastPrioritizedIngredients: List<String>? = null
+    private var lastPantryIngredients: List<String>? = null
 
     /** Recipes with a blob ingredient row in the new corpus; cached for the session. */
     private var blobRecipeIdsNew: Set<Int>? = null
 
     private fun newRecipeDao(): NewRecipeDao = NewRecipeDatabase.getInstance(getApplication()).newRecipeDao()
 
-    fun searchRecipes(fridgeIngredients: List<String>, prioritizedIngredients: List<String> = emptyList()) {
-        searchRecipesNew(fridgeIngredients, prioritizedIngredients)
+    /**
+     * [pantryIngredients] (see [com.pancakeworks.fridgegrub.data.PantryRepository]) are merged
+     * into the same matched-ingredient set as [fridgeIngredients] for scoring, but kept as a
+     * separate list rather than pre-merged by the caller specifically so [scoreRecipesNew] can
+     * tell which matches trace back to a *real* fridge item -- see [RecipeMatch.usesRealFridgeItem]
+     * for why that distinction has to survive into ranking, not just matching.
+     */
+    fun searchRecipes(
+        fridgeIngredients: List<String>,
+        prioritizedIngredients: List<String> = emptyList(),
+        pantryIngredients: List<String> = emptyList()
+    ) {
+        searchRecipesNew(fridgeIngredients, prioritizedIngredients, pantryIngredients)
     }
 
-    private fun searchRecipesNew(fridgeIngredients: List<String>, prioritizedIngredients: List<String> = emptyList()) {
+    private fun searchRecipesNew(
+        fridgeIngredients: List<String>,
+        prioritizedIngredients: List<String> = emptyList(),
+        pantryIngredients: List<String> = emptyList()
+    ) {
         // RecipeScreen re-runs this on every navigation back from the detail screen (it's the
         // same ViewModel instance the whole activity lifetime, since there's no back-stack
-        // scoping). Skip the multi-second scan when the fridge/prioritized sets haven't changed
-        // since last time and we already have a result to show; an empty last result (including
-        // from a failed search) still retries, so a transient failure self-heals on next visit.
+        // scoping). Skip the multi-second scan when the fridge/prioritized/pantry sets haven't
+        // changed since last time and we already have a result to show; an empty last result
+        // (including from a failed search) still retries, so a transient failure self-heals on
+        // next visit.
         if (fridgeIngredients == lastFridgeIngredients &&
             prioritizedIngredients == lastPrioritizedIngredients &&
+            pantryIngredients == lastPantryIngredients &&
             _recipes.value.isNotEmpty()
         ) {
             return
         }
         lastFridgeIngredients = fridgeIngredients
         lastPrioritizedIngredients = prioritizedIngredients
+        lastPantryIngredients = pantryIngredients
 
         _filterQuery.value = ""
         _isLoading.value = true
@@ -298,6 +318,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 val dao = newRecipeDao()
                 val fridgeSet = fridgeIngredients.filter { it.isNotBlank() }.distinct()
                 val prioritizedSet = prioritizedIngredients.filter { it.isNotBlank() }.distinct()
+                val pantrySet = pantryIngredients.filter { it.isNotBlank() }.distinct()
 
                 val results = run {
                     if (fridgeSet.isEmpty()) {
@@ -305,13 +326,24 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                         return@run emptyList<Recipe>()
                     }
 
-                    // Resolve the fridge to the set of ingredient_ids it can supply. The
+                    // Resolve the fridge+pantry to the set of ingredient_ids they can supply. The
                     // IngredientMatcher head-word rule, plus category expansion for cross-head
                     // cases (fridge "beef" also reaching "ribeye"/"chuck") -- see
                     // NewIngredientIndex's class doc.
                     val index = NewIngredientIndex.get(dao, BLOB_NAME_LENGTH_THRESHOLD_NEW)
-                    val matchOrigins = index.matchOrigins(fridgeSet)
+                    val matchOrigins = index.matchOrigins(fridgeSet + pantrySet)
                     val matchedIds = matchOrigins.keys
+
+                    // The origin keys (see NewIngredientIndex.matchOrigins' doc) that trace back to
+                    // a real fridge term specifically, not a pantry one -- used below to tell
+                    // whether a recipe's match is backed by anything actually in the fridge, or
+                    // satisfied purely by pantry staples the user has checked off. A key present in
+                    // both sets (e.g. "garlic" typed into the fridge AND checked as pantry) counts
+                    // as real, which is correct: the user does have it, regardless of source.
+                    val realFridgeOriginKeys = fridgeSet.mapNotNullTo(HashSet()) { name ->
+                        IngredientMatcher.parseFridge(name).words.takeIf { it.isNotEmpty() }
+                            ?.sorted()?.joinToString(" ")
+                    }
                     if (matchedIds.isEmpty()) {
                         _totalMatchCount.value = 0
                         return@run emptyList<Recipe>()
@@ -322,18 +354,32 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                         if (prioritizedSet.isEmpty()) emptySet()
                         else index.matching(prioritizedSet) intersect matchedIds
 
-                    val scored = scoreRecipesNew(dao, matchedIds, prioritizedIds, matchOrigins)
+                    val scored = scoreRecipesNew(dao, matchedIds, prioritizedIds, matchOrigins, realFridgeOriginKeys)
                     if (scored.isEmpty()) {
                         _totalMatchCount.value = 0
                         return@run emptyList<Recipe>()
                     }
 
-                    _totalMatchCount.value = scored.size
+                    val favoriteIds = _favoriteIds.value
+                    // Drop matches satisfied purely by checked pantry items, not anything really
+                    // in the fridge -- a handful of common pantry staples (garlic, onion, butter,
+                    // olive oil) are common enough as Supportive/Defining ingredients that leaving
+                    // this in would qualify ~80% of the whole corpus regardless of what's actually
+                    // in the fridge (measured directly against the corpus, not estimated). A
+                    // favorited recipe is exempt, same as the MAX_RESULTS cut below -- a saved
+                    // favorite should never silently vanish from search just because the fridge
+                    // changed.
+                    val relevant = scored.filter { it.usesRealFridgeItem || it.id in favoriteIds }
+                    if (relevant.isEmpty()) {
+                        _totalMatchCount.value = 0
+                        return@run emptyList<Recipe>()
+                    }
+
+                    _totalMatchCount.value = relevant.size
 
                     // Two-stage ranking: matchOrder cuts to MAX_RESULTS here, recipeOrder re-sorts
                     // once favorites are known (see recipeOrder/matchOrder's doc comment).
-                    val ranked = scored.sortedWith(matchOrder)
-                    val favoriteIds = _favoriteIds.value
+                    val ranked = relevant.sortedWith(matchOrder)
                     val topMatches = (ranked.take(MAX_RESULTS) + ranked.filter { it.id in favoriteIds })
                         .distinctBy { it.id }
 
@@ -352,25 +398,36 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Scores every recipe in one pass over `recipe_ingredients`. `SEASONING`-tier rows are
-     * excluded from both the `total` and `matched` counts inside [buildScoreQuerySql] -- the
-     * "incorporate tiers into scoring" step discussed when this was designed: a recipe needing
-     * salt isn't penalized for a fridge without salt, and doesn't get credit for one with it
-     * either. `DEFINING`-tier matches are separately counted (not excluded from anything) so
-     * [recipeOrder]/[matchOrder] can give them their own ranking boost, the same way starred
-     * ingredients already do.
+     * Scores every recipe in one pass over `recipe_ingredients`. `SEASONING`-tier rows used to be
+     * excluded from both the `total` and `matched` counts -- "a recipe needing salt isn't
+     * penalized for a fridge without salt, and doesn't get credit for one with it either" -- back
+     * when there was no way to know whether a fridge had salt at all short of literally typing it
+     * in. That's no longer true once pantry items exist (see
+     * `data/PantryRepository.kt`): seasoning availability is now a real, user-confirmed signal,
+     * not noise, so `total`/`matched` count every tier the same way. `DEFINING`-tier matches are
+     * separately counted on top of that so [recipeOrder]/[matchOrder] can give them their own
+     * ranking boost, the same way starred ingredients already do. `SEASONING`-tier totals are
+     * *also* tracked separately (`seasoningTotal`/`seasoningMatchedIds`) purely to power
+     * [Recipe.unmatchedSeasoningCount]'s small card indicator -- calling out that the only gap is
+     * a seasoning is still useful even though it now counts against the ratio like anything else.
      *
      * [matchOrigins] maps each matched ingredient_id to the fridge entry that satisfied it (see
      * [com.pancakeworks.fridgegrub.data.NewIngredientIndex.matchOrigins]) -- the raw matched-id
      * set is collapsed by that origin before counting, so a recipe calling for several kinds of
      * cheese only gets credit for as many as the fridge can actually distinguish (one, for a
      * generic "cheese" entry; more, if the fridge lists them by specific name).
+     *
+     * [realFridgeOriginKeys] is the subset of those origins that trace back to a real fridge item
+     * rather than a checked pantry one -- used to compute [RecipeMatch.usesRealFridgeItem], which
+     * keeps a recipe satisfied purely by pantry staples (e.g. "Garlic Salt" when the fridge has
+     * only "egg") from ranking alongside or above one that actually uses what's in the fridge.
      */
     private suspend fun scoreRecipesNew(
         dao: NewRecipeDao,
         matchedIds: Set<Int>,
         prioritizedIds: Set<Int>,
-        matchOrigins: Map<Int, String>
+        matchOrigins: Map<Int, String>,
+        realFridgeOriginKeys: Set<String>
     ): List<RecipeMatch> {
         val junkIds = if (SUPPRESS_BLOB_RECIPES_NEW) {
             blobRecipeIdsNew ?: dao.getBlobRecipeIds(BLOB_NAME_LENGTH_THRESHOLD_NEW).toSet().also {
@@ -380,16 +437,18 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
             emptySet()
         }
 
-        // Chunks partition the matched set; `total` is NOT chunk-dependent (it's every
-        // non-SEASONING ingredient the recipe calls for, computed the same regardless of which
-        // chunk is running), so it's taken once per recipe and never summed across chunks. The
-        // matched/defining ingredient_ids themselves accumulate as sets (a chunk only ever sees
-        // its own slice), and the deduped counts are derived from those sets once all chunks are
-        // in; prioritized stays a simple per-chunk sum.
+        // Chunks partition the matched set; `total`/`seasoningTotal` are NOT chunk-dependent
+        // (every ingredient the recipe calls for, computed the same regardless of which chunk is
+        // running), so they're taken once per recipe and never summed across chunks. The
+        // matched/defining/seasoning-matched ingredient_ids themselves accumulate as sets (a
+        // chunk only ever sees its own slice), and the deduped counts are derived from those sets
+        // once all chunks are in; prioritized stays a simple per-chunk sum.
         data class Accumulator(
             var total: Int = 0,
             val matchedIds: MutableSet<Int> = mutableSetOf(),
             val definingIds: MutableSet<Int> = mutableSetOf(),
+            var seasoningTotal: Int = 0,
+            val seasoningMatchedIds: MutableSet<Int> = mutableSetOf(),
             var prioritized: Int = 0
         )
         fun originsOf(ids: Set<Int>) = ids.mapTo(HashSet()) { matchOrigins[it] ?: it.toString() }
@@ -402,8 +461,10 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 if (row.recipeId in junkIds) continue
                 val acc = accumulated.getOrPut(row.recipeId) { Accumulator() }
                 acc.total = row.total
+                acc.seasoningTotal = row.seasoningTotal
                 row.matchedIds?.splitToSequence(',')?.forEach { acc.matchedIds.add(it.toInt()) }
                 row.definingIds?.splitToSequence(',')?.forEach { acc.definingIds.add(it.toInt()) }
+                row.seasoningMatchedIds?.splitToSequence(',')?.forEach { acc.seasoningMatchedIds.add(it.toInt()) }
                 acc.prioritized += row.prioritized
             }
         }
@@ -413,29 +474,41 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 matched = originsOf(acc.matchedIds).size,
                 total = acc.total,
                 prioritized = acc.prioritized,
-                defining = originsOf(acc.definingIds).size
+                defining = originsOf(acc.definingIds).size,
+                usesRealFridgeItem = acc.matchedIds.any { matchOrigins[it] in realFridgeOriginKeys },
+                unmatchedSeasoningCount = (acc.seasoningTotal - originsOf(acc.seasoningMatchedIds).size).coerceAtLeast(0)
             )
         }
     }
 
     private fun buildScoreQuerySql(matchedChunk: List<Int>, prioritizedChunk: List<Int>): String = buildString {
         append("SELECT recipe_id, ")
-        append("COUNT(DISTINCT CASE WHEN tier != 'SEASONING' THEN ingredient_id END) AS total, ")
+        // Every tier counts toward total/matched now -- see scoreRecipesNew's doc for why the
+        // old SEASONING exclusion no longer applies now that pantry gives real seasoning-
+        // availability signal instead of the noise it used to be.
+        append("COUNT(DISTINCT ingredient_id) AS total, ")
         // The actual matched ingredient_ids, not just a count -- scoreRecipesNew collapses ids
         // that trace back to the same fridge entry (see NewIngredientIndex.matchOrigins) before
         // counting, so it needs the list, not an aggregate.
-        append("GROUP_CONCAT(DISTINCT CASE WHEN tier != 'SEASONING' AND ingredient_id IN (")
+        append("GROUP_CONCAT(DISTINCT CASE WHEN ingredient_id IN (")
         append(matchedChunk.joinToString(","))
         append(") THEN ingredient_id END) AS matched_ids, ")
-        // Defining-tier ingredients the fridge covers -- a subset of `matched` (DEFINING is never
-        // SEASONING, so no tier != 'SEASONING' guard is needed here), used purely for the ranking
-        // boost in recipeOrder/matchOrder, not for the total/matched counts themselves. Also
-        // returned as ids, not a count, so it gets the same fridge-origin dedup as matched_ids.
+        // Defining-tier ingredients the fridge covers -- a subset of `matched`, used purely for
+        // the ranking boost in recipeOrder/matchOrder, not for the total/matched counts
+        // themselves. Also returned as ids, not a count, so it gets the same fridge-origin dedup
+        // as matched_ids.
         append("GROUP_CONCAT(DISTINCT CASE WHEN tier = 'DEFINING' AND ingredient_id IN (")
         append(matchedChunk.joinToString(","))
         append(") THEN ingredient_id END) AS defining_ids, ")
+        // How many SEASONING-tier ingredients this recipe calls for, and which of those this
+        // chunk covers -- feeds Recipe.unmatchedSeasoningCount (see NewRecipeMatchRow's doc), a
+        // small card indicator distinct from total/matched now that seasoning is folded in there.
+        append("COUNT(DISTINCT CASE WHEN tier = 'SEASONING' THEN ingredient_id END) AS seasoning_total, ")
+        append("GROUP_CONCAT(DISTINCT CASE WHEN tier = 'SEASONING' AND ingredient_id IN (")
+        append(matchedChunk.joinToString(","))
+        append(") THEN ingredient_id END) AS seasoning_matched_ids, ")
         if (prioritizedChunk.isNotEmpty()) {
-            append("COUNT(DISTINCT CASE WHEN tier != 'SEASONING' AND ingredient_id IN (")
+            append("COUNT(DISTINCT CASE WHEN ingredient_id IN (")
             append(prioritizedChunk.joinToString(","))
             append(") THEN ingredient_id END) AS prioritized")
         } else {
@@ -470,7 +543,9 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 matchedCount = match.matched,
                 totalCount = match.total,
                 prioritizedCount = match.prioritized,
-                definingMatchedCount = match.defining
+                definingMatchedCount = match.defining,
+                usesRealFridgeItem = match.usesRealFridgeItem,
+                unmatchedSeasoningCount = match.unmatchedSeasoningCount
             )
         }
     }

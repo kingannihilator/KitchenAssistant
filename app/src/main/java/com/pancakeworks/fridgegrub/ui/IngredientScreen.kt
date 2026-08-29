@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material.icons.filled.Search
@@ -150,9 +151,10 @@ private val UNIT_OPTIONS = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IngredientScreen(
-    onFindRecipes: (fridgeIngredients: List<String>, prioritizedIngredients: List<String>) -> Unit = { _, _ -> },
+    onFindRecipes: (fridgeIngredients: List<String>, prioritizedIngredients: List<String>, pantryIngredients: List<String>) -> Unit = { _, _, _ -> },
     onViewFavorites: () -> Unit = {},
     onOpenAbout: () -> Unit = {},
+    onOpenPantry: () -> Unit = {},
     viewModel: IngredientViewModel = viewModel()
 ) {
     // Collect the latest values from each StateFlow; any change triggers recomposition.
@@ -165,6 +167,7 @@ fun IngredientScreen(
     val isQueryValid by viewModel.isQueryValid.collectAsState()
     val hasNoRecipeMatch by viewModel.hasNoRecipeMatch.collectAsState()
     val mode by viewModel.appMode.collectAsState()
+    val pantryItems by viewModel.pantryItems.collectAsState()
 
     // Local UI state for the expiration date picker — lives here so it resets when the form is
     // submitted and is not part of the permanent ingredient data until the user taps Add.
@@ -249,6 +252,9 @@ fun IngredientScreen(
                     IconButton(onClick = onViewFavorites) {
                         FavoritesShortcutIcon()
                     }
+                    IconButton(onClick = onOpenPantry) {
+                        Icon(Icons.Default.Kitchen, contentDescription = "Pantry & seasonings")
+                    }
                     IconButton(onClick = onOpenAbout) {
                         Icon(Icons.Default.Info, contentDescription = "Recipe sources & licenses")
                     }
@@ -271,9 +277,14 @@ fun IngredientScreen(
                     // optional — it boosts ranking rather than gating the search.
                     Button(
                         onClick = {
+                            // Pantry items are passed to onFindRecipes separately, not merged in
+                            // here -- RecipeViewModel needs to know which matches trace back to a
+                            // real fridge item vs. a pantry one, to keep pantry-only matches from
+                            // outranking real ones (see RecipeMatch.usesRealFridgeItem's doc).
                             onFindRecipes(
                                 ingredients.map { it.name },
-                                ingredients.filter { it.isPrioritized }.map { it.name }
+                                ingredients.filter { it.isPrioritized }.map { it.name },
+                                pantryItems.toList()
                             )
                         },
                         modifier = Modifier.weight(1f),

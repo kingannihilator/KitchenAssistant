@@ -103,7 +103,9 @@ Matching is **word-level and head-anchored**, not substring. A name reduces to a
 
 The four word lists (`PART_WORDS`, `STOPWORDS`, `FRIDGE_CUT`, `BLOCK_MODIFIERS`) are tuned against the real corpus and guarded by `app/src/test/java/.../IngredientMatcherTest.kt`. **Change a list only alongside that test** — `IngredientMatcher` has no Android imports specifically so it runs under plain JUnit.
 
-**Query strategy:** `NewIngredientIndex` resolves the fridge to the set of `ingredient_id`s it can supply (head-word matching plus category-taxonomy expansion — see "Category taxonomy" below), and `searchRecipes` scores every recipe in one `GROUP BY recipe_id` pass over `recipe_ingredients` using inline SQL literals — bound parameters can't be used, the matched set can be far past SQLite's 999-parameter limit (`RecipeViewModel.chunkIntLiterals` splits it into multiple queries if needed). `COUNT(DISTINCT ingredient_id)` is used for both numerator and denominator, and `SEASONING`-tier rows are excluded from both (see "Schema differences that matter" below).
+**Query strategy:** `NewIngredientIndex` resolves the fridge+pantry to the set of `ingredient_id`s they can supply (head-word matching plus category-taxonomy expansion — see "Category taxonomy" below), and `searchRecipes` scores every recipe in one `GROUP BY recipe_id` pass over `recipe_ingredients` using inline SQL literals — bound parameters can't be used, the matched set can be far past SQLite's 999-parameter limit (`RecipeViewModel.chunkIntLiterals` splits it into multiple queries if needed). `COUNT(DISTINCT ingredient_id)` is used for both numerator and denominator across every tier including `SEASONING` (see "Schema differences that matter" below for why that changed) — a recipe whose only gap is an unmatched `SEASONING`-tier ingredient still scores below 100% and shows a small "missing N seasonings" indicator on its card (`Recipe.unmatchedSeasoningCount`) rather than being silently treated as a full match.
+
+**Pantry items and search-result relevance:** pantry-checked items (`data/PantryRepository.kt`) are merged into the same matched-ingredient set as real fridge items for scoring — but a recipe only appears in results at all if at least one matched ingredient traces back to a *real* fridge item (`RecipeMatch`/`Recipe.usesRealFridgeItem`, computed via `IngredientMatcher.parseFridge` origin-key membership). Without this gate, a handful of common pantry staples (garlic, onion, butter, olive oil) are common enough as `Supportive`/`Defining` ingredients that pantry alone qualified ~80% of the whole corpus for inclusion, regardless of what was actually in the fridge (measured directly against the corpus during this feature's development, not estimated) — so the gate applies to inclusion in `RecipeViewModel.searchRecipesNew`, not just ranking. Favorited recipes are exempt from the gate, same as the `MAX_RESULTS` cut. `usesRealFridgeItem` is also ranked above every other key in `recipeOrder`/`matchOrder` (but below favorites), so even an exempted favorite that's pantry-only sinks below any real-fridge match.
 
 **Ranking** (`recipeOrder`/`matchOrder`, which must stay in sync — the cut to `MAX_RESULTS` happens before favorites are known): favorites, then `prioritizedCount`, then a *smoothed* ratio `matched / (total + 2)`, then `matchedCount`, then title. The smoothing is what stops trivial one-ingredient recipes from monopolizing the first page at a perfect 1.0. Card tier colors deliberately use the **unsmoothed** ratio so a real 3/3 still shows green.
 
@@ -124,12 +126,19 @@ behind the matching scheme) and `NEW_CORPUS_DATA_QUALITY.md` (the corpus's known
 issues) — worth reading before touching the recipe-search code path.
 
 **Schema differences that matter:** the new corpus tags every ingredient `DEFINING`/`SEASONING`/
-`SUPPORTING` relative to its recipe (`recipe_ingredients.tier`). `SEASONING` rows are excluded from
-both the numerator and denominator of the match ratio — the "fold tiers into the existing ranking"
-design — so `RecipeMatch`/`ratioScore`/`matchTier`/`recipeOrder`/`matchOrder` didn't need to change
-at all; only what feeds them (`scoreRecipesNew`'s SQL) is tier-aware. `servings`/`category`/
-`cuisine`/`country` are always `NULL` in this corpus build, so `Recipe.servings`/`categories` are
-hardcoded empty for new-corpus recipes rather than queried.
+`SUPPORTING` relative to its recipe (`recipe_ingredients.tier`). `SEASONING` rows originally
+counted toward neither the numerator nor denominator of the match ratio — deliberately, back when
+there was no way to know whether a fridge had salt short of literally typing it in, so a recipe
+needing it was neither penalized nor credited. Once pantry items (`data/PantryRepository.kt`) gave
+the app a real, user-confirmed seasoning-availability signal instead of that noise, `SEASONING`
+rows were folded into `total`/`matched` like any other tier; `RecipeMatch`/`ratioScore`/
+`matchTier`/`recipeOrder`/`matchOrder` didn't need to change to support this, only what feeds them
+(`scoreRecipesNew`'s SQL) did. `SEASONING` totals are *also* tracked separately purely to power
+`Recipe.unmatchedSeasoningCount` — a small card indicator (not a ranking input) calling out when
+the only gap left is a seasoning, since that's a much lower bar to clear than a missing
+Supportive/Defining ingredient. `servings`/`category`/`cuisine`/`country` are always `NULL` in this
+corpus build, so `Recipe.servings`/`categories` are hardcoded empty for new-corpus recipes rather
+than queried.
 
 **Category taxonomy (`categories` table, `ingredients.category_id`):** a hand-curated (LLM-assigned)
 tree — e.g. `Meat/Beef`, `Produce/Pepper/Bell` — built by `porting-reference/apply_categories.py`

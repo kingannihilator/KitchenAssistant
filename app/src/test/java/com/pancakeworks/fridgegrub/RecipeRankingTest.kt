@@ -22,6 +22,7 @@ class RecipeRankingTest {
         prioritized: Int = 0,
         defining: Int = 0,
         isFavorite: Boolean = false,
+        usesRealFridgeItem: Boolean = true,
         title: String = "recipe$id"
     ) = Recipe(
         id = id,
@@ -33,6 +34,7 @@ class RecipeRankingTest {
         totalCount = total,
         prioritizedCount = prioritized,
         definingMatchedCount = defining,
+        usesRealFridgeItem = usesRealFridgeItem,
         isFavorite = isFavorite
     )
 
@@ -140,6 +142,33 @@ class RecipeRankingTest {
         val onePrioritized = recipe(id = 2, matched = 2, total = 3, prioritized = 1)
         val ranked = listOf(noPrioritized, onePrioritized).sortedWith(recipeOrder)
         assertEquals(onePrioritized, ranked.first())
+    }
+
+    @Test
+    fun `matchOrder sinks a pantry-only match below a real-fridge match, even at a lower ratio`() {
+        // "Garlic Salt" (2/2, fully satisfied by checked pantry items) must not outrank or tie
+        // "Egg Butter" (2/2, one real fridge item) -- the exact scenario a fridge of just "egg"
+        // plus a full pantry checklist produces.
+        val pantryOnly = RecipeMatch(id = 1, matched = 2, total = 2, prioritized = 0, usesRealFridgeItem = false)
+        val realFridgeMatch = RecipeMatch(id = 2, matched = 1, total = 3, prioritized = 0, usesRealFridgeItem = true)
+        val ranked = listOf(pantryOnly, realFridgeMatch).sortedWith(matchOrder)
+        assertEquals(realFridgeMatch, ranked.first())
+    }
+
+    @Test
+    fun `recipeOrder sinks a pantry-only match below a real-fridge match, even at a lower ratio`() {
+        val pantryOnly = recipe(id = 1, matched = 2, total = 2, usesRealFridgeItem = false, title = "Garlic Salt")
+        val realFridgeMatch = recipe(id = 2, matched = 2, total = 2, usesRealFridgeItem = true, title = "Egg Butter")
+        val ranked = listOf(pantryOnly, realFridgeMatch).sortedWith(recipeOrder)
+        assertEquals(realFridgeMatch, ranked.first())
+    }
+
+    @Test
+    fun `recipeOrder still pins favorites first even over a real-fridge match`() {
+        val favoritePantryOnly = recipe(id = 1, matched = 2, total = 2, usesRealFridgeItem = false, isFavorite = true)
+        val realFridgeMatch = recipe(id = 2, matched = 3, total = 3, usesRealFridgeItem = true)
+        val ranked = listOf(favoritePantryOnly, realFridgeMatch).sortedWith(recipeOrder)
+        assertEquals(favoritePantryOnly, ranked.first())
     }
 
     @Test

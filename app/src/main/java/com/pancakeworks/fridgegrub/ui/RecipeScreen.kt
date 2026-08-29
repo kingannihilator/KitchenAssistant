@@ -71,6 +71,7 @@ import kotlinx.coroutines.launch
 fun RecipeScreen(
     fridgeIngredients: List<String>,
     prioritizedIngredients: List<String> = emptyList(),
+    pantryIngredients: List<String> = emptyList(),
     onBack: () -> Unit,
     onRecipeClick: (List<Recipe>, Recipe) -> Unit = { _, _ -> },
     // Lets the undo snackbar's fallback advice ("check Previously Favorited") actually be
@@ -127,7 +128,7 @@ fun RecipeScreen(
         }
     }
 
-    LaunchedEffect(Unit) { viewModel.searchRecipes(fridgeIngredients, prioritizedIngredients) }
+    LaunchedEffect(Unit) { viewModel.searchRecipes(fridgeIngredients, prioritizedIngredients, pantryIngredients) }
     BackHandler(onBack = onBack)
 
     Scaffold(
@@ -297,6 +298,17 @@ private fun RecipeCard(recipe: Recipe, onClick: () -> Unit, onToggleFavorite: ()
                 style = MaterialTheme.typography.bodySmall,
                 color = ingredientTextColor
             )
+            if (recipe.unmatchedSeasoningCount > 0) {
+                // A much lower bar than a missing Supportive/Defining ingredient -- called out
+                // separately so "not quite 100%" doesn't read as more work than it is. Already
+                // counted in matchedCount/totalCount above; this is purely informational.
+                Text(
+                    if (recipe.unmatchedSeasoningCount == 1) "missing 1 seasoning"
+                    else "missing ${recipe.unmatchedSeasoningCount} seasonings",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ingredientTextColor.copy(alpha = 0.7f)
+                )
+            }
             if (recipe.categories.isNotEmpty()) {
                 Text(
                     recipe.categories.joinToString(" · "),

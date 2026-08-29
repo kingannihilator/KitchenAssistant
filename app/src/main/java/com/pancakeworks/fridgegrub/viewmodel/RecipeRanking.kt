@@ -45,7 +45,15 @@ internal data class RecipeMatch(
     val total: Int,
     val prioritized: Int,
     /** Defining-tier ingredients matched -- see [Recipe.definingMatchedCount]. */
-    val defining: Int = 0
+    val defining: Int = 0,
+    /** See [Recipe.usesRealFridgeItem]. Defaults `true` so anything constructed without pantry
+     * context in mind (tests, any future caller) ranks as if fully fridge-backed rather than
+     * being silently sunk. */
+    val usesRealFridgeItem: Boolean = true,
+    /** See [Recipe.unmatchedSeasoningCount]. Display-only -- not read by [recipeOrder]/[matchOrder]
+     * (it's already reflected in [total]/[matched] like any other tier), just carried along so
+     * [com.pancakeworks.fridgegrub.viewmodel.RecipeViewModel.hydrateNew] can forward it. */
+    val unmatchedSeasoningCount: Int = 0
 )
 
 /** Smoothing prior on the match ratio; see [recipeOrder]. */
@@ -94,8 +102,18 @@ internal fun matchTier(matched: Int, total: Int): Int {
  * the same match tier/ratio where it doesn't. Ranked above `matchTier` on purpose, matching how
  * `prioritizedCount` already outranks it: both are deliberate boosts, not filters, so they get
  * first say over the raw ratio.
+ *
+ * `usesRealFridgeItem` is ranked right after favorites, above every other key -- a recipe
+ * satisfied entirely by checked pantry staples (e.g. "Garlic Salt" when the fridge holds only
+ * "egg") is always makeable regardless of what's actually in the fridge, so it must never
+ * outrank or tie a recipe that uses something the user actually just told the app they have. It
+ * doesn't need to outrank favorites (an explicit save) or sit any lower than this: every other
+ * key (`prioritizedCount`, `definingMatchedCount`, tier, ratio) only means anything once a recipe
+ * has cleared this bar, since starring is fridge-only (see
+ * `IngredientViewModel.togglePantryItem`'s doc) and so already implies `usesRealFridgeItem`.
  */
 internal val recipeOrder = compareByDescending<Recipe> { it.isFavorite }
+    .thenByDescending { it.usesRealFridgeItem }
     .thenByDescending { it.prioritizedCount }
     .thenByDescending { it.definingMatchedCount }
     .thenByDescending { matchTier(it.matchedCount, it.totalCount) }
@@ -104,7 +122,8 @@ internal val recipeOrder = compareByDescending<Recipe> { it.isFavorite }
     .thenBy { it.title }
 
 /** [recipeOrder] applied to raw scores, for the cut to MAX_RESULTS. */
-internal val matchOrder = compareByDescending<RecipeMatch> { it.prioritized }
+internal val matchOrder = compareByDescending<RecipeMatch> { it.usesRealFridgeItem }
+    .thenByDescending { it.prioritized }
     .thenByDescending { it.defining }
     .thenByDescending { matchTier(it.matched, it.total) }
     .thenByDescending { ratioScore(it.matched, it.total) }
