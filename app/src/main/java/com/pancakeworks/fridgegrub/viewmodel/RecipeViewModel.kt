@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -79,6 +80,30 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setFilterQuery(query: String) { _filterQuery.value = query }
 
+    // --- State: difficulty / cook-time filters ---
+
+    // Empty = no difficulty filter active (everything passes) -- see matchesFilters' doc for why
+    // a recipe with no difficulty value always passes an active filter too, rather than being
+    // hidden for lack of data.
+    private val _selectedDifficulties = MutableStateFlow<Set<Int>>(emptySet())
+    val selectedDifficulties: StateFlow<Set<Int>> = _selectedDifficulties.asStateFlow()
+
+    fun toggleDifficultyFilter(difficulty: Int) {
+        _selectedDifficulties.update { current ->
+            if (difficulty in current) current - difficulty else current + difficulty
+        }
+    }
+
+    // Null = no cook-time filter active.
+    private val _maxCookMinutes = MutableStateFlow<Int?>(null)
+    val maxCookMinutes: StateFlow<Int?> = _maxCookMinutes.asStateFlow()
+
+    /** Pass the same value again to clear the filter -- RecipeScreen's time chips are
+     * single-select, so tapping the already-selected chip is how a user backs out of it. */
+    fun setMaxCookTimeFilter(minutes: Int?) {
+        _maxCookMinutes.value = if (_maxCookMinutes.value == minutes) null else minutes
+    }
+
     // Plain vars, not StateFlow: only read once when RecipeScreen's LazyColumn is (re)created and
     // written once when it's torn down (navigating to detail/back), so no observers are needed.
     var scrollIndex: Int = 0
@@ -94,14 +119,29 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         initialValue = emptyList()
     )
 
-    val filteredRecipes: StateFlow<List<Recipe>> = combine(sortedRecipes, _filterQuery) { recipes, query ->
+    val filteredRecipes: StateFlow<List<Recipe>> = combine(
+        sortedRecipes, _filterQuery, _selectedDifficulties, _maxCookMinutes
+    ) { recipes, query, difficulties, maxMinutes ->
         val q = query.trim().lowercase()
-        if (q.isEmpty()) recipes
-        else recipes.filter { recipe ->
-            recipe.title.lowercase().contains(q) ||
-            recipe.categories.any { it.lowercase().contains(q) } ||
-            recipe.ingredients.any { it.lowercase().contains(q) }
-        }
+        recipes
+            .filter { recipe ->
+                q.isEmpty() ||
+                recipe.title.lowercase().contains(q) ||
+                recipe.categories.any { it.lowercase().contains(q) } ||
+                recipe.ingredients.any { it.lowercase().contains(q) }
+            }
+            .filter { recipe -> matchesFilters(recipe, difficulties, maxMinutes) }
+            // Stable sort on top of the already-recipeOrder-sorted list: a recipe genuinely
+            // rated within an active filter ranks above one that only passed via the unrated
+            // exemption (see matchesKnownDifficulty/matchesKnownCookTime's doc) -- an unrated
+            // recipe otherwise still floats to the top purely on match quality, which reads as
+            // "the filter did nothing" once you've selected one. Recipes tied on both keys keep
+            // their existing recipeOrder-derived order (stable sort), so this is a pure tiebreak,
+            // not a new ranking axis.
+            .sortedWith(
+                compareByDescending<Recipe> { matchesKnownDifficulty(it, difficulties) }
+                    .thenByDescending { matchesKnownCookTime(it, maxMinutes) }
+            )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -525,14 +565,16 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         append(" FROM recipe_ingredients GROUP BY recipe_id HAVING matched_ids IS NOT NULL")
     }
 
-    /** Loads titles and ingredient lists for the recipes that will actually be shown.
-     * `servings`/`categories` are always empty -- this corpus build has no data in those columns
-     * for any recipe (confirmed, not assumed; see `porting-reference/NEW_CORPUS_DATA_QUALITY.md`). */
+    /** Loads recipe rows and ingredient lists for the recipes that will actually be shown.
+     * `categories` is always empty -- this corpus build has no data in `category`/`cuisine`
+     * (confirmed, not assumed; see `porting-reference/NEW_CORPUS_DATA_QUALITY.md`), unlike
+     * `servings`/`difficulty`/`total_minutes_min/max`, which this corpus does populate (partially
+     * -- see `RecipeEntity`'s doc for exact rates) and which do get carried through here. */
     private suspend fun hydrateNew(dao: NewRecipeDao, topMatches: List<RecipeMatch>): List<Recipe> {
         if (topMatches.isEmpty()) return emptyList()
         val recipeIds = topMatches.map { it.id }
 
-        val titleById = dao.getRecipesByIds(recipeIds).associate { it.recipeId to it.title }
+        val recipeById = dao.getRecipesByIds(recipeIds).associateBy { it.recipeId }
 
         val ingredientTextById = mutableMapOf<Int, MutableList<String>>()
         for (row in dao.getIngredientTextForRecipes(recipeIds)) {
@@ -541,11 +583,11 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
 
         // sortedRecipes re-sorts with the same ordering once favorites are known.
         return topMatches.mapNotNull { match ->
-            val title = titleById[match.id] ?: return@mapNotNull null
+            val entity = recipeById[match.id] ?: return@mapNotNull null
             Recipe(
                 id = match.id,
-                title = title,
-                servings = null,
+                title = entity.title,
+                servings = parseServings(entity.servings),
                 categories = emptyList(),
                 ingredients = ingredientTextById[match.id] ?: emptyList(),
                 matchedCount = match.matched,
@@ -554,7 +596,11 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 definingMatchedCount = match.defining,
                 definingTotalCount = match.definingTotal,
                 usesRealFridgeItem = match.usesRealFridgeItem,
-                unmatchedSeasoningCount = match.unmatchedSeasoningCount
+                unmatchedSeasoningCount = match.unmatchedSeasoningCount,
+                difficulty = entity.difficulty,
+                timeText = entity.timeText,
+                cookMinutesMin = entity.totalMinutesMin,
+                cookMinutesMax = entity.totalMinutesMax
             )
         }
     }

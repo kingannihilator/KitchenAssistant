@@ -310,19 +310,28 @@ fun RecipeDetailScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Metadata row
+                // Metadata row -- servings/difficulty/time are absent for the portion of the
+                // corpus that doesn't rate them (see RecipeEntity's doc), so each piece just
+                // doesn't render rather than showing a placeholder; ingredient count is always
+                // available (it's just the size of the ingredient list below).
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (recipe.servings != null) {
-                            Text("Serves ${recipe.servings}", style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (recipe.categories.isNotEmpty()) {
-                            Text(
-                                recipe.categories.joinToString(" · "),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                    val metadataParts = listOfNotNull(
+                        recipe.servings?.let { "Serves $it" },
+                        "${recipe.ingredientCount} ingredients",
+                        DIFFICULTY_LABELS[recipe.difficulty],
+                        recipe.timeText
+                    )
+                    Text(
+                        metadataParts.joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (recipe.categories.isNotEmpty()) {
+                        Text(
+                            recipe.categories.joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 

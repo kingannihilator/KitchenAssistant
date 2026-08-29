@@ -2,6 +2,7 @@ package com.pancakeworks.fridgegrub.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -28,6 +29,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +58,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +68,24 @@ import com.pancakeworks.fridgegrub.model.Recipe
 import com.pancakeworks.fridgegrub.viewmodel.RecipeViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/** 1-4 difficulty scale from the corpus (see `RecipeEntity.difficulty`'s doc for why these
+ * particular words) -- shared between the filter chips here and the card/detail metadata line. */
+internal val DIFFICULTY_LABELS = linkedMapOf(
+    1 to "Easy",
+    2 to "Everyday",
+    3 to "A Bit of Work",
+    4 to "Go For It!"
+)
+
+/** "Up to N minutes" filter presets -- a recipe's cook time is only ~24% populated, so a small
+ * fixed set of single-select thresholds is simpler than a slider and self-documents what "no
+ * value" means (see `matchesFilters`' doc: it always passes, rather than being hidden). */
+private val TIME_FILTER_OPTIONS = listOf(
+    "Under 30 min" to 30,
+    "Under 1 hr" to 60,
+    "Under 2 hrs" to 120
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +104,8 @@ fun RecipeScreen(
     val allRecipes by viewModel.sortedRecipes.collectAsState()
     val recipes by viewModel.filteredRecipes.collectAsState()
     val filterQuery by viewModel.filterQuery.collectAsState()
+    val selectedDifficulties by viewModel.selectedDifficulties.collectAsState()
+    val maxCookMinutes by viewModel.maxCookMinutes.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val totalMatchCount by viewModel.totalMatchCount.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -182,6 +205,28 @@ fun RecipeScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DIFFICULTY_LABELS.forEach { (level, label) ->
+                        FilterChip(
+                            selected = level in selectedDifficulties,
+                            onClick = { viewModel.toggleDifficultyFilter(level) },
+                            label = { Text(label) }
+                        )
+                    }
+                    TIME_FILTER_OPTIONS.forEach { (label, minutes) ->
+                        FilterChip(
+                            selected = maxCookMinutes == minutes,
+                            onClick = { viewModel.setMaxCookTimeFilter(minutes) },
+                            label = { Text(label) }
+                        )
+                    }
+                }
             }
 
             Box(
@@ -217,19 +262,22 @@ fun RecipeScreen(
                                 viewModel.scrollOffset = listState.firstVisibleItemScrollOffset
                             }
                         }
-                        // Scroll back to the top whenever the filter query changes while on this
-                        // screen -- listState is never disposed just because the filter changed,
-                        // so a scroll position from before a filter edit otherwise still points at
-                        // whatever now-unrelated rows sit at that same index/offset in the newly
-                        // filtered (or cleared) list, which reads as "clearing the filter did
-                        // nothing." Compared against the query this screen instance actually
-                        // started with, not scrolled unconditionally, so restoring scroll position
-                        // after returning from a recipe detail -- a legitimate, separate feature
-                        // via viewModel.scrollIndex/scrollOffset above -- isn't undone by this.
-                        var lastFilterQuery by remember { mutableStateOf(filterQuery) }
-                        LaunchedEffect(filterQuery) {
-                            if (filterQuery != lastFilterQuery) {
-                                lastFilterQuery = filterQuery
+                        // Scroll back to the top whenever any filter (text query, difficulty
+                        // chips, or cook-time chips) changes while on this screen -- listState is
+                        // never disposed just because a filter changed, so a scroll position from
+                        // before still points at whatever now-unrelated rows sit at that same
+                        // index/offset in the newly filtered list, which reads as "the filter did
+                        // nothing" (same underlying issue as the text-search "x" button, now
+                        // fixed for the difficulty/time chips too). Compared against a combined
+                        // filter-state snapshot from when this screen instance actually started,
+                        // not scrolled unconditionally, so restoring scroll position after
+                        // returning from a recipe detail -- a legitimate, separate feature via
+                        // viewModel.scrollIndex/scrollOffset above -- isn't undone by this.
+                        val filterState = Triple(filterQuery, selectedDifficulties, maxCookMinutes)
+                        var lastFilterState by remember { mutableStateOf(filterState) }
+                        LaunchedEffect(filterState) {
+                            if (filterState != lastFilterState) {
+                                lastFilterState = filterState
                                 listState.scrollToItem(0)
                             }
                         }
@@ -321,6 +369,18 @@ private fun RecipeCard(recipe: Recipe, onClick: () -> Unit, onToggleFavorite: ()
                 Text(
                     if (recipe.unmatchedSeasoningCount == 1) "missing 1 seasoning"
                     else "missing ${recipe.unmatchedSeasoningCount} seasonings",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ingredientTextColor.copy(alpha = 0.7f)
+                )
+            }
+            // Difficulty/time metadata -- absent for the ~25-75% of recipes the corpus doesn't
+            // rate (see RecipeEntity's doc), so this line just doesn't render rather than
+            // showing an empty "·". Ingredient count itself is already the denominator of the
+            // "X/Y ingredients" line above -- no need to repeat it here.
+            val metadataParts = listOfNotNull(DIFFICULTY_LABELS[recipe.difficulty], recipe.timeText)
+            if (metadataParts.isNotEmpty()) {
+                Text(
+                    metadataParts.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = ingredientTextColor.copy(alpha = 0.7f)
                 )

@@ -14,10 +14,19 @@ import androidx.room.RoomDatabase
  *
  * `exportSchema = false`: this is a read-only prepackaged asset with no migrations to test against
  * exported schema JSON, so there's nothing to export.
+ *
+ * `version` MUST be bumped every time the bundled asset's schema changes (a new `RecipeEntity`
+ * column, for instance) -- confirmed via a real on-device crash, not theorized:
+ * `createFromAsset` only copies the asset into the app's internal storage on first install, so an
+ * existing install that already has an old copy there will open THAT file and Room will throw
+ * `IllegalStateException: Room cannot verify the data integrity` the moment the declared entities'
+ * schema hash no longer matches what's on disk. `fallbackToDestructiveMigration` is the right
+ * response here (not a real `Migration`): this is a read-only bundled corpus with no user data to
+ * preserve, so "wipe and recopy the new asset" is exactly what should happen on a version bump.
  */
 @Database(
     entities = [RecipeEntity::class, NewIngredientEntity::class, RecipeStepEntity::class, CategoryEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class NewRecipeDatabase : RoomDatabase() {
@@ -37,6 +46,7 @@ abstract class NewRecipeDatabase : RoomDatabase() {
                     "recipe_database.sqlite"
                 )
                     .createFromAsset("database/recipe_database.sqlite")
+                    .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                     .also { instance = it }
             }

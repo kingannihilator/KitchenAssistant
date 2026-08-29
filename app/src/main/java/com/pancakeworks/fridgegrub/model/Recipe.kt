@@ -49,5 +49,20 @@ data class Recipe(
      * a missing Supportive/Defining ingredient.
      */
     val unmatchedSeasoningCount: Int = 0,
+    /** Bare 1-4 scale from the corpus, no source-documented meaning -- see `RecipeEntity
+     * .difficulty`'s doc for the empirical basis of the app's Easy/Everyday/"A Bit of Work"/
+     * "Go For It!" labels. Null for the ~26% of recipes the source doesn't rate. */
+    val difficulty: Int? = null,
+    /** Human-readable total time ("1 hour 30 minutes"), preferred for display over reformatting
+     * [cookMinutesMin]/[cookMinutesMax] by hand. Null for the ~75% of recipes without a value. */
+    val timeText: String? = null,
+    /** Numeric total time in minutes, for filtering (`RecipeViewModel`'s time-bucket filter) --
+     * display prefers [timeText]. Usually equal to each other (a single value, not a real range). */
+    val cookMinutesMin: Int? = null,
+    val cookMinutesMax: Int? = null,
     val isFavorite: Boolean = false
-)
+) {
+    /** Total ingredient lines this recipe calls for, independent of what the fridge/pantry can
+     * supply -- unlike [matchedCount]/[totalCount], which are fridge-relative. */
+    val ingredientCount: Int get() = ingredients.size
+}

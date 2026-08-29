@@ -6,7 +6,8 @@ new_db_workable/HANDOVER.md) into the exact schema the app's Room layer expects
 zero changes to app code -- only the bundled asset file changes.
 
 Output tables (app schema):
-  recipes(recipe_id, title, source_id)
+  recipes(recipe_id, title, source_id, servings, difficulty, time_text, total_minutes_min,
+          total_minutes_max)
   ingredients(ingredient_id, name, normalized_name, category_id)   -- category_id left NULL
                                                                        here; apply_categories.py
                                                                        fills it in a second pass
@@ -15,7 +16,11 @@ Output tables (app schema):
   recipe_steps(recipe_id, step_no, instruction)
 
 Source -> app mapping:
-  recipes.id -> recipe_id, recipes.name -> title, recipes.source_id -> source_id
+  recipes.id -> recipe_id, recipes.name -> title, recipes.source_id -> source_id,
+      recipes.servings/difficulty/time_text/total_minutes_min/total_minutes_max carried through
+      as-is (all nullable; see new_db_workable/HANDOVER.md population rates -- 74% difficulty,
+      ~25% time/servings, none parsed or reshaped here, that happens app-side in Recipe.kt/
+      RecipeViewModel so it stays unit-testable under plain JUnit)
   ingredients.id -> ingredient_id, ingredients.canonical_name -> name,
       lower(canonical_name) -> normalized_name
   recipe_ingredients: recipe_id, ingredient_id, raw_text -> original_text,
@@ -68,7 +73,12 @@ def main():
         CREATE TABLE recipes(
             recipe_id INTEGER PRIMARY KEY NOT NULL,
             title TEXT NOT NULL,
-            source_id INTEGER
+            source_id INTEGER,
+            servings TEXT,
+            difficulty INTEGER,
+            time_text TEXT,
+            total_minutes_min INTEGER,
+            total_minutes_max INTEGER
         )
     """)
     out.execute("""
@@ -110,8 +120,17 @@ def main():
         )
     """)
 
-    recipes = src.execute("SELECT id, name, source_id FROM recipes").fetchall()
-    out.executemany("INSERT INTO recipes(recipe_id, title, source_id) VALUES (?, ?, ?)", recipes)
+    recipes = src.execute("""
+        SELECT id, name, source_id, servings, difficulty, time_text, total_minutes_min,
+               total_minutes_max
+        FROM recipes
+    """).fetchall()
+    out.executemany(
+        """INSERT INTO recipes(recipe_id, title, source_id, servings, difficulty, time_text,
+                                total_minutes_min, total_minutes_max)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        recipes,
+    )
 
     ingredients = src.execute("SELECT id, canonical_name FROM ingredients").fetchall()
     out.executemany(

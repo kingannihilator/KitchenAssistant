@@ -36,11 +36,29 @@ import androidx.room.PrimaryKey
  * companion migration in the same session's history for both fixes.
  */
 
+/**
+ * @property servings Raw free-text from the source ("12", "About 6", "2 servings") -- messy on
+ *   purpose, parsed app-side by [com.pancakeworks.fridgegrub.viewmodel.parseServings] rather than
+ *   reshaped here, so the parser stays unit-testable under plain JUnit. Only ~26% of recipes have
+ *   a value at all (measured against the v1.4 corpus, not assumed).
+ * @property difficulty A bare 1-4 integer with no source-documented meaning; empirically, average
+ *   cook time rises with the number. Labeled app-side (see `RecipeScreen.kt`/`RecipeDetailScreen
+ *   .kt`) as Easy/Everyday/"A Bit of Work"/"Go For It!". ~74% populated.
+ * @property timeText Human-readable total time ("1 hour 30 minutes", "30-40 minutes") for display.
+ *   ~25% populated, same rows as [totalMinutesMin]/[totalMinutesMax].
+ * @property totalMinutesMin @property totalMinutesMax Numeric total time, for filtering (display
+ *   prefers [timeText]). Usually equal (a single value, not a real range) but not always.
+ */
 @Entity(tableName = "recipes")
 data class RecipeEntity(
     @PrimaryKey @ColumnInfo(name = "recipe_id") val recipeId: Int,
     val title: String,
-    @ColumnInfo(name = "source_id") val sourceId: Int?
+    @ColumnInfo(name = "source_id") val sourceId: Int?,
+    val servings: String?,
+    val difficulty: Int?,
+    @ColumnInfo(name = "time_text") val timeText: String?,
+    @ColumnInfo(name = "total_minutes_min") val totalMinutesMin: Int?,
+    @ColumnInfo(name = "total_minutes_max") val totalMinutesMax: Int?
 )
 
 /**
