@@ -24,7 +24,10 @@ import com.pancakeworks.fridgegrub.viewmodel.IngredientViewModel
 sealed class Screen {
     object Loading : Screen()
     object Ingredients : Screen()
-    object Favorites : Screen()
+    // returnTo: which screen to go back to -- Favorites is reachable from both Ingredients and
+    // Recipes (each has its own "view favorites" heart icon), so a hardcoded destination sent
+    // every visitor back to Ingredients regardless of where they actually came from.
+    data class Favorites(val returnTo: Screen = Ingredients) : Screen()
     object About : Screen()
     data class Pantry(val isOnboarding: Boolean) : Screen()
     data class Recipes(
@@ -49,7 +52,11 @@ sealed class Screen {
         // Only used to reconstruct Screen.Recipes on back navigation, same as fridgeIngredients/
         // prioritizedIngredients above -- RecipeDetailScreen itself reads pantry items live from
         // IngredientViewModel, not from here.
-        val pantryIngredients: List<String> = emptyList()
+        val pantryIngredients: List<String> = emptyList(),
+        // Only meaningful when cameFromFavorites -- carries Favorites' own returnTo forward, so
+        // going Recipes -> Favorites -> a recipe -> back -> Favorites -> back still lands on
+        // Recipes, not Ingredients.
+        val favoritesReturnTo: Screen = Ingredients
     ) : Screen() {
         val recipe: Recipe get() = recipes[index]
     }
@@ -78,7 +85,7 @@ class MainActivity : ComponentActivity() {
                         onFindRecipes = { fridge, prioritized, pantry ->
                             currentScreen = Screen.Recipes(fridge, prioritized, pantry)
                         },
-                        onViewFavorites = { currentScreen = Screen.Favorites },
+                        onViewFavorites = { currentScreen = Screen.Favorites(returnTo = screen) },
                         onOpenAbout = { currentScreen = Screen.About },
                         onOpenPantry = { currentScreen = Screen.Pantry(isOnboarding = false) }
                     )
@@ -90,14 +97,15 @@ class MainActivity : ComponentActivity() {
                         onDone = { currentScreen = Screen.Ingredients }
                     )
                     is Screen.Favorites -> FavoritesScreen(
-                        onBack = { currentScreen = Screen.Ingredients },
+                        onBack = { currentScreen = screen.returnTo },
                         onRecipeClick = { recipes, recipe ->
                             currentScreen = Screen.RecipeDetail(
                                 recipes,
                                 recipes.indexOfFirst { it.id == recipe.id },
                                 fridgeIngredients = emptyList(),
                                 prioritizedIngredients = emptyList(),
-                                cameFromFavorites = true
+                                cameFromFavorites = true,
+                                favoritesReturnTo = screen.returnTo
                             )
                         }
                     )
@@ -115,14 +123,14 @@ class MainActivity : ComponentActivity() {
                                 pantryIngredients = screen.pantryIngredients
                             )
                         },
-                        onViewFavorites = { currentScreen = Screen.Favorites }
+                        onViewFavorites = { currentScreen = Screen.Favorites(returnTo = screen) }
                     )
                     is Screen.RecipeDetail -> RecipeDetailScreen(
                         recipe = screen.recipe,
                         fridgeIngredients = fridgeIngredients.filter { !it.isNegative },
                         onBack = {
                             currentScreen = if (screen.cameFromFavorites) {
-                                Screen.Favorites
+                                Screen.Favorites(returnTo = screen.favoritesReturnTo)
                             } else {
                                 Screen.Recipes(screen.fridgeIngredients, screen.prioritizedIngredients, screen.pantryIngredients)
                             }

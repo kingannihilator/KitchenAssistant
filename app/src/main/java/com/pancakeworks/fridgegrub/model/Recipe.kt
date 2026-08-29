@@ -19,6 +19,17 @@ data class Recipe(
      */
     val definingMatchedCount: Int = 0,
     /**
+     * How many `DEFINING`-tier ingredients this recipe calls for in total. Paired with
+     * [definingMatchedCount] so [com.pancakeworks.fridgegrub.viewmodel.recipeOrder] can rank by
+     * the *proportion* of defining ingredients covered, not the raw count -- otherwise a recipe
+     * tagging several ingredients `DEFINING` gets more chances to accumulate defining-matches than
+     * one naming just its single namesake ingredient, even when the multi-defining recipe is
+     * missing most of what it actually needs. Defaults to [definingMatchedCount] so a caller that
+     * only ever set the matched count (tests, any future caller) gets the same "fully covers
+     * however many defining ingredients it named" behavior as before this field existed.
+     */
+    val definingTotalCount: Int = definingMatchedCount,
+    /**
      * Whether at least one matched ingredient traces back to a real fridge item, as opposed to
      * being satisfied purely by checked pantry staples (see `data/PantryRepository.kt`). Ranked
      * above every other match-quality key in [com.pancakeworks.fridgegrub.viewmodel.recipeOrder]

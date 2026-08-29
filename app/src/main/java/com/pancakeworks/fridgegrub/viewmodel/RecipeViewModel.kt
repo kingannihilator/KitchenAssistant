@@ -404,9 +404,11 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
      * when there was no way to know whether a fridge had salt at all short of literally typing it
      * in. That's no longer true once pantry items exist (see
      * `data/PantryRepository.kt`): seasoning availability is now a real, user-confirmed signal,
-     * not noise, so `total`/`matched` count every tier the same way. `DEFINING`-tier matches are
-     * separately counted on top of that so [recipeOrder]/[matchOrder] can give them their own
-     * ranking boost, the same way starred ingredients already do. `SEASONING`-tier totals are
+     * not noise, so `total`/`matched` count every tier the same way. `DEFINING`-tier matches (and
+     * totals -- `definingTotal`) are separately counted on top of that so [recipeOrder]/
+     * [matchOrder] can give them their own ranking boost as a *proportion* covered, not a raw
+     * count (see `RecipeRanking.kt`'s doc for why the proportion matters), the same way starred
+     * ingredients already do. `SEASONING`-tier totals are
      * *also* tracked separately (`seasoningTotal`/`seasoningMatchedIds`) purely to power
      * [Recipe.unmatchedSeasoningCount]'s small card indicator -- calling out that the only gap is
      * a seasoning is still useful even though it now counts against the ratio like anything else.
@@ -447,6 +449,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
             var total: Int = 0,
             val matchedIds: MutableSet<Int> = mutableSetOf(),
             val definingIds: MutableSet<Int> = mutableSetOf(),
+            var definingTotal: Int = 0,
             var seasoningTotal: Int = 0,
             val seasoningMatchedIds: MutableSet<Int> = mutableSetOf(),
             var prioritized: Int = 0
@@ -461,6 +464,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 if (row.recipeId in junkIds) continue
                 val acc = accumulated.getOrPut(row.recipeId) { Accumulator() }
                 acc.total = row.total
+                acc.definingTotal = row.definingTotal
                 acc.seasoningTotal = row.seasoningTotal
                 row.matchedIds?.splitToSequence(',')?.forEach { acc.matchedIds.add(it.toInt()) }
                 row.definingIds?.splitToSequence(',')?.forEach { acc.definingIds.add(it.toInt()) }
@@ -475,6 +479,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 total = acc.total,
                 prioritized = acc.prioritized,
                 defining = originsOf(acc.definingIds).size,
+                definingTotal = acc.definingTotal,
                 usesRealFridgeItem = acc.matchedIds.any { matchOrigins[it] in realFridgeOriginKeys },
                 unmatchedSeasoningCount = (acc.seasoningTotal - originsOf(acc.seasoningMatchedIds).size).coerceAtLeast(0)
             )
@@ -496,10 +501,13 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         // Defining-tier ingredients the fridge covers -- a subset of `matched`, used purely for
         // the ranking boost in recipeOrder/matchOrder, not for the total/matched counts
         // themselves. Also returned as ids, not a count, so it gets the same fridge-origin dedup
-        // as matched_ids.
+        // as matched_ids. defining_total (not chunk-dependent, same rationale as total) is the
+        // denominator that boost is a *proportion* of -- see RecipeRanking.kt's doc for why a raw
+        // count would unfairly favor a recipe that tags several ingredients DEFINING.
         append("GROUP_CONCAT(DISTINCT CASE WHEN tier = 'DEFINING' AND ingredient_id IN (")
         append(matchedChunk.joinToString(","))
         append(") THEN ingredient_id END) AS defining_ids, ")
+        append("COUNT(DISTINCT CASE WHEN tier = 'DEFINING' THEN ingredient_id END) AS defining_total, ")
         // How many SEASONING-tier ingredients this recipe calls for, and which of those this
         // chunk covers -- feeds Recipe.unmatchedSeasoningCount (see NewRecipeMatchRow's doc), a
         // small card indicator distinct from total/matched now that seasoning is folded in there.
@@ -544,6 +552,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 totalCount = match.total,
                 prioritizedCount = match.prioritized,
                 definingMatchedCount = match.defining,
+                definingTotalCount = match.definingTotal,
                 usesRealFridgeItem = match.usesRealFridgeItem,
                 unmatchedSeasoningCount = match.unmatchedSeasoningCount
             )

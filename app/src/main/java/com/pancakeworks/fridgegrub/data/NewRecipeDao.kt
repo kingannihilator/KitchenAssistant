@@ -46,6 +46,11 @@ data class NewRecipeMatchRow(
     @ColumnInfo(name = "matched_ids") val matchedIds: String?,
     val prioritized: Int,
     @ColumnInfo(name = "defining_ids") val definingIds: String?,
+    /** How many DEFINING-tier ingredients this recipe calls for in total -- not chunk-dependent,
+     * same rationale as [total]. Feeds [com.pancakeworks.fridgegrub.model.Recipe.definingTotalCount],
+     * so the defining-ingredient ranking boost can compare a *proportion* covered rather than a
+     * raw count -- see `RecipeRanking.kt`'s doc for why that matters. */
+    @ColumnInfo(name = "defining_total") val definingTotal: Int,
     /** How many SEASONING-tier ingredients this recipe calls for in total -- not chunk-dependent,
      * same rationale as [total]. Paired with [seasoningMatchedIds] so
      * [com.pancakeworks.fridgegrub.viewmodel.RecipeViewModel.scoreRecipesNew] can compute

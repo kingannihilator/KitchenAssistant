@@ -46,6 +46,11 @@ internal data class RecipeMatch(
     val prioritized: Int,
     /** Defining-tier ingredients matched -- see [Recipe.definingMatchedCount]. */
     val defining: Int = 0,
+    /** Defining-tier ingredients this recipe calls for in total -- see
+     * [Recipe.definingTotalCount]. Defaults to [defining] so existing/test callers that only ever
+     * cared about "matched some defining ingredient" (a boolean-ish 0-or-positive count) keep
+     * behaving exactly as before: matching 100% of however many defining ingredients they named. */
+    val definingTotal: Int = defining,
     /** See [Recipe.usesRealFridgeItem]. Defaults `true` so anything constructed without pantry
      * context in mind (tests, any future caller) ranks as if fully fridge-backed rather than
      * being silently sunk. */
@@ -103,6 +108,16 @@ internal fun matchTier(matched: Int, total: Int): Int {
  * `prioritizedCount` already outranks it: both are deliberate boosts, not filters, so they get
  * first say over the raw ratio.
  *
+ * That boost is compared as [ratioScore] of `definingMatchedCount`/`definingTotalCount`, not the
+ * raw count -- a recipe tagging several ingredients `DEFINING` (e.g. a pancake recipe naming rice
+ * flour, coconut milk, coconut flakes, *and* water as defining) otherwise gets more chances to
+ * rack up defining-matches than one naming just its one namesake ingredient (e.g. garlic in a
+ * garlic soup), even when the multi-defining recipe is a poor overall match and the water/flour it
+ * matched are near-universal pantry items, not the dish's actual identity. The smoothing already
+ * used for the main ratio does the right thing here too: 2-of-4 and 1-of-1 both smooth to the same
+ * score, so the tie correctly falls through to `matchTier`/ratio -- where a recipe genuinely
+ * missing most of its real ingredients loses to one that's actually complete.
+ *
  * `usesRealFridgeItem` is ranked right after favorites, above every other key -- a recipe
  * satisfied entirely by checked pantry staples (e.g. "Garlic Salt" when the fridge holds only
  * "egg") is always makeable regardless of what's actually in the fridge, so it must never
@@ -115,7 +130,7 @@ internal fun matchTier(matched: Int, total: Int): Int {
 internal val recipeOrder = compareByDescending<Recipe> { it.isFavorite }
     .thenByDescending { it.usesRealFridgeItem }
     .thenByDescending { it.prioritizedCount }
-    .thenByDescending { it.definingMatchedCount }
+    .thenByDescending { ratioScore(it.definingMatchedCount, it.definingTotalCount) }
     .thenByDescending { matchTier(it.matchedCount, it.totalCount) }
     .thenByDescending { ratioScore(it.matchedCount, it.totalCount) }
     .thenByDescending { it.matchedCount }
@@ -124,7 +139,7 @@ internal val recipeOrder = compareByDescending<Recipe> { it.isFavorite }
 /** [recipeOrder] applied to raw scores, for the cut to MAX_RESULTS. */
 internal val matchOrder = compareByDescending<RecipeMatch> { it.usesRealFridgeItem }
     .thenByDescending { it.prioritized }
-    .thenByDescending { it.defining }
+    .thenByDescending { ratioScore(it.defining, it.definingTotal) }
     .thenByDescending { matchTier(it.matched, it.total) }
     .thenByDescending { ratioScore(it.matched, it.total) }
     .thenByDescending { it.matched }

@@ -217,6 +217,22 @@ fun RecipeScreen(
                                 viewModel.scrollOffset = listState.firstVisibleItemScrollOffset
                             }
                         }
+                        // Scroll back to the top whenever the filter query changes while on this
+                        // screen -- listState is never disposed just because the filter changed,
+                        // so a scroll position from before a filter edit otherwise still points at
+                        // whatever now-unrelated rows sit at that same index/offset in the newly
+                        // filtered (or cleared) list, which reads as "clearing the filter did
+                        // nothing." Compared against the query this screen instance actually
+                        // started with, not scrolled unconditionally, so restoring scroll position
+                        // after returning from a recipe detail -- a legitimate, separate feature
+                        // via viewModel.scrollIndex/scrollOffset above -- isn't undone by this.
+                        var lastFilterQuery by remember { mutableStateOf(filterQuery) }
+                        LaunchedEffect(filterQuery) {
+                            if (filterQuery != lastFilterQuery) {
+                                lastFilterQuery = filterQuery
+                                listState.scrollToItem(0)
+                            }
+                        }
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),

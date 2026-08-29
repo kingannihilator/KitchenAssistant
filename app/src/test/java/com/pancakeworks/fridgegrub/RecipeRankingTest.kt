@@ -21,6 +21,7 @@ class RecipeRankingTest {
         total: Int,
         prioritized: Int = 0,
         defining: Int = 0,
+        definingTotal: Int = defining,
         isFavorite: Boolean = false,
         usesRealFridgeItem: Boolean = true,
         title: String = "recipe$id"
@@ -34,6 +35,7 @@ class RecipeRankingTest {
         totalCount = total,
         prioritizedCount = prioritized,
         definingMatchedCount = defining,
+        definingTotalCount = definingTotal,
         usesRealFridgeItem = usesRealFridgeItem,
         isFavorite = isFavorite
     )
@@ -169,6 +171,24 @@ class RecipeRankingTest {
         val realFridgeMatch = recipe(id = 2, matched = 3, total = 3, usesRealFridgeItem = true)
         val ranked = listOf(favoritePantryOnly, realFridgeMatch).sortedWith(recipeOrder)
         assertEquals(favoritePantryOnly, ranked.first())
+    }
+
+    @Test
+    fun `matchOrder does not let partial defining coverage outrank full coverage of a better overall match`() {
+        // "Vitumbua" tags 4 ingredients DEFINING and matches 2 of them (e.g. water, flour --
+        // near-universal pantry items, not the dish's real identity) while missing most of the
+        // recipe overall. "Garlic Soup" tags only its one namesake ingredient DEFINING and matches
+        // it, with a fully complete recipe otherwise. A raw defining count (2 > 1) would have let
+        // Vitumbua win outright; the proportion (2/4 = 50% vs 1/1 = 100%, both smoothed to the same
+        // score) correctly defers to the overall match tier instead.
+        val partialDefiningPoorOverall = RecipeMatch(
+            id = 1, matched = 5, total = 13, prioritized = 0, defining = 2, definingTotal = 4
+        )
+        val fullDefiningCompleteOverall = RecipeMatch(
+            id = 2, matched = 8, total = 8, prioritized = 0, defining = 1, definingTotal = 1
+        )
+        val ranked = listOf(partialDefiningPoorOverall, fullDefiningCompleteOverall).sortedWith(matchOrder)
+        assertEquals(fullDefiningCompleteOverall, ranked.first())
     }
 
     @Test
