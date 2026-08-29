@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-08-12T23:59:55.913447300Z">
+        <DropdownSelection timestamp="2026-08-15T21:11:06.445116400Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\yangn\.android\avd\KitchenAssistantTest.avd" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=ZY22H2M5C9" />
             </handle>
           </Target>
         </DropdownSelection>

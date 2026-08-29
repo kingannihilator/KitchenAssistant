@@ -49,6 +49,7 @@ import androidx.compose.ui.geometry.Size as GeomSize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 // import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
@@ -537,8 +538,22 @@ private fun UndoRow(ingredientName: String, onUndo: () -> Unit) {
     }
 }
 
-/** A single quick-add entry: display name plus an emoji stand-in for a thumbnail image. */
-private data class QuickAddItem(val name: String, val emoji: String)
+/**
+ * One selectable option in a quick-add item's sub-type menu (e.g. "Chicken Breast" under
+ * "Chicken"). [emoji] is only set where a genuinely distinct emoji exists for that specific
+ * cut/variety -- most sub-types fall back to no icon at all (shown as plain text in the dropdown)
+ * rather than reusing the parent's emoji, which would misleadingly imply a distinction that
+ * isn't actually there.
+ */
+private data class QuickAddSubType(val name: String, val emoji: String? = null)
+
+/**
+ * A single quick-add entry: display name plus an emoji stand-in for a thumbnail image, plus an
+ * optional list of more specific [subTypes]. An item with no sub-types adds itself directly on
+ * tap (the original one-tap behavior); an item with sub-types opens a small dropdown instead --
+ * see [QuickAddThumbnail].
+ */
+private data class QuickAddItem(val name: String, val emoji: String, val subTypes: List<QuickAddSubType> = emptyList())
 
 /**
  * Primary/defining ingredients, offered as one-tap shortcuts so the user doesn't have to type +
@@ -546,29 +561,102 @@ private data class QuickAddItem(val name: String, val emoji: String)
  * alphabetically or by category, so the ingredients people reach for most often don't require
  * scrolling the row. Names are simple, singular nouns so they head-match broadly under
  * [com.pancakeworks.fridgegrub.data.IngredientMatcher].
+ *
+ * Items likely to be bought as a specific cut/variety (meats, cheese, rice, etc.) carry
+ * [QuickAddItem.subTypes] so the user can be precise without typing -- tapping the thumbnail
+ * opens a dropdown of those instead of adding the generic name.
  */
 private val QUICK_ADD_ITEMS = listOf(
     QuickAddItem("Egg", "🥚"),
     QuickAddItem("Onion", "🧅"),
     QuickAddItem("Tomato", "🍅"),
-    QuickAddItem("Cheese", "🧀"),
-    QuickAddItem("Chicken", "🍗"),
+    QuickAddItem(
+        "Cheese", "🧀", listOf(
+            QuickAddSubType("Cheddar Cheese"),
+            QuickAddSubType("Mozzarella Cheese"),
+            QuickAddSubType("Parmesan Cheese"),
+            QuickAddSubType("Cream Cheese"),
+            QuickAddSubType("Swiss Cheese"),
+        )
+    ),
+    QuickAddItem(
+        "Chicken", "🍗", listOf(
+            QuickAddSubType("Whole Chicken"),
+            QuickAddSubType("Chicken Breast"),
+            QuickAddSubType("Chicken Thigh"),
+            QuickAddSubType("Chicken Wing", "🍗"),
+            QuickAddSubType("Ground Chicken"),
+        )
+    ),
     QuickAddItem("Garlic", "🧄"),
     QuickAddItem("Potato", "🥔"),
     QuickAddItem("Carrot", "🥕"),
-    QuickAddItem("Beef", "🥩"),
-    QuickAddItem("Rice", "🍚"),
-    QuickAddItem("Pork", "🍖"),
-    QuickAddItem("Mushroom", "🍄"),
-    QuickAddItem("Beans", "🫘"),
+    QuickAddItem(
+        "Beef", "🥩", listOf(
+            QuickAddSubType("Ground Beef"),
+            QuickAddSubType("Beef Steak", "🥩"),
+            QuickAddSubType("Beef Roast"),
+            QuickAddSubType("Beef Ribs", "🍖"),
+        )
+    ),
+    QuickAddItem(
+        "Rice", "🍚", listOf(
+            QuickAddSubType("White Rice"),
+            QuickAddSubType("Brown Rice"),
+            QuickAddSubType("Jasmine Rice"),
+            QuickAddSubType("Basmati Rice"),
+        )
+    ),
+    QuickAddItem(
+        "Pork", "🍖", listOf(
+            QuickAddSubType("Pork Chop"),
+            QuickAddSubType("Ground Pork"),
+            QuickAddSubType("Pork Ribs", "🍖"),
+            QuickAddSubType("Bacon", "🥓"),
+        )
+    ),
+    QuickAddItem(
+        "Mushroom", "🍄", listOf(
+            QuickAddSubType("Button Mushroom"),
+            QuickAddSubType("Portobello Mushroom"),
+            QuickAddSubType("Shiitake Mushroom"),
+        )
+    ),
+    QuickAddItem(
+        "Beans", "🫘", listOf(
+            QuickAddSubType("Black Beans"),
+            QuickAddSubType("Kidney Beans"),
+            QuickAddSubType("Pinto Beans"),
+            QuickAddSubType("Chickpeas"),
+        )
+    ),
     QuickAddItem("Shrimp", "🦐"),
-    QuickAddItem("Pasta", "🍝"),
+    QuickAddItem(
+        "Pasta", "🍝", listOf(
+            QuickAddSubType("Spaghetti"),
+            QuickAddSubType("Penne"),
+            QuickAddSubType("Macaroni"),
+            QuickAddSubType("Fettuccine"),
+        )
+    ),
     QuickAddItem("Cabbage", "🥬"),
-    QuickAddItem("Bell Pepper", "🫑"),
+    QuickAddItem(
+        "Bell Pepper", "🫑", listOf(
+            QuickAddSubType("Red Bell Pepper", "🫑"),
+            QuickAddSubType("Green Bell Pepper", "🫑"),
+            QuickAddSubType("Yellow Bell Pepper", "🫑"),
+        )
+    ),
     QuickAddItem("Spinach", "🍃"),
     QuickAddItem("Corn", "🌽"),
     QuickAddItem("Butter", "🧈"),
-    QuickAddItem("Milk", "🥛"),
+    QuickAddItem(
+        "Milk", "🥛", listOf(
+            QuickAddSubType("Whole Milk"),
+            QuickAddSubType("Skim Milk"),
+            QuickAddSubType("Almond Milk"),
+        )
+    ),
     QuickAddItem("Broccoli", "🥦"),
     QuickAddItem("Cucumber", "🥒"),
     QuickAddItem("Salmon", "🐟"),
@@ -576,9 +664,11 @@ private val QUICK_ADD_ITEMS = listOf(
 
 /**
  * Horizontally scrollable row of thumbnail shortcuts for common vegetables and meats.
- * Tapping a thumbnail adds that ingredient to the fridge at a default quantity of 1.
+ * Tapping a thumbnail with no sub-types adds that ingredient directly at a default quantity of 1;
+ * tapping one with sub-types opens a dropdown to pick the specific cut/variety first (see
+ * [QuickAddThumbnail]).
  *
- * @param onQuickAdd Called with the ingredient name when a thumbnail is tapped.
+ * @param onQuickAdd Called with the ingredient name once a final selection is made.
  */
 @Composable
 private fun QuickAddRow(onQuickAdd: (String) -> Unit, modifier: Modifier = Modifier) {
@@ -596,39 +686,93 @@ private fun QuickAddRow(onQuickAdd: (String) -> Unit, modifier: Modifier = Modif
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             QUICK_ADD_ITEMS.forEach { item ->
-                QuickAddThumbnail(item = item, onClick = { onQuickAdd(item.name) })
+                QuickAddThumbnail(item = item, onSelect = onQuickAdd)
             }
         }
     }
 }
 
-/** A single tappable thumbnail (emoji in a rounded square) with its name label below. */
+/**
+ * A single tappable thumbnail (emoji in a rounded square) with its name label below.
+ *
+ * Items with no [QuickAddItem.subTypes] add themselves directly on tap, same as before. Items
+ * with sub-types instead open a compact dropdown anchored to the thumbnail -- kept to a tap-to-
+ * open, tap-a-row-to-add flow (no extra confirm step) so specifying a cut/variety stays just as
+ * quick as the plain one-tap add, and a small dropdown-arrow badge on the thumbnail signals which
+ * kind of tap to expect before the user commits to it.
+ *
+ * @param onSelect Called with the final ingredient name -- the item's own name for a plain
+ *   thumbnail, or the chosen sub-type's name once the dropdown is used.
+ */
 @Composable
-private fun QuickAddThumbnail(item: QuickAddItem, onClick: () -> Unit) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .width(64.dp)
-            .clickable(onClick = onClick)
-            .padding(4.dp)
-    ) {
-        Box(
+private fun QuickAddThumbnail(item: QuickAddItem, onSelect: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
+                .width(64.dp)
+                .clickable {
+                    if (item.subTypes.isEmpty()) onSelect(item.name) else expanded = true
+                }
+                .padding(4.dp)
         ) {
-            Text(item.emoji, fontSize = 24.sp)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(item.emoji, fontSize = 24.sp)
+                if (item.subTypes.isNotEmpty()) {
+                    // Small badge in the corner, not the same size/weight as the main emoji, so
+                    // it reads as "more options" rather than competing with it for attention.
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(16.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.surface),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.ArrowDropDown,
+                            contentDescription = "More options",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                item.name,
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
-        Spacer(Modifier.height(2.dp))
-        Text(
-            item.name,
-            style = MaterialTheme.typography.labelSmall,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            item.subTypes.forEach { subType ->
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (subType.emoji != null) {
+                                Text(subType.emoji, fontSize = 16.sp)
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text(subType.name)
+                        }
+                    },
+                    onClick = {
+                        onSelect(subType.name)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -1118,12 +1262,14 @@ private fun IngredientItem(
                 var unitDropdownExpanded by remember { mutableStateOf(false) }
                 val unitScrollState = rememberScrollState()
                 Box {
-                    TextButton(
+                    OutlinedButton(
                         onClick = { unitDropdownExpanded = true },
                         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                         // See the identical minimumTouchTargetSize comment on the add-form's
                         // unit button above -- 36dp here, not 40dp, since this card already
                         // carries more rows on screen at once than the add-form ever does.
+                        // OutlinedButton (not TextButton) so this row's unit control gets the
+                        // same visible outline as the add form's, signaling it's tappable/changeable.
                         modifier = Modifier
                             .minimumTouchTargetSize(minWidth = 64.dp, minHeight = 36.dp)
                             .height(20.dp)
@@ -1195,13 +1341,18 @@ private fun IngredientItem(
  * @param onDecrement Called when the − button is tapped.
  * @param onIncrement Called when the + button is tapped.
  * @param onSetCount  Called with the parsed integer when the user confirms a typed value.
+ * @param showIncrement Whether the + button is shown at all. False in cook mode's "Use from
+ *   fridge" list (see RecipeDetailScreen) -- cooking only ever consumes stock, so offering a way
+ *   to add it back there would be the wrong control for the wrong screen; the tap-to-edit number
+ *   still covers correcting an accidental over-decrement.
  */
 @Composable
 internal fun CountStepper(
     count: Int,
     onDecrement: () -> Unit,
     onIncrement: () -> Unit,
-    onSetCount: (Int) -> Unit
+    onSetCount: (Int) -> Unit,
+    showIncrement: Boolean = true
 ) {
     var isEditing by remember { mutableStateOf(false) }
     var editText by remember { mutableStateOf(TextFieldValue()) }
@@ -1297,17 +1448,19 @@ internal fun CountStepper(
             )
         }
 
-        IconButton(
-            onClick = {
-                onIncrement()
-                if (isEditing) {
-                    val current = editText.text.toIntOrNull() ?: count
-                    updateEditText(current + 1)
-                }
-            },
-            modifier = Modifier.size(32.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(16.dp))
+        if (showIncrement) {
+            IconButton(
+                onClick = {
+                    onIncrement()
+                    if (isEditing) {
+                        val current = editText.text.toIntOrNull() ?: count
+                        updateEditText(current + 1)
+                    }
+                },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(16.dp))
+            }
         }
     }
 }

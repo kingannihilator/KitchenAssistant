@@ -404,8 +404,12 @@ fun RecipeDetailScreen(
                                     CountStepper(
                                         count = fridgeIngredient.count,
                                         onDecrement = { ingredientViewModel.decrementCount(fridgeIngredient.id) },
-                                        onIncrement = { ingredientViewModel.incrementCount(fridgeIngredient.id) },
-                                        onSetCount = { ingredientViewModel.setCount(fridgeIngredient.id, it) }
+                                        onIncrement = {},
+                                        onSetCount = { ingredientViewModel.setCount(fridgeIngredient.id, it) },
+                                        // Cook mode only consumes stock -- no + button here (see
+                                        // CountStepper's showIncrement doc). Manually typing a
+                                        // higher number via tap-to-edit is still allowed.
+                                        showIncrement = false
                                     )
                                 }
                             }
