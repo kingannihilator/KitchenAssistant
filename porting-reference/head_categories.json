@@ -6843,5 +6843,65 @@
   "tm": {
     "excluded": true,
     "reason": "Trademark-symbol artifact ('Old Bay Seasoning TM'), not itself an ingredient word."
+  },
+  "yolk": {
+    "alias_of": "egg"
+  },
+  "arlic": {
+    "alias_of": "garlic",
+    "note": "v1.4 corpus text-corruption artifact -- a leading letter gets eaten before words starting with g/l immediately after certain quantity fractions (e.g. \"1/2garlic\"), see new_db_workable data-quality follow-up. This is garlic, not a distinct ingredient."
+  },
+  "emon": {
+    "alias_of": "lemon",
+    "note": "Same v1.4 truncation artifact as arlic -- this is lemon."
+  },
+  "ime": {
+    "alias_of": "lime",
+    "note": "Same v1.4 truncation artifact as arlic -- this is lime."
+  },
+  "mutton": {
+    "alias_of": "lamb"
+  },
+  "dal": {
+    "alias_of": "lentil"
+  },
+  "groundnut": {
+    "alias_of": "peanut"
+  },
+  "chilli": {
+    "alias_of": "chili"
+  },
+  "yoghurt": {
+    "alias_of": "yogurt"
+  },
+  "catsup": {
+    "alias_of": "ketchup"
+  },
+  "liver": {
+    "alias_of": "kidney"
+  },
+  "plum": {
+    "category_path": [
+      "Produce",
+      "Plum"
+    ]
+  },
+  "semolina": {
+    "category_path": [
+      "Grains",
+      "Semolina"
+    ]
+  },
+  "lemongrass": {
+    "category_path": [
+      "Herbs",
+      "Lemongrass"
+    ]
+  },
+  "asafoetida": {
+    "category_path": [
+      "Spices",
+      "Asafoetida"
+    ]
   }
 }

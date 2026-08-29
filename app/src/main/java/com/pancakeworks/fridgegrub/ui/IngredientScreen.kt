@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material.icons.filled.Search
@@ -151,6 +152,7 @@ private val UNIT_OPTIONS = listOf(
 fun IngredientScreen(
     onFindRecipes: (fridgeIngredients: List<String>, prioritizedIngredients: List<String>) -> Unit = { _, _ -> },
     onViewFavorites: () -> Unit = {},
+    onOpenAbout: () -> Unit = {},
     viewModel: IngredientViewModel = viewModel()
 ) {
     // Collect the latest values from each StateFlow; any change triggers recomposition.
@@ -246,6 +248,9 @@ fun IngredientScreen(
                     }
                     IconButton(onClick = onViewFavorites) {
                         FavoritesShortcutIcon()
+                    }
+                    IconButton(onClick = onOpenAbout) {
+                        Icon(Icons.Default.Info, contentDescription = "Recipe sources & licenses")
                     }
                 }
             )

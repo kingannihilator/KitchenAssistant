@@ -1,0 +1,87 @@
+{
+  "recipe_count": 4779,
+  "ingredients": 10185,
+  "recipe_ingredients": 41223,
+  "steps": 29305,
+  "quantified_ingredient_count": 23800,
+  "unquantified_ingredient_count": 17436,
+  "quality_A": 2975,
+  "quality_B": 1747,
+  "quality_C": 57,
+  "quality_D": 0,
+  "orphan_ingredient_identities": 0,
+  "ingredient_ontology_rows": 33,
+  "ingredient_alias_rows": 41,
+  "v1_4_phase2_bugs_fixed": {
+    "tender_bogus_rows_removed": 126,
+    "jar_bogus_rows_removed": 13,
+    "ea_unit_token_rows_corrected": 135,
+    "freshly_ground_pepper_rows_corrected": 136,
+    "other_unit_token_rows_corrected": 60,
+    "recipes_regraded_after_fixes": 137,
+    "recipes_removed_zero_ingredients_after_fix": 1
+  },
+  "integrity": "ok",
+  "v1_4_phase3_removed_template_page": 1,
+  "v1_4_phase3_category_contamination_fixed": 32,
+  "v1_4_phase4_cuisine_bug_fixed": 341,
+  "v1_4_phase4_cuisine_newly_assigned": 323,
+  "v1_4_phase4_recipes_with_cuisine_signal": 2084,
+  "v1_4_phase4_gap_analysis": {
+    "Chinese": 17,
+    "Indian / South Asian": 99,
+    "Southeast Asian": 67,
+    "African (sub-Saharan)": 415,
+    "Middle Eastern / North African": 72,
+    "Central Asian": 0,
+    "Latin American": 54,
+    "Caribbean": 27,
+    "East Asian (Japan/Korea)": 20,
+    "notes": "Central Asian is a genuine zero -- no Uzbek, Kazakh, Afghan, Tajik, Mongolian, etc. recipes anywhere in the corpus. Chinese is thin (17) relative to the cuisine's global significance and regional diversity (Sichuan, Cantonese, Hunan etc. all unrepresented as distinct traditions)."
+  },
+  "v1_4_phase5_first_half": {
+    "method": "Normalized title word-sets (lowercased, parenthetical stripped, stopwords removed) blocked into groups; ingredient-set Jaccard similarity computed within each block.",
+    "candidate_blocks_examined": 249,
+    "recipes_involved_in_blocks": 576,
+    "confirmed_duplicates_removed": 1,
+    "duplicate_detail": "Easy Nachos (id 1012) and Nachos (id 2108), both Wikibooks: near-identical ingredients and near-word-for-word steps. Kept 2108, removed 1012.",
+    "false_positives_verified_distinct": [
+      "Pousse Cafe No. 1/2/3 -- different layered cocktails; ingredient EXTRACTION collapsed all three to a single generic 'brandy' entry, losing the real distinguishing liqueurs/bitters that are present in step text. Flagged as an extraction-quality gap, not a duplication issue.",
+      "French Fries vs French Fries (Belgian) -- same 3 base ingredients (potatoes/oil/salt) but genuinely different multi-step double-fry method vs single-fry method.",
+      "Drawn Butter (Wikibooks) vs DRAWN BUTTER (La Cuisine Creole) -- different proportions and the Gutenberg version adds parsley; distinct historical recipes, cross-source coincidence.",
+      "Snickerdoodles I vs II -- different sugar/shortening/butter ratios and different cinnamon-application technique.",
+      "Oven Pancakes vs Oven Pancakes (Vegan) -- intentional documented variant (soy milk substitution), not accidental duplication."
+    ],
+    "conclusion": "The corpus does not have a meaningful near-duplicate problem. Of 576 recipes flagged as structurally similar by title, only 2 (one pair) were true duplicates."
+  },
+  "v1_4_phase5_second_half": {
+    "method": "Checked all 33 new USDA Leaflet 326 recipes against the entire existing corpus (title word-set overlap first, then ingredient-set Jaccard on any title match >= 0.5).",
+    "title_matches_found": 74,
+    "confirmed_duplicates": 0,
+    "highest_ingredient_overlap": "USDA 'Boston Baked Beans' vs existing 'BOSTON BAKED BEANS' (Practical Vegetarian Cookery): 0.50 Jaccard -- same traditional base (beans, molasses, mustard, salt, water) but different fat source (salt pork vs butter) and different proportions. Below the 0.75 threshold used to confirm true duplicates in the first half of this phase.",
+    "conclusion": "No duplicates between the new USDA source and the existing corpus. High title-word overlap on dishes like Stuffed Peppers, Succotash, and Black Bean Soup reflects standardized dish names independently present across many cookbooks, not actual duplication -- consistent with the same pattern found in the first half of Phase 5 and the original cross-source exact-name check."
+  },
+  "v1_4_phase6_final_quality_pass": {
+    "structural_checks": "All clean: integrity_check ok, 0 FK violations, 0 orphaned ingredient/recipe references, 0 invalid roles, 0 role_confidence out of range, 0 recipes with 0 ingredients/steps, 0 non-sequential step numbering.",
+    "malformed_ingredients_fixed": {
+      "dash_slash_fragment_canonical_names": 72,
+      "long_unparsed_sentence_canonical_names": 267,
+      "of_which_pure_narrative_not_ingredients_removed": 6,
+      "of_which_narrative_with_recoverable_ingredient_fixed": 2,
+      "of_which_genuine_multiitem_lists_labeled_honestly": 7,
+      "total_recipe_ingredients_rows_touched": "~350+"
+    },
+    "cuisine_bug_leftover_fixed": "1 (Banana Pudding cuisine field had the same redlink contamination bug found and fixed in Phase 3's category field, but this instance was in the cuisine field and was missed then)",
+    "role_classification_audit": "6,875 Seasoning / 30,158 Supportive / 4,190 Defining. One recipe (Homemade Baharat, a spice blend) is 100% Seasoning-classified -- verified correct, not a bug, since it genuinely is a seasoning-mix recipe.",
+    "provenance_audit": "0 recipes with missing/invalid source_id or license_id, 0 sources missing a source_rights row.",
+    "licensing_metadata_audit": "5 licenses, 7 source_rights rows, one per source, all consistent.",
+    "index_rebuild": "recipes_fts and ingredients_fts rebuilt, full REINDEX run, VACUUM + PRAGMA optimize run.",
+    "ingredient_matching_query_test": {
+      "test_1": "chicken, onion, bell pepper, rice, soy sauce -- exact canonical match returned sensible fried-rice-family results.",
+      "test_2": "dry beans, ham, onion -- exact canonical match returned poor/irrelevant results because the USDA-sourced canonical names are specific ('dry black beans', 'dry pea beans or great northern beans') rather than generic ('dry beans'); substring match resolved this and correctly surfaced 'Bean or Pea Soup' (60% ingredient coverage) as the top hit.",
+      "finding_1_recommendation": "The Android app's matching logic should not rely on exact canonical_name equality alone. Route user input through the ingredient_aliases/ingredient_ontology layer first, or use substring/fuzzy matching.",
+      "finding_2_recommendation": "Substring matching over-counts near-duplicate ingredient variants (e.g. 'red onion', 'white onion', 'spring onion' each separately match the user's single search term 'onion', inflating that recipe's score). The app should deduplicate by user search term -- each user-provided ingredient should count as satisfied at most once per recipe, not once per matching row."
+    },
+    "final_recipe_count": 4779
+  }
+}

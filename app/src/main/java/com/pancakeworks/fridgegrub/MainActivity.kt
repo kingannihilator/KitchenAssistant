@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pancakeworks.fridgegrub.model.Recipe
+import com.pancakeworks.fridgegrub.ui.AboutScreen
 import com.pancakeworks.fridgegrub.ui.FavoritesScreen
 import com.pancakeworks.fridgegrub.ui.IngredientScreen
 import com.pancakeworks.fridgegrub.ui.LoadingScreen
@@ -23,6 +24,7 @@ sealed class Screen {
     object Loading : Screen()
     object Ingredients : Screen()
     object Favorites : Screen()
+    object About : Screen()
     data class Recipes(val fridgeIngredients: List<String>, val prioritizedIngredients: List<String>) : Screen()
     data class RecipeDetail(
         // The full list the user was browsing (search results or favorites) and which entry was
@@ -58,7 +60,11 @@ class MainActivity : ComponentActivity() {
                         onFindRecipes = { fridge, prioritized ->
                             currentScreen = Screen.Recipes(fridge, prioritized)
                         },
-                        onViewFavorites = { currentScreen = Screen.Favorites }
+                        onViewFavorites = { currentScreen = Screen.Favorites },
+                        onOpenAbout = { currentScreen = Screen.About }
+                    )
+                    is Screen.About -> AboutScreen(
+                        onBack = { currentScreen = Screen.Ingredients }
                     )
                     is Screen.Favorites -> FavoritesScreen(
                         onBack = { currentScreen = Screen.Ingredients },
