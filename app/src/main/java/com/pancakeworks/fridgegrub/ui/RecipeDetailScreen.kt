@@ -218,11 +218,13 @@ fun RecipeDetailScreen(
     }
 
     LaunchedEffect(recipe.id, fridgeIngredients, pantryItems) {
-        // Pantry items merge into the matching name list the same way they do for search (see
-        // IngredientViewModel.pantryItems' doc) so a card's checkmarks agree with its match ratio.
-        // The "Cook this recipe" deduction below still operates on the real fridgeIngredients
-        // list, untouched -- pantry items have no quantity to deduct.
-        viewModel.loadRecipeDetail(recipe.id, (fridgeIngredients.map { it.name } + pantryItems).distinct())
+        // Pantry items factor into matching the same way they do for search (see
+        // IngredientViewModel.pantryItems' doc) so a card's checkmarks agree with its match ratio
+        // -- passed separately, not pre-merged, so a pantry item can't seed category expansion
+        // (see RecipeViewModel.loadRecipeDetailNew's doc). The "Cook this recipe" deduction below
+        // still operates on the real fridgeIngredients list, untouched -- pantry items have no
+        // quantity to deduct.
+        viewModel.loadRecipeDetail(recipe.id, fridgeIngredients.map { it.name }, pantryItems.toList())
     }
     BackHandler(onBack = onBack)
 

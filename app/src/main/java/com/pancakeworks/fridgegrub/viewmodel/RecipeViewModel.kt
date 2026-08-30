@@ -253,24 +253,35 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
 
     private var lastDetailRecipeId: Int? = null
     private var lastDetailFridgeIngredients: List<String>? = null
+    private var lastDetailPantryIngredients: List<String>? = null
 
     /**
      * [fridgeIngredients] precomputes each line's category-aware match status — see
      * [DetailIngredient.matched].
      */
-    fun loadRecipeDetail(recipeId: Int, fridgeIngredients: List<String> = emptyList()) {
-        loadRecipeDetailNew(recipeId, fridgeIngredients)
+    fun loadRecipeDetail(
+        recipeId: Int,
+        fridgeIngredients: List<String> = emptyList(),
+        pantryIngredients: List<String> = emptyList()
+    ) {
+        loadRecipeDetailNew(recipeId, fridgeIngredients, pantryIngredients)
     }
 
-    private fun loadRecipeDetailNew(recipeId: Int, fridgeIngredients: List<String>) {
+    private fun loadRecipeDetailNew(recipeId: Int, fridgeIngredients: List<String>, pantryIngredients: List<String>) {
         val fridgeSet = fridgeIngredients.filter { it.isNotBlank() }.distinct()
+        val pantrySet = pantryIngredients.filter { it.isNotBlank() }.distinct()
+        // Cache key includes pantrySet too -- otherwise toggling a pantry item while this recipe's
+        // detail screen is already loaded would silently skip the reload (fridgeSet alone would
+        // look unchanged).
         if (recipeId == lastDetailRecipeId && fridgeSet == lastDetailFridgeIngredients &&
+            pantrySet == lastDetailPantryIngredients &&
             (_detailIngredients.value.isNotEmpty() || _detailDirections.value.isNotEmpty())
         ) {
             return
         }
         lastDetailRecipeId = recipeId
         lastDetailFridgeIngredients = fridgeSet
+        lastDetailPantryIngredients = pantrySet
 
         _isLoadingDetail.value = true
         viewModelScope.launch(Dispatchers.IO) {
@@ -279,11 +290,17 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
 
                 // Same category-expanded matched set scoreRecipesNew used for this recipe's card
                 // ratio, so a line credited there (even a category-only match with no shared
-                // words, e.g. "ribeye" via fridge "beef") shows the same checkmark here.
-                val matchedIds = if (fridgeSet.isEmpty()) {
+                // words, e.g. "ribeye" via fridge "beef") shows the same checkmark here. Fridge and
+                // pantry passed separately, not pre-merged -- same reason as scoreRecipesNew: a
+                // pantry item must not seed category expansion (see NewIngredientIndex's "Pantry
+                // entries" doc). Passing them as one combined list here (as this used to) let
+                // pantry "baking soda" wrongly credit "bicarbonate of soda" via the shared Baking
+                // Soda category, showing a checkmark the card's ratio didn't count -- confirmed via
+                // "Ice Cream Sandwich": card said 5/8, this screen wrongly showed 6/8.
+                val matchedIds = if (fridgeSet.isEmpty() && pantrySet.isEmpty()) {
                     emptySet()
                 } else {
-                    NewIngredientIndex.get(dao, BLOB_NAME_LENGTH_THRESHOLD_NEW).matching(fridgeSet)
+                    NewIngredientIndex.get(dao, BLOB_NAME_LENGTH_THRESHOLD_NEW).matching(fridgeSet, pantrySet)
                 }
 
                 _detailIngredients.value = dao.getIngredientLines(recipeId).map { row ->
