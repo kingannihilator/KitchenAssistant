@@ -18,11 +18,16 @@ local.properties
 # APK build -- see porting-reference/legacy-recipe-path/README.md.
 /db-backup/
 
-# The new recipe corpus (odunola/foodie + hand-curated category taxonomy) is ~127MB --
-# also past GitHub's 100MB hard limit. Built/regenerated via the scripts in
-# porting-reference/ (see INGREDIENT_MATCHING_CONCEPTS.md and NEW_CORPUS_DATA_QUALITY.md);
-# the bundled copy is the build output of the porting-reference copy, not a second source.
-/app/src/main/assets/database/recipe_database.sqlite
+# The bundled recipe corpus asset (app/src/main/assets/database/recipe_database.sqlite) is
+# tracked in git as of the recipe-db-v1.4-cleanup tag -- now ~7MB after the v1.4 swap, well
+# under GitHub's 100MB hard limit (the pre-swap odunola/foodie corpus this replaced was
+# ~127MB, over the limit, which is why it was gitignored in the first place). Built/regenerated
+# via the scripts in porting-reference/ (see INGREDIENT_MATCHING_CONCEPTS.md and
+# NEW_CORPUS_DATA_QUALITY.md); tag every commit that changes it, same as playstore-v* releases.
+#
+# porting-reference/recipe_database.sqlite is a separate, larger scratch/working copy the
+# porting scripts operate on before the build step produces the bundled asset above -- not a
+# second source, and not meant to be tracked.
 /porting-reference/recipe_database.sqlite
 
 # Python bytecode cache from running the porting-reference/ scripts.
