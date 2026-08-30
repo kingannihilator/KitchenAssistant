@@ -112,8 +112,15 @@ MEASUREMENT_STOPWORDS = {
     "quart", "quarts", "pint", "pints", "gallon", "gallons", "fluid",
     "package", "packages", "container", "containers", "jar", "jars", "can", "cans",
     "bag", "bags", "box", "boxes", "stick", "sticks", "bunch", "bunches", "head", "heads",
-    "as", "more", "roughly", "s", "ground",
+    "as", "more", "roughly", "s",
 }
+# Deliberately NOT here, unlike the words above: "ground" describes a product *form*
+# ("ground beef", "ground turkey", "ground cumin"), not a transient prep state like "chopped"/
+# "diced" -- dropping it silently collapsed "ground beef" into the same group as bare "beef",
+# which (combined with the QUANTITY_PREFIXES "gr" collision fixed above) was the reason a clean
+# "ground beef" entry never made it into a prior ingredients.db build. Still listed in
+# PREP_SUFFIXES below, where it's used correctly: recovering "ground" as its own word out of a
+# glued token ("beefground"), not discarding it as noise once recovered.
 
 # A missing space in the source data glues a quantity word onto the ingredient that follows it
 # ("teaspooncumin seeds", "gbacon") or a preparation word onto the ingredient before it
@@ -133,10 +140,24 @@ MEASUREMENT_STOPWORDS = {
 # bug behind that -- found by testing this exact token, not a hypothetical.
 QUANTITY_PREFIXES = [
     "tablespoon", "tablespoons", "tbsp", "tbl", "teaspoon", "teaspoons", "tsp",
-    "cup", "cups", "can", "cans", "gram", "grams", "gr", "ounce", "ounces", "oz",
+    "cup", "cups", "can", "cans", "gram", "grams", "ounce", "ounces", "oz",
     "pound", "pounds", "lbs", "lb", "package", "packages",
     "container", "containers", "jar", "jars", "tub", "tubs", "pinch",
 ]
+# Deliberately no "gr" (grams abbreviation) here, unlike IngredientMatcher.kt's own
+# QUANTITY_PREFIXES: that Kotlin list only ever checks a fixed, curated set of BLOCK_MODIFIERS as
+# the remainder (see the single-letter-prefix comment below), so it could safely special-case the
+# resulting real-word collisions by name. This script has no such fixed remainder vocabulary, so
+# "gr" collided with real words that just happen to start with those two letters -- found by
+# testing directly against _split_fused: "ground" -> "ound", "grape" -> "ape", "gravy" -> "avy",
+# "greens" -> "eens", "grits" -> "its", "grain" -> "ain", "groats" -> "oats", "grouper" -> "ouper",
+# "grocery" -> "ocery", "groundnut" -> "oundnut". An earlier fix tried an exception allowlist for
+# these (mirroring IngredientMatcher.kt's goat/coat single-letter exceptions), but that's an
+# unbounded whack-a-mole against the corpus's actual vocabulary -- confirmed by re-running
+# extraction with and without "gr" and diffing the results: dropping it entirely recovered zero
+# fewer previously-recovered entries (nothing in this corpus actually needed "gr" defused) and
+# fixed several more mis-grouped names ("kashkaval cheese", "parmigiano-reggiano cheese", "sharp
+# cheddar") that the collision had silently corrupted too.
 PREP_SUFFIXES = [
     "chopped", "minced", "sliced", "diced", "grated", "shredded", "crushed",
     "finely", "coarsely", "thinly", "quartered", "halved", "peeled", "trimmed",
@@ -269,7 +290,10 @@ def extract_corpus_vocabulary(min_frequency: int) -> list[str]:
         # ever considering the single shortest; drop the group entirely if none qualify, since
         # inventing a display string from the cleaned word set risks an awkward phrase no recipe
         # actually uses (see the comment above about "pepper flakes or cayenne pepper").
-        clean_pool = [ex for ex in sorted(pool, key=len) if not _looks_glued(ex)]
+        clean_pool = [
+            ex for ex in sorted(pool, key=len)
+            if not _looks_glued(ex) and not _looks_like_junk_phrase(ex)
+        ]
         if not clean_pool:
             continue
         names.append(clean_pool[0].strip())
@@ -310,6 +334,43 @@ def _looks_glued(raw: str) -> bool:
         len(run) >= 14 and run.lower() not in _LONG_RUN_ALLOWLIST
         for run in re.findall(r"[a-zA-Z]+", raw)
     )
+
+
+# A raw example can be un-glued (a real space between every word) and still not be a sensible
+# autocomplete entry -- it's a fragment of a longer ingredient *line*, not an ingredient name.
+# Found by manual review of a dry-run's new-entries sample: '(16 oz', '5.5% alpha acid',
+# '9-inch unbaked pie shell' (a leading digit/paren/quote is never how a real ingredient name
+# starts -- it's a quantity or a size spec that the corpus's own cleanup left attached); 'few
+# cloves', 'additional flour', 'plus 2 tbsp water', 'fl oz water', 'generous pinch salt', 'good
+# handful of basil leaves' (a vague-quantity word, leading or not, with nothing else
+# distinguishing -- the actual ingredient is elsewhere in the original line, already captured by
+# its own group); 'juice of 1 lemon', 'grated zest of 1 orange', 'zest and juice of 1 lemon' (a
+# "juice of"/"zest of" clause names an ingredient *preparation*, not an ingredient -- and by the
+# time it reaches here, "lemon"/"orange" is already its own clean entry from the OpenFoodFacts
+# baseline). The "of" + digit combination catches all three of these regardless of word order
+# without hardcoding "juice"/"zest" by name. "pinch"/"dash"/"handful" are checked anywhere in the
+# string, not just leading, since an intensifier ("generous", "good") commonly comes first.
+_LEADING_JUNK_WORD = re.compile(
+    r"^(a few|few|additional|plus|fl)\b|\b(pinch|dash|handful)\b", re.IGNORECASE
+)
+_OF_WITH_DIGIT = re.compile(r"\bof\b", re.IGNORECASE)
+
+
+def _looks_like_junk_phrase(raw: str) -> bool:
+    stripped = raw.strip()
+    if not stripped:
+        return True
+    # The Unicode replacement character marks source-corpus bytes that couldn't be decoded --
+    # upstream corruption (see NEW_CORPUS_DATA_QUALITY.md), not recoverable here.
+    if "�" in stripped:
+        return True
+    if not stripped[0].isalpha():
+        return True
+    if _LEADING_JUNK_WORD.search(stripped):
+        return True
+    if _OF_WITH_DIGIT.search(stripped) and any(c.isdigit() for c in stripped):
+        return True
+    return False
 
 
 def slugify(name: str) -> str:

@@ -198,11 +198,27 @@ class RecipeRankingTest {
     }
 
     @Test
-    fun `recipeOrder still pins favorites first even over a real-fridge match`() {
+    fun `recipeOrder does not let a favorite with no real fridge relevance outrank a real match`() {
+        // User-confirmed: a saved favorite unrelated to the current fridge (e.g. "Pan-Seared
+        // Chicken Breast" staying pinned to the top of a beef search) must not outrank a recipe
+        // that actually uses what's in the fridge. Favorites are still never hidden for this (see
+        // RecipeViewModel's `relevant` filter) -- just no longer automatically pinned to the top.
         val favoritePantryOnly = recipe(id = 1, matched = 2, total = 2, usesRealFridgeItem = false, isFavorite = true)
         val realFridgeMatch = recipe(id = 2, matched = 3, total = 3, usesRealFridgeItem = true)
         val ranked = listOf(favoritePantryOnly, realFridgeMatch).sortedWith(recipeOrder)
-        assertEquals(favoritePantryOnly, ranked.first())
+        assertEquals(realFridgeMatch, ranked.first())
+    }
+
+    @Test
+    fun `recipeOrder still pins a favorite above a better-matching non-favorite once both are fridge-relevant`() {
+        // Unchanged by the usesRealFridgeItem reordering above: once a recipe clears the
+        // real-fridge-relevance bar, an explicit save still wins outright, same as before this fix
+        // (see "recipeOrder pins favorites first regardless of match quality"). Only an
+        // *irrelevant* favorite -- the case above -- lost its automatic top spot.
+        val favoriteRealMatch = recipe(id = 1, matched = 2, total = 3, usesRealFridgeItem = true, isFavorite = true)
+        val nonFavoriteBetterMatch = recipe(id = 2, matched = 3, total = 3, usesRealFridgeItem = true, isFavorite = false)
+        val ranked = listOf(nonFavoriteBetterMatch, favoriteRealMatch).sortedWith(recipeOrder)
+        assertEquals(favoriteRealMatch, ranked.first())
     }
 
     @Test

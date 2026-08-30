@@ -119,49 +119,34 @@ internal fun matchTier(matched: Int, total: Int, usesDirectMatch: Boolean = true
  * Starred ingredients boost rather than filter: a recipe using two of them outranks one using a
  * single starred ingredient, but recipes using none are still shown.
  *
- * `definingMatchedCount` boosts *within* a match tier -- a recipe where the fridge covers the
- * dish's namesake ingredient (e.g. garlic in "Garlic Chicken") outranks one at the same match
- * tier/ratio where it doesn't. Ranked below `matchTier`/the main ratio on purpose: it's a
- * tiebreaker among recipes that are already equally good overall matches, not a key that can
- * override tier. It used to sit above tier, which looked equivalent to a raw-count boost but
- * wasn't -- and even after being changed to a ratio (see below), still let a recipe with *more*
- * defining ingredients beat a fully-matched recipe with fewer, purely because the smoothing
- * formula (`matched / (total + 2)`) scores a higher raw `total` more favorably at the *same*
- * coverage percentage (e.g. 2-of-2 smooths to 0.50, but a genuinely equal 1-of-1 only smooths to
- * 0.33). Concretely: a fridge holding just "chicken breast" once ranked "Ayam Goreng Mentega"
- * (2 defining ingredients, both matched, but only 50% of the recipe overall) above "Pan-Seared
- * Chicken Breast" (1 defining ingredient, matched, 100% of the recipe) -- a complete match losing
- * to a half match, solely because the loser tagged more ingredients `DEFINING`. Ranking this
- * below tier/ratio instead means a recipe's overall completeness always decides first; defining
- * coverage only ever chooses between recipes that are already tied on that.
+ * `usesRealFridgeItem` is ranked first, above even `isFavorite` -- user-confirmed: a saved
+ * favorite that has nothing to do with the current fridge (e.g. "Pan-Seared Chicken Breast"
+ * staying pinned to the top of a search for beef) must not outrank a recipe that actually uses
+ * what's in the fridge. Favorites are never hidden for this (see `RecipeViewModel.searchRecipesNew`'s
+ * `relevant` filter, which exempts them same as the `MAX_RESULTS` cut -- a saved favorite should
+ * never silently vanish from search just because the fridge changed), only deprioritized: an
+ * irrelevant favorite still shows up, just wherever its real match quality (usually low, at the
+ * very bottom) puts it, instead of automatically topping the list. Also stops a recipe satisfied
+ * entirely by checked pantry staples (e.g. "Garlic Salt" when the fridge holds only "egg") from
+ * outranking or tying one that uses something the user actually just told the app they have.
+ * Every other key (`isFavorite`, `usesDirectMatch`, `prioritizedCount`, `definingMatchedCount`,
+ * tier, ratio) only means anything once a recipe has cleared this bar.
  *
- * The boost is still compared as [ratioScore] of `definingMatchedCount`/`definingTotalCount`, not
- * the raw count -- a recipe tagging several ingredients `DEFINING` (e.g. a pancake recipe naming
- * rice flour, coconut milk, coconut flakes, *and* water as defining) otherwise gets more chances
- * to rack up defining-matches than one naming just its one namesake ingredient, even when tied on
- * tier/ratio.
+ * `isFavorite` is ranked right after `usesRealFridgeItem` -- among recipes that are already
+ * genuinely fridge-relevant, an explicit save still wins the tiebreak and tops the list.
  *
- * `usesRealFridgeItem` is ranked right after favorites, above every other key -- a recipe
- * satisfied entirely by checked pantry staples (e.g. "Garlic Salt" when the fridge holds only
- * "egg") is always makeable regardless of what's actually in the fridge, so it must never
- * outrank or tie a recipe that uses something the user actually just told the app they have. It
- * doesn't need to outrank favorites (an explicit save) or sit any lower than this: every other
- * key (`prioritizedCount`, `definingMatchedCount`, tier, ratio) only means anything once a recipe
- * has cleared this bar, since starring is fridge-only (see
- * `IngredientViewModel.togglePantryItem`'s doc) and so already implies `usesRealFridgeItem`.
- *
- * `usesDirectMatch` is ranked right after `usesRealFridgeItem`, above `prioritizedCount`/
- * `matchTier`/ratio -- user-confirmed: a recipe whose only connection to the fridge is a
- * category-expansion sibling (fridge "chicken breast" only reaching recipe "chicken wings" via the
- * shared Meat/Chicken category -- see `NewIngredientIndex.matchOrigins`'s doc) must never outrank
- * a recipe with a genuine direct hit (fridge "chicken breast" satisfying recipe "chicken breast"),
- * *even if* the direct match is missing several supporting/seasoning ingredients the
- * category-only recipe happens to have covered by pantry. This is a deliberate exception to the
- * "tier/ratio decides first" principle `definingMatchedCount` follows below -- unlike defining
- * coverage (a within-tier nuance), directness is being used here as a correctness gate on what
- * counts as a trustworthy match at all, the same role `usesRealFridgeItem` already plays one level
- * up. It also still gates [matchTier]'s tier 2 (see that function's doc): a category-only match
- * that reaches a bare 100% ratio via pantry still displays as tier 1 (blue), not a false green.
+ * `usesDirectMatch` is ranked right after `isFavorite`, above `prioritizedCount`/`matchTier`/ratio
+ * -- user-confirmed: a recipe whose only connection to the fridge is a category-expansion sibling
+ * (fridge "chicken breast" only reaching recipe "chicken wings" via the shared Meat/Chicken
+ * category -- see `NewIngredientIndex.matchOrigins`'s doc) must never outrank a recipe with a
+ * genuine direct hit (fridge "chicken breast" satisfying recipe "chicken breast"), *even if* the
+ * direct match is missing several supporting/seasoning ingredients the category-only recipe
+ * happens to have covered by pantry. This is a deliberate exception to the "tier/ratio decides
+ * first" principle `definingMatchedCount` follows below -- unlike defining coverage (a within-tier
+ * nuance), directness is being used here as a correctness gate on what counts as a trustworthy
+ * match at all, the same role `usesRealFridgeItem` already plays one level up. It also still gates
+ * [matchTier]'s tier 2 (see that function's doc): a category-only match that reaches a bare 100%
+ * ratio via pantry still displays as tier 1 (blue), not a false green.
  *
  * `definingMatchedCount` boosts *within* a match tier -- a recipe where the fridge covers the
  * dish's namesake ingredient (e.g. garlic in "Garlic Chicken") outranks one at the same match
@@ -185,8 +170,8 @@ internal fun matchTier(matched: Int, total: Int, usesDirectMatch: Boolean = true
  * to rack up defining-matches than one naming just its one namesake ingredient, even when tied on
  * tier/ratio.
  */
-internal val recipeOrder = compareByDescending<Recipe> { it.isFavorite }
-    .thenByDescending { it.usesRealFridgeItem }
+internal val recipeOrder = compareByDescending<Recipe> { it.usesRealFridgeItem }
+    .thenByDescending { it.isFavorite }
     .thenByDescending { it.usesDirectMatch }
     .thenByDescending { it.prioritizedCount }
     .thenByDescending { matchTier(it.matchedCount, it.totalCount, it.usesDirectMatch) }
