@@ -378,9 +378,12 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                     // Resolve the fridge+pantry to the set of ingredient_ids they can supply. The
                     // IngredientMatcher head-word rule, plus category expansion for cross-head
                     // cases (fridge "beef" also reaching "ribeye"/"chuck") -- see
-                    // NewIngredientIndex's class doc.
+                    // NewIngredientIndex's class doc. Passed separately, not concatenated: pantry
+                    // entries must not seed category expansion (see that doc's "Pantry entries"
+                    // section) -- checking pantry "onion" should not silently also credit
+                    // "scallions"/"leeks" the way a real fridge "onion" legitimately would.
                     val index = NewIngredientIndex.get(dao, BLOB_NAME_LENGTH_THRESHOLD_NEW)
-                    val matchOrigins = index.matchOrigins(fridgeSet + pantrySet)
+                    val matchOrigins = index.matchOrigins(fridgeSet, pantrySet)
                     val matchedIds = matchOrigins.keys
 
                     // The origin keys (see NewIngredientIndex.matchOrigins' doc) that trace back to

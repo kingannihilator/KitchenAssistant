@@ -28,6 +28,18 @@ package com.pancakeworks.fridgegrub.data
  * whose head no fridge item shares (the actual "ribeye is beef" case) is untouched by this check
  * and expands exactly as before.
  *
+ * Pantry entries ([matching]/[matchOrigins]'s `pantryNames` parameter) participate in direct
+ * string-matching exactly like fridge entries, but never *seed* category expansion -- user-
+ * confirmed: the pantry checklist (`data/PantryRepository.kt`) is a coarse, literal "do you
+ * generally have this" signal, not fridge inventory, and stretching it through the category
+ * taxonomy overreaches in a way a real fridge item doesn't. Checking pantry "onion" satisfying
+ * recipe "onion"/"onions" is exactly the intended literal signal; letting that same check silently
+ * also credit "scallions"/"leeks"/"shallots" (all filed under the same `Onion` category) is not --
+ * concretely, this is why "Champ (Irish Mashed Potato with Scallion)" once showed a false 6/6 full
+ * match for a fridge of just "potato" plus the default pantry, with "scallions" credited off
+ * pantry "onion" alone. A real fridge "onion" still expands into all of those siblings as before;
+ * only the pantry-sourced trigger is narrowed.
+ *
  * Built once per process and held for the app's lifetime.
  */
 class NewIngredientIndex private constructor(
@@ -42,11 +54,13 @@ class NewIngredientIndex private constructor(
     val size: Int get() = ingredientIds.size
 
     /**
-     * Every ingredient_id satisfied by at least one of [fridgeNames], including the category
-     * expansion described in the class doc. Feeds straight into the scoring query's
-     * `ingredient_id IN (...)` list, so it is the full set, not a ranked one.
+     * Every ingredient_id satisfied by at least one of [fridgeNames]/[pantryNames], including the
+     * category expansion described in the class doc (pantry-sourced matches excepted -- see
+     * [pantryNames]'s doc there). Feeds straight into the scoring query's `ingredient_id IN (...)`
+     * list, so it is the full set, not a ranked one.
      */
-    fun matching(fridgeNames: List<String>): Set<Int> = matchOrigins(fridgeNames).keys
+    fun matching(fridgeNames: List<String>, pantryNames: List<String> = emptyList()): Set<Int> =
+        matchOrigins(fridgeNames, pantryNames).keys
 
     /**
      * Which fridge entry satisfied a matched ingredient (see [NewIngredientIndex.matchOrigins]'s
@@ -66,37 +80,49 @@ class NewIngredientIndex private constructor(
     data class MatchOrigin(val fridgeKey: String, val direct: Boolean)
 
     /**
-     * Like [matching], but also tags each matched ingredient_id with the fridge entry that
-     * satisfied it -- a stable string built from that fridge term's own words, so two different
-     * fridge rows that happen to normalize the same way collapse to one key, and two genuinely
-     * distinct fridge rows never share a key.
+     * Like [matching], but also tags each matched ingredient_id with the fridge/pantry entry that
+     * satisfied it -- a stable string built from that term's own words, so two different rows that
+     * happen to normalize the same way collapse to one key, and two genuinely distinct rows never
+     * share a key.
      *
      * This is what lets scoring collapse "cheddar cheese" and "mozzarella cheese" in the same
      * recipe down to a single matched credit when the fridge only holds one generic "cheese" --
      * both trace back to that one fridge entry -- while still crediting both separately when the
-     * fridge actually lists "cheddar cheese" and "mozzarella cheese" as their own entries. Fridge
-     * terms are processed most-specific-first (by word count) so a specific entry claims its own
-     * exact ingredient before a broader one (e.g. plain "cheese") sweeps in and swallows the claim;
-     * a category-expansion sibling (no shared words with any fridge term at all, e.g. "ribeye" via
-     * fridge "beef") inherits the origin of whichever matched ingredient first pulled its category
-     * in, tagged `direct = false`.
+     * fridge actually lists "cheddar cheese" and "mozzarella cheese" as their own entries. Terms
+     * are processed most-specific-first (by word count) so a specific entry claims its own exact
+     * ingredient before a broader one (e.g. plain "cheese") sweeps in and swallows the claim; a
+     * category-expansion sibling (no shared words with any term at all, e.g. "ribeye" via fridge
+     * "beef") inherits the origin of whichever matched ingredient first pulled its category in,
+     * tagged `direct = false`.
+     *
+     * [pantryNames] matches the same way as [fridgeNames] for direct string-matching, but never
+     * seeds category expansion -- see the class doc's "Pantry entries" section for why.
      */
-    fun matchOrigins(fridgeNames: List<String>): Map<Int, MatchOrigin> {
-        val fridgeTerms = fridgeNames.map { IngredientMatcher.parseFridge(it) }
+    fun matchOrigins(fridgeNames: List<String>, pantryNames: List<String> = emptyList()): Map<Int, MatchOrigin> {
+        data class TaggedTerm(val term: IngredientMatcher.Term, val expandable: Boolean)
+
+        val taggedTerms = fridgeNames.map { TaggedTerm(IngredientMatcher.parseFridge(it), expandable = true) } +
+            pantryNames.map { TaggedTerm(IngredientMatcher.parseFridge(it), expandable = false) }
         // Same-head lookup for the category-expansion guard below -- a candidate can only be
-        // "explicitly rejected" by a fridge item whose head it shares.
-        val fridgeTermsByHead = fridgeTerms.filter { it.head != null }.groupBy { it.head!! }
+        // "explicitly rejected" by a fridge/pantry item whose head it shares. Includes pantry
+        // terms too: this guard is about correctness (don't re-admit a substance direct matching
+        // already rejected), unrelated to which terms are allowed to trigger expansion.
+        val fridgeTermsByHead = taggedTerms.map { it.term }.filter { it.head != null }.groupBy { it.head!! }
 
         // Indices into the parallel arrays, not ingredient_ids yet -- resolved at the end.
         val matchedIndices = LinkedHashSet<Int>()
         val origin = HashMap<Int, String>()
+        // Indices whose match is allowed to seed category expansion -- i.e. traces to a fridge
+        // term, not a pantry-only one.
+        val expandableIndices = HashSet<Int>()
         // Pass-1 matches where the recipe ingredient is the same thing or more specific than the
         // fridge item -- see MatchOrigin.direct's doc for why this is narrower than "matched in
         // pass 1": IngredientMatcher.matches also allows the fridge side to be the more specific
         // one (fridge "chicken breast" legitimately satisfying a recipe's bare "chicken"), which
         // is correct for search but not what "exact" should mean.
         val exactIndices = HashSet<Int>()
-        for (fridgeTerm in fridgeTerms.sortedByDescending { it.words.size }) {
+        for (tagged in taggedTerms.sortedByDescending { it.term.words.size }) {
+            val fridgeTerm = tagged.term
             val head = fridgeTerm.head ?: continue
             val bucket = byHead[head] ?: continue
             val key = fridgeTerm.words.sorted().joinToString(" ")
@@ -106,6 +132,7 @@ class NewIngredientIndex private constructor(
                 if (IngredientMatcher.matches(fridgeTerm, candidateTerm)) {
                     matchedIndices.add(i)
                     origin[i] = key
+                    if (tagged.expandable) expandableIndices.add(i)
                     if (IngredientMatcher.isSpecificVariantOf(fridgeTerm, candidateTerm)) {
                         exactIndices.add(i)
                     }
@@ -114,9 +141,12 @@ class NewIngredientIndex private constructor(
         }
 
         // Representative origin per category, so every sibling pulled in by that category's
-        // expansion traces back to the same fridge entry that triggered it.
+        // expansion traces back to the same fridge entry that triggered it. Pantry-only matches
+        // (not in expandableIndices) are skipped here -- they still count as matched themselves,
+        // they just don't pull in siblings.
         val categoryOrigin = HashMap<Int, String>()
         for (i in matchedIndices) {
+            if (i !in expandableIndices) continue
             val categoryId = categoryIds[i] ?: continue
             categoryOrigin.putIfAbsent(categoryId, origin.getValue(i))
         }
