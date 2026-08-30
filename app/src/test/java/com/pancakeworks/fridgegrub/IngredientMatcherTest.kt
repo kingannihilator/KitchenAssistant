@@ -114,9 +114,41 @@ class IngredientMatcherTest {
     @Test
     fun `preparation adjectives are ignored`() {
         assertMatches("cream", "heavy cream")
-        assertMatches("milk", "whole milk")
         assertMatches("butter", "unsalted butter")
         assertMatches("onion", "finely chopped onion")
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // `whole` is a real word, not a preparation adjective (see STOPWORDS' doc)
+    // -----------------------------------------------------------------------------------------
+
+    @Test
+    fun `whole is a real word, not an ignorable preparation adjective`() {
+        // The reported bug: fridge "whole chicken" was searched no differently from bare
+        // "chicken" (whole was stripped as filler), and bare "chicken" is deliberately allowed to
+        // satisfy any specific cut -- so "whole chicken" was directly matching chicken thighs/
+        // wings/breast recipes, not merely reaching them through category expansion.
+        assertDoesNotMatch("whole chicken", "chicken thigh")
+        assertDoesNotMatch("whole chicken", "chicken wing")
+        assertDoesNotMatch("whole chicken", "chicken breast")
+        // Same distinction for milk: "whole milk" (a fat-content grade) is not "skim milk".
+        assertDoesNotMatch("whole milk", "skim milk")
+    }
+
+    @Test
+    fun `whole still satisfies what it should`() {
+        // Fridge more general still satisfies a recipe's bare ingredient -- unaffected by whole
+        // no longer being stripped, since this direction only needs the recipe's words to be a
+        // subset of the fridge's.
+        assertMatches("whole chicken", "chicken")
+        assertMatches("whole milk", "milk")
+        // A recipe that actually calls for a whole bird/whole milk still matches exactly.
+        assertMatches("whole chicken", "whole chicken")
+        assertMatches("whole milk", "whole milk")
+        // The other direction (fridge bare, recipe says "whole X") is untouched either way --
+        // fridge is still the more general side here.
+        assertMatches("milk", "whole milk")
+        assertMatches("chicken", "whole chicken")
     }
 
     @Test

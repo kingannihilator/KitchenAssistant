@@ -266,7 +266,7 @@ object IngredientMatcher {
         "fresh", "freshly", "frozen", "dried", "dry", "raw", "cooked", "uncooked", "chopped",
         "minced", "sliced", "diced", "grated", "shredded", "melted", "softened", "beaten",
         "peeled", "pared", "seeded", "cored", "trimmed", "rinsed", "drained", "packed", "canned",
-        "whole", "large", "small", "medium", "med", "lge", "lg", "sm", "jumbo", "extra",
+        "large", "small", "medium", "med", "lge", "lg", "sm", "jumbo", "extra",
         "fine", "finely", "coarse", "coarsely", "thin", "thinly", "thick",
         "organic", "natural", "unsalted", "salted", "lightly", "well", "hot", "cold", "warm",
         "room", "temperature", "good", "quality", "best", "pure", "real", "plain", "regular",
@@ -289,6 +289,19 @@ object IngredientMatcher {
     // `substitute` change what a thing *is*. Dropping them made "butter flavoring" read as butter
     // and "egg substitute" (681 rows) read as egg. Left in place, they become the head and the
     // match is correctly rejected.
+    //
+    // `whole` used to be here too, until a fridge "whole chicken" turned out to be searched no
+    // differently from bare "chicken" -- and bare "chicken" is deliberately allowed to satisfy any
+    // specific cut (rule 2's "fridge side is more general" direction), so "whole chicken" was
+    // directly matching "chicken thighs"/"chicken wings"/"chicken breast" recipes, not merely
+    // reaching them through category expansion (which "Exact match only" could have caught).
+    // Same family as `ground` (see build_merged_ingredients_db.py's docstring for that one): a
+    // real product-form distinction across many ingredients, not a neutral filler --
+    // "whole chicken" (an unbutchered bird) is a genuinely different purchase from "chicken
+    // thighs" (a cut), the same way "whole milk" (a fat-content grade) differs from "skim milk".
+    // Keeping `whole` as a real word doesn't block the directions that should still work: fridge
+    // "whole chicken" still satisfies a recipe's bare "chicken" (fridge more general is still
+    // fine), and a recipe actually calling for "whole chicken" still matches exactly.
 
     /**
      * Dropped from the recipe side only. On the fridge side these truncate instead (see
