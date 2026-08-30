@@ -62,7 +62,13 @@ internal data class RecipeMatch(
     /** See [Recipe.unmatchedSeasoningCount]. Display-only -- not read by [recipeOrder]/[matchOrder]
      * (it's already reflected in [total]/[matched] like any other tier), just carried along so
      * [com.pancakeworks.fridgegrub.viewmodel.RecipeViewModel.hydrateNew] can forward it. */
-    val unmatchedSeasoningCount: Int = 0
+    val unmatchedSeasoningCount: Int = 0,
+    /** See [Recipe.realFridgeMatchedCount]. Defaults 0/0 so a caller without pantry/fridge context
+     * in mind (tests, any future caller) never qualifies for [isEffectivelyFullMatch] -- a promotion
+     * that requires "uses at least 2 real fridge items" can't fire from a default of zero. */
+    val realFridgeMatchedCount: Int = 0,
+    /** See [Recipe.realFridgeItemCount]. */
+    val realFridgeItemCount: Int = 0
 )
 
 /** Smoothing prior on the match ratio; see [recipeOrder]. */
@@ -102,14 +108,58 @@ internal fun ratioScore(matched: Int, total: Int): Float =
  * further or hidden -- it's a real, complete match, just not one the ratio alone can tell apart
  * from "pantry did all the work."
  */
-internal fun matchTier(matched: Int, total: Int, usesDirectMatch: Boolean = true): Int {
+internal fun matchTier(
+    matched: Int,
+    total: Int,
+    usesDirectMatch: Boolean = true,
+    effectivelyFullMatch: Boolean = false
+): Int {
     if (total <= 0) return 0
     val ratio = matched.toFloat() / total
     return when {
-        ratio >= 1f && usesDirectMatch -> 2   // 100% match, genuinely fridge-backed — green
-        ratio >= 0.75f || ratio >= 1f -> 1 // partial match, or a full ratio that didn't clear the direct-match bar — blue
+        (ratio >= 1f || effectivelyFullMatch) && usesDirectMatch -> 2   // genuinely fridge-backed — green
+        ratio >= 0.75f -> 1 // partial match, or a full/promoted ratio that didn't clear the direct-match bar — blue
         else -> 0
     }
+}
+
+/**
+ * Whether a not-quite-100% recipe should still be treated as [matchTier] 2 ("effectively
+ * complete") in "Best Match" mode -- see `RecipeMetadata.kt`'s `MatchMode` doc for the mode this
+ * belongs to, and `RecipeViewModel.matchOrder`/[recipeOrder]'s real-fridge-utilization tiebreak
+ * that works alongside this. User-confirmed real-world case: a fridge of "ground beef, tomato,
+ * potato" plus the default pantry once ranked "Tomato Salad" (6/6, but 5 of those 6 lines are
+ * generic pantry staples plus one shared fridge item) above "Mediterranean Beef Stew" (5/6,
+ * missing only "green olives" -- a minor garnish -- while genuinely using both ground beef and
+ * tomato from the fridge). By the literal ratio alone the salad is "more complete," but the stew is
+ * the better real-world answer to "what can I actually cook with what I have."
+ *
+ * Only ever promotes an already-good match (tier 1, ratio >= 0.75); never rescues a poor one. All
+ * of the following must hold:
+ * - missing 1 or 2 ingredient lines, not more -- an absolute cap, not just a percentage, so a large
+ *   recipe (e.g. 20 ingredients at 90%, missing 2) can still qualify, but one missing several
+ *   things can't, no matter how strong its fridge usage looks
+ * - every DEFINING ingredient is matched -- the dish's namesake is never the missing piece
+ * - uses at least 2 distinct real fridge items, AND at least half of everything in the fridge --
+ *   both together, so a large fridge doesn't let "uses 3 of 12 items" (a small fraction) qualify,
+ *   and the floor of 2 keeps this from ever firing on a single-item fridge search (already covered
+ *   by [Recipe.usesRealFridgeItem])
+ */
+internal fun isEffectivelyFullMatch(
+    matched: Int,
+    total: Int,
+    definingMatched: Int,
+    definingTotal: Int,
+    realFridgeMatched: Int,
+    realFridgeItemCount: Int
+): Boolean {
+    if (total <= 0 || realFridgeItemCount <= 0) return false
+    val ratio = matched.toFloat() / total
+    val missing = total - matched
+    val definingComplete = definingMatched >= definingTotal
+    val usesEnoughFridge = realFridgeMatched >= 2 &&
+        realFridgeMatched.toFloat() / realFridgeItemCount >= 0.5f
+    return ratio >= 0.75f && missing in 1..2 && definingComplete && usesEnoughFridge
 }
 
 /**
@@ -169,8 +219,49 @@ internal fun matchTier(matched: Int, total: Int, usesDirectMatch: Boolean = true
  * rice flour, coconut milk, coconut flakes, *and* water as defining) otherwise gets more chances
  * to rack up defining-matches than one naming just its one namesake ingredient, even when tied on
  * tier/ratio.
+ *
+ * [matchTier]'s `effectivelyFullMatch` parameter (fed by [isEffectivelyFullMatch] -- see that
+ * function's doc) can promote a not-quite-100% recipe to tier 2. Right after tier, a real-fridge-
+ * utilization ratio ([Recipe.realFridgeMatchedCount] over [Recipe.realFridgeItemCount], smoothed
+ * the same way as the other ratios here) breaks ties among same-tier recipes in favor of whichever
+ * one uses more of the fridge -- this is what lets a promoted recipe (e.g. "Mediterranean Beef
+ * Stew," using 2 of 3 real fridge items) actually outrank a trivial 100% match that barely touches
+ * the fridge (e.g. "Tomato Salad," using only 1 of those 3) once both reach the same tier, rather
+ * than just tying and falling back to the main ratio (which would still favor the salad's literal
+ * 6/6 over the stew's 5/6). Ranked below tier, same principle as every other key here: it only ever
+ * breaks ties within a tier, never overrides one.
+ *
+ * This is "Best Match" mode (`RecipeMetadata.kt`'s `MatchMode.BEST_MATCH`, the default). See
+ * [recipeOrderMostComplete] for the strict, literal-ratio alternative ("Most Complete" mode) with
+ * neither of these two keys.
  */
 internal val recipeOrder = compareByDescending<Recipe> { it.usesRealFridgeItem }
+    .thenByDescending { it.isFavorite }
+    .thenByDescending { it.usesDirectMatch }
+    .thenByDescending { it.prioritizedCount }
+    .thenByDescending {
+        matchTier(
+            it.matchedCount, it.totalCount, it.usesDirectMatch,
+            isEffectivelyFullMatch(
+                it.matchedCount, it.totalCount, it.definingMatchedCount, it.definingTotalCount,
+                it.realFridgeMatchedCount, it.realFridgeItemCount
+            )
+        )
+    }
+    .thenByDescending { ratioScore(it.realFridgeMatchedCount, it.realFridgeItemCount) }
+    .thenByDescending { ratioScore(it.matchedCount, it.totalCount) }
+    .thenByDescending { ratioScore(it.definingMatchedCount, it.definingTotalCount) }
+    .thenByDescending { it.matchedCount }
+    .thenBy { it.title }
+
+/**
+ * "Most Complete" mode (`RecipeMetadata.kt`'s `MatchMode.MOST_COMPLETE`) -- [recipeOrder] without
+ * the [isEffectivelyFullMatch] tier promotion or the real-fridge-utilization tiebreak, for a user
+ * who specifically wants the unadorned "what percentage of this recipe do I have" ordering with no
+ * further nuance. Every other key (favorites, real-fridge/direct-match gates, starred ingredients,
+ * defining coverage) still applies -- only the two "Best Match"-specific keys are removed.
+ */
+internal val recipeOrderMostComplete = compareByDescending<Recipe> { it.usesRealFridgeItem }
     .thenByDescending { it.isFavorite }
     .thenByDescending { it.usesDirectMatch }
     .thenByDescending { it.prioritizedCount }
@@ -180,11 +271,23 @@ internal val recipeOrder = compareByDescending<Recipe> { it.usesRealFridgeItem }
     .thenByDescending { it.matchedCount }
     .thenBy { it.title }
 
-/** [recipeOrder] applied to raw scores, for the cut to MAX_RESULTS. */
+/** [recipeOrder] applied to raw scores, for the cut to MAX_RESULTS -- always "Best Match" style,
+ * independent of the display-time `MatchMode` the user later picks: the promotion in [matchTier]
+ * only ever adds recipes to tier 2, never removes any, so cutting with the more inclusive ordering
+ * can't drop a recipe "Most Complete" mode would have wanted to show. */
 internal val matchOrder = compareByDescending<RecipeMatch> { it.usesRealFridgeItem }
     .thenByDescending { it.usesDirectMatch }
     .thenByDescending { it.prioritized }
-    .thenByDescending { matchTier(it.matched, it.total, it.usesDirectMatch) }
+    .thenByDescending {
+        matchTier(
+            it.matched, it.total, it.usesDirectMatch,
+            isEffectivelyFullMatch(
+                it.matched, it.total, it.defining, it.definingTotal,
+                it.realFridgeMatchedCount, it.realFridgeItemCount
+            )
+        )
+    }
+    .thenByDescending { ratioScore(it.realFridgeMatchedCount, it.realFridgeItemCount) }
     .thenByDescending { ratioScore(it.matched, it.total) }
     .thenByDescending { ratioScore(it.defining, it.definingTotal) }
     .thenByDescending { it.matched }

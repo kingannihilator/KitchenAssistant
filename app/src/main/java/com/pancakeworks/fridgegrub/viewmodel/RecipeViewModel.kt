@@ -105,23 +105,26 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         _maxCookMinutes.value = if (_maxCookMinutes.value == minutes) null else minutes
     }
 
-    // Off by default -- see matchesFilters' doc: unlike difficulty/time, this is a real filter,
-    // not a soft exemption, so it stays opt-in rather than silently hiding category-expansion
-    // matches (e.g. "chicken pieces" recipes for a "chicken breast" fridge item) by default.
-    private val _exactMatchOnly = MutableStateFlow(false)
-    val exactMatchOnly: StateFlow<Boolean> = _exactMatchOnly.asStateFlow()
+    // Defaults to BEST_MATCH -- see MatchMode's doc for what each mode means.
+    private val _matchMode = MutableStateFlow(MatchMode.BEST_MATCH)
+    val matchMode: StateFlow<MatchMode> = _matchMode.asStateFlow()
 
-    fun toggleExactMatchOnly() { _exactMatchOnly.update { !it } }
+    fun setMatchMode(mode: MatchMode) { _matchMode.value = mode }
 
     // Plain vars, not StateFlow: only read once when RecipeScreen's LazyColumn is (re)created and
     // written once when it's torn down (navigating to detail/back), so no observers are needed.
     var scrollIndex: Int = 0
     var scrollOffset: Int = 0
 
-    val sortedRecipes: StateFlow<List<Recipe>> = combine(_recipes, _favoriteIds) { recipes, favorites ->
+    val sortedRecipes: StateFlow<List<Recipe>> = combine(
+        _recipes, _favoriteIds, _matchMode
+    ) { recipes, favorites, matchMode ->
+        // EXACT_MATCH_ONLY orders the same as BEST_MATCH -- it's a filter (applied below in
+        // filteredRecipes), not a distinct ordering; only MOST_COMPLETE picks a different order.
+        val order = if (matchMode == MatchMode.MOST_COMPLETE) recipeOrderMostComplete else recipeOrder
         recipes
             .map { it.copy(isFavorite = it.id in favorites) }
-            .sortedWith(recipeOrder)
+            .sortedWith(order)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -129,8 +132,8 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     )
 
     val filteredRecipes: StateFlow<List<Recipe>> = combine(
-        sortedRecipes, _filterQuery, _selectedDifficultyLabels, _maxCookMinutes, _exactMatchOnly
-    ) { recipes, query, difficulties, maxMinutes, exactMatchOnly ->
+        sortedRecipes, _filterQuery, _selectedDifficultyLabels, _maxCookMinutes, _matchMode
+    ) { recipes, query, difficulties, maxMinutes, matchMode ->
         val q = query.trim().lowercase()
         recipes
             .filter { recipe ->
@@ -139,7 +142,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 recipe.categories.any { it.lowercase().contains(q) } ||
                 recipe.ingredients.any { it.lowercase().contains(q) }
             }
-            .filter { recipe -> matchesFilters(recipe, difficulties, maxMinutes, exactMatchOnly) }
+            .filter { recipe -> matchesFilters(recipe, difficulties, maxMinutes, matchMode) }
             // Stable sort on top of the already-recipeOrder-sorted list: a recipe genuinely
             // rated within an active filter ranks above one that only passed via the unrated
             // exemption (see matchesKnownDifficulty/matchesKnownCookTime's doc) -- an unrated
@@ -489,8 +492,13 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
      * match only" on the strength of a pantry item having nothing to do with what the filter is
      * meant to check. Both directness and reality are valid, real matches on their own; this just
      * distinguishes "the exact thing you have" from "something the taxonomy says is a reasonable
-     * substitute", for
-     * `RecipeRanking.kt`'s tiebreak and `RecipeScreen`'s "Exact match only" filter.
+     * substitute", for `RecipeRanking.kt`'s tiebreak and `RecipeScreen`'s `MatchMode.EXACT_MATCH_ONLY`
+     * mode.
+     *
+     * [RecipeMatch.realFridgeMatchedCount]/[RecipeMatch.realFridgeItemCount]: how many distinct
+     * real fridge items (via the same [realFridgeOriginKeys] gate) this recipe's matches trace
+     * back to, out of how many the fridge actually has -- feeds `RecipeRanking.kt`'s
+     * `isEffectivelyFullMatch` tier promotion and real-fridge-utilization tiebreak.
      */
     private suspend fun scoreRecipesNew(
         dao: NewRecipeDao,
@@ -552,7 +560,11 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 usesDirectMatch = acc.matchedIds.any {
                     matchOrigins[it]?.direct == true && matchOrigins[it]?.fridgeKey in realFridgeOriginKeys
                 },
-                unmatchedSeasoningCount = (acc.seasoningTotal - originsOf(acc.seasoningMatchedIds).size).coerceAtLeast(0)
+                unmatchedSeasoningCount = (acc.seasoningTotal - originsOf(acc.seasoningMatchedIds).size).coerceAtLeast(0),
+                realFridgeMatchedCount = acc.matchedIds.mapNotNullTo(HashSet()) { id ->
+                    matchOrigins[id]?.fridgeKey?.takeIf { it in realFridgeOriginKeys }
+                }.size,
+                realFridgeItemCount = realFridgeOriginKeys.size
             )
         }
     }
@@ -629,6 +641,8 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 usesRealFridgeItem = match.usesRealFridgeItem,
                 usesDirectMatch = match.usesDirectMatch,
                 unmatchedSeasoningCount = match.unmatchedSeasoningCount,
+                realFridgeMatchedCount = match.realFridgeMatchedCount,
+                realFridgeItemCount = match.realFridgeItemCount,
                 difficulty = entity.difficulty,
                 timeText = entity.timeText,
                 cookMinutesMin = entity.totalMinutesMin,

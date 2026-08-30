@@ -38,7 +38,28 @@ internal fun difficultyLabel(difficulty: Int?): String? =
     difficulty?.let { d -> DIFFICULTY_BUCKETS.firstOrNull { d in it.rawValues }?.label }
 
 /**
- * Whether [recipe] passes the difficulty/cook-time/exact-match filters currently selected in
+ * The recipe list's single "Match" dropdown (`RecipeScreen.kt`), replacing what used to be a
+ * separate ranking-mode toggle and an "Exact match only" filter chip -- user-confirmed: one
+ * dropdown reads more clearly than two controls for a fairly subtle distinction, at the cost of
+ * losing the (rarely wanted) combination of strict-ratio ordering *and* hiding category-expansion
+ * matches at the same time.
+ *
+ * [BEST_MATCH] (default) uses `recipeOrder`'s tier-promotion + real-fridge-utilization tiebreak
+ * (see `isEffectivelyFullMatch`'s doc for the real-world case this covers). [MOST_COMPLETE] uses
+ * `recipeOrderMostComplete` -- the literal ratio/tier ordering with neither of those two keys, for
+ * someone who specifically wants "what percentage of this recipe do I have" with no further
+ * nuance. [EXACT_MATCH_ONLY] is the one mode that's also a real filter, not just an ordering: a
+ * recipe whose match is *only* a category-expansion sibling (fridge "chicken breast" reaching
+ * recipe "chicken pieces" via the shared Meat/Chicken taxonomy node, not a direct word match) is
+ * dropped entirely, ordered the same as [BEST_MATCH] otherwise.
+ */
+// Not `internal` like the other declarations in this file: RecipeViewModel exposes it via a
+// public StateFlow<MatchMode> for RecipeScreen (Compose UI) to collect, and a public property
+// can't expose an internal type argument.
+enum class MatchMode { BEST_MATCH, MOST_COMPLETE, EXACT_MATCH_ONLY }
+
+/**
+ * Whether [recipe] passes the difficulty/cook-time/match-mode filters currently selected in
  * `RecipeScreen`.
  *
  * A recipe with no value for a field the filter is actively narrowing on always passes (see the
@@ -47,18 +68,15 @@ internal fun difficultyLabel(difficulty: Int?): String? =
  * most of an otherwise-good result set. [selectedDifficultyLabels] empty means "no difficulty
  * filter active" (everything passes); [maxCookMinutes] null means "no time filter active".
  *
- * [exactMatchOnly] is a real filter, not a soft exemption like the other two -- it's the
- * safeguard for [Recipe.usesDirectMatch]: when on, a recipe whose match is *only* a category-
- * expansion sibling (fridge "chicken breast" reaching recipe "chicken pieces" via the shared
- * Meat/Chicken taxonomy node, not a direct word match) is dropped entirely. Off by default so the
- * (generally desirable) cross-cut matching stays in results unless the user explicitly wants the
- * stricter view.
+ * [matchMode] only ever filters when it's [MatchMode.EXACT_MATCH_ONLY] -- see that entry's doc.
+ * [MatchMode.BEST_MATCH]/[MatchMode.MOST_COMPLETE] only affect ordering (`RecipeViewModel`'s
+ * `sortedRecipes`), not inclusion, so they're not checked here at all.
  */
 internal fun matchesFilters(
     recipe: Recipe,
     selectedDifficultyLabels: Set<String>,
     maxCookMinutes: Int?,
-    exactMatchOnly: Boolean = false
+    matchMode: MatchMode = MatchMode.BEST_MATCH
 ): Boolean {
     val difficultyOk = selectedDifficultyLabels.isEmpty() ||
         recipe.difficulty == null ||
@@ -66,7 +84,7 @@ internal fun matchesFilters(
     val cookTimeOk = maxCookMinutes == null ||
         recipe.cookMinutesMin == null ||
         recipe.cookMinutesMin <= maxCookMinutes
-    val exactMatchOk = !exactMatchOnly || recipe.usesDirectMatch
+    val exactMatchOk = matchMode != MatchMode.EXACT_MATCH_ONLY || recipe.usesDirectMatch
     return difficultyOk && cookTimeOk && exactMatchOk
 }
 

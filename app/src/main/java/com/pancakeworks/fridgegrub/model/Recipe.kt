@@ -49,9 +49,9 @@ data class Recipe(
      * whose only fridge-relevant ingredient is category-matched still counted as direct whenever
      * some unrelated pantry staple (garlic, salt, oil) it also calls for happened to match
      * directly. Both are genuine matches; this is what lets
-     * [com.pancakeworks.fridgegrub.viewmodel.recipeOrder] and the "Exact match only" filter
-     * (`RecipeScreen.kt`) prefer "the exact thing you have" over "a taxonomy-approved substitute"
-     * without hiding the substitute outright. Defaults `true` for the same reason as
+     * [com.pancakeworks.fridgegrub.viewmodel.recipeOrder] and the `MatchMode.EXACT_MATCH_ONLY`
+     * mode (`RecipeScreen.kt`) prefer "the exact thing you have" over "a taxonomy-approved
+     * substitute" without hiding the substitute outright. Defaults `true` for the same reason as
      * [usesRealFridgeItem]: favorites loaded by id never compute a real match and shouldn't be
      * penalized for it.
      */
@@ -66,6 +66,20 @@ data class Recipe(
      * a missing Supportive/Defining ingredient.
      */
     val unmatchedSeasoningCount: Int = 0,
+    /**
+     * How many distinct *real* fridge items (not pantry, same distinction as [usesRealFridgeItem])
+     * this recipe's matched ingredients trace back to. Paired with [realFridgeItemCount] so
+     * [com.pancakeworks.fridgegrub.viewmodel.recipeOrder]'s real-fridge-utilization tiebreak and
+     * [com.pancakeworks.fridgegrub.viewmodel.isEffectivelyFullMatch]'s tier promotion can rank by
+     * *how much of the fridge* a recipe actually uses, not just how much of *itself* it completes --
+     * see that function's doc for the real-world case ("Mediterranean Beef Stew" vs. "Tomato Salad")
+     * this exists for.
+     */
+    val realFridgeMatchedCount: Int = 0,
+    /** Total distinct real fridge items in the current search -- the same value on every [Recipe]
+     * from one search, carried per-recipe (rather than as separate search-level state) so the pure
+     * ranking functions in `RecipeRanking.kt` stay self-contained. */
+    val realFridgeItemCount: Int = 0,
     /** Bare 1-4 scale from the corpus, no source-documented meaning -- see `RecipeEntity
      * .difficulty`'s doc for the empirical basis of the app's Easy/Everyday/"A Bit of Work"/
      * "Go For It!" labels. Null for the ~26% of recipes the source doesn't rate. */

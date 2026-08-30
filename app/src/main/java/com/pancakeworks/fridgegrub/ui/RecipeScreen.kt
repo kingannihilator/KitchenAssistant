@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pancakeworks.fridgegrub.model.Recipe
 import com.pancakeworks.fridgegrub.viewmodel.DIFFICULTY_BUCKETS
+import com.pancakeworks.fridgegrub.viewmodel.MatchMode
 import com.pancakeworks.fridgegrub.viewmodel.RecipeViewModel
 import com.pancakeworks.fridgegrub.viewmodel.difficultyLabel
 import kotlinx.coroutines.delay
@@ -85,6 +86,15 @@ private val TIME_FILTER_OPTIONS: List<Pair<String, Int?>> = listOf(
     "Under 30 min" to 30,
     "Under 1 hr" to 60,
     "Under 2 hrs" to 120
+)
+
+/** Labels for the single "Match" dropdown -- see [MatchMode]'s doc for what each mode does. One
+ * dropdown replaces what used to be a separate ranking-mode toggle plus an "Exact match only"
+ * chip, per the user-confirmed tradeoff in that doc. */
+private val MATCH_MODE_OPTIONS: List<Pair<MatchMode, String>> = listOf(
+    MatchMode.BEST_MATCH to "Best Match",
+    MatchMode.MOST_COMPLETE to "Most Complete",
+    MatchMode.EXACT_MATCH_ONLY to "Exact Match Only"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -106,7 +116,7 @@ fun RecipeScreen(
     val filterQuery by viewModel.filterQuery.collectAsState()
     val selectedDifficultyLabels by viewModel.selectedDifficultyLabels.collectAsState()
     val maxCookMinutes by viewModel.maxCookMinutes.collectAsState()
-    val exactMatchOnly by viewModel.exactMatchOnly.collectAsState()
+    val matchMode by viewModel.matchMode.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val totalMatchCount by viewModel.totalMatchCount.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -270,13 +280,35 @@ fun RecipeScreen(
                             }
                         }
                     }
-                    // Safeguard filter (Option B alongside the usesDirectMatch ranking tiebreak,
-                    // Option A) -- off by default, see matchesFilters' doc.
-                    FilterChip(
-                        selected = exactMatchOnly,
-                        onClick = { viewModel.toggleExactMatchOnly() },
-                        label = { Text("Exact match only") }
-                    )
+                    // Single "Match" dropdown covering both ranking mode and the exact-match
+                    // safeguard filter -- see MatchMode's doc for what each option does and why
+                    // they're combined into one control.
+                    var matchModeDropdownExpanded by remember { mutableStateOf(false) }
+                    val matchModeLabel = MATCH_MODE_OPTIONS.first { it.first == matchMode }.second
+                    Box {
+                        OutlinedButton(onClick = { matchModeDropdownExpanded = true }) {
+                            Text(matchModeLabel)
+                        }
+                        DropdownMenu(
+                            expanded = matchModeDropdownExpanded,
+                            onDismissRequest = { matchModeDropdownExpanded = false }
+                        ) {
+                            MATCH_MODE_OPTIONS.forEach { (mode, label) ->
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = {
+                                        viewModel.setMatchMode(mode)
+                                        matchModeDropdownExpanded = false
+                                    },
+                                    trailingIcon = {
+                                        if (mode == matchMode) {
+                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -325,7 +357,7 @@ fun RecipeScreen(
                         // position after returning from a recipe detail -- a legitimate, separate
                         // feature via viewModel.scrollIndex/scrollOffset above -- isn't undone by
                         // this.
-                        val filterState = listOf(filterQuery, selectedDifficultyLabels, maxCookMinutes, exactMatchOnly)
+                        val filterState = listOf(filterQuery, selectedDifficultyLabels, maxCookMinutes, matchMode)
                         var lastFilterState by remember { mutableStateOf(filterState) }
                         LaunchedEffect(filterState) {
                             if (filterState != lastFilterState) {

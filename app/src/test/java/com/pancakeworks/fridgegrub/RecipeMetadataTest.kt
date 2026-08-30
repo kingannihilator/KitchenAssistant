@@ -1,6 +1,7 @@
 package com.pancakeworks.fridgegrub
 
 import com.pancakeworks.fridgegrub.model.Recipe
+import com.pancakeworks.fridgegrub.viewmodel.MatchMode
 import com.pancakeworks.fridgegrub.viewmodel.difficultyLabel
 import com.pancakeworks.fridgegrub.viewmodel.matchesFilters
 import com.pancakeworks.fridgegrub.viewmodel.matchesKnownCookTime
@@ -118,21 +119,22 @@ class RecipeMetadataTest {
         assertTrue(matchesFilters(recipe(cookMinutesMin = null), emptySet(), 30))
     }
 
-    // --- matchesFilters: exactMatchOnly ---
+    // --- matchesFilters: matchMode ---
 
     @Test
-    fun `matchesFilters ignores usesDirectMatch when exactMatchOnly is off`() {
-        assertTrue(matchesFilters(recipe(usesDirectMatch = false), emptySet(), null, exactMatchOnly = false))
+    fun `matchesFilters ignores usesDirectMatch outside of EXACT_MATCH_ONLY mode`() {
+        assertTrue(matchesFilters(recipe(usesDirectMatch = false), emptySet(), null, matchMode = MatchMode.BEST_MATCH))
+        assertTrue(matchesFilters(recipe(usesDirectMatch = false), emptySet(), null, matchMode = MatchMode.MOST_COMPLETE))
     }
 
     @Test
-    fun `matchesFilters excludes a category-only match when exactMatchOnly is on`() {
-        assertFalse(matchesFilters(recipe(usesDirectMatch = false), emptySet(), null, exactMatchOnly = true))
+    fun `matchesFilters excludes a category-only match in EXACT_MATCH_ONLY mode`() {
+        assertFalse(matchesFilters(recipe(usesDirectMatch = false), emptySet(), null, matchMode = MatchMode.EXACT_MATCH_ONLY))
     }
 
     @Test
-    fun `matchesFilters includes a direct match when exactMatchOnly is on`() {
-        assertTrue(matchesFilters(recipe(usesDirectMatch = true), emptySet(), null, exactMatchOnly = true))
+    fun `matchesFilters includes a direct match in EXACT_MATCH_ONLY mode`() {
+        assertTrue(matchesFilters(recipe(usesDirectMatch = true), emptySet(), null, matchMode = MatchMode.EXACT_MATCH_ONLY))
     }
 
     // --- matchesKnownDifficulty / matchesKnownCookTime (ranking tiebreak, not inclusion) ---

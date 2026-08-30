@@ -3,11 +3,14 @@ package com.pancakeworks.fridgegrub
 import com.pancakeworks.fridgegrub.model.Recipe
 import com.pancakeworks.fridgegrub.viewmodel.RecipeMatch
 import com.pancakeworks.fridgegrub.viewmodel.chunkIntLiterals
+import com.pancakeworks.fridgegrub.viewmodel.isEffectivelyFullMatch
 import com.pancakeworks.fridgegrub.viewmodel.matchOrder
 import com.pancakeworks.fridgegrub.viewmodel.matchTier
 import com.pancakeworks.fridgegrub.viewmodel.ratioScore
 import com.pancakeworks.fridgegrub.viewmodel.recipeOrder
+import com.pancakeworks.fridgegrub.viewmodel.recipeOrderMostComplete
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -24,6 +27,9 @@ class RecipeRankingTest {
         definingTotal: Int = defining,
         isFavorite: Boolean = false,
         usesRealFridgeItem: Boolean = true,
+        usesDirectMatch: Boolean = true,
+        realFridgeMatchedCount: Int = 0,
+        realFridgeItemCount: Int = 0,
         title: String = "recipe$id"
     ) = Recipe(
         id = id,
@@ -37,6 +43,9 @@ class RecipeRankingTest {
         definingMatchedCount = defining,
         definingTotalCount = definingTotal,
         usesRealFridgeItem = usesRealFridgeItem,
+        usesDirectMatch = usesDirectMatch,
+        realFridgeMatchedCount = realFridgeMatchedCount,
+        realFridgeItemCount = realFridgeItemCount,
         isFavorite = isFavorite
     )
 
@@ -269,6 +278,106 @@ class RecipeRankingTest {
         val directButPartialMatch = RecipeMatch(id = 2, matched = 1, total = 3, prioritized = 0, usesDirectMatch = true)
         val ranked = listOf(categoryOnlyFullMatch, directButPartialMatch).sortedWith(matchOrder)
         assertEquals(directButPartialMatch, ranked.first())
+    }
+
+    // --- isEffectivelyFullMatch ---
+
+    @Test
+    fun `isEffectivelyFullMatch requires the recipe to already be at least tier 1`() {
+        // 1 of 2 matched (50%) is below the 0.75 tier-1 floor, regardless of anything else.
+        assertFalse(isEffectivelyFullMatch(1, 2, definingMatched = 1, definingTotal = 1, realFridgeMatched = 2, realFridgeItemCount = 2))
+    }
+
+    @Test
+    fun `isEffectivelyFullMatch requires every DEFINING ingredient to be matched`() {
+        assertFalse(isEffectivelyFullMatch(5, 6, definingMatched = 0, definingTotal = 1, realFridgeMatched = 2, realFridgeItemCount = 3))
+    }
+
+    @Test
+    fun `isEffectivelyFullMatch caps how much can be missing at 2 ingredient lines`() {
+        // 18 of 20 (90%) is well above the tier-1 floor, but missing 2 -- the cap -- is fine...
+        assertTrue(isEffectivelyFullMatch(18, 20, definingMatched = 1, definingTotal = 1, realFridgeMatched = 2, realFridgeItemCount = 3))
+        // ...missing 3 is not, even at a similarly high ratio.
+        assertFalse(isEffectivelyFullMatch(17, 20, definingMatched = 1, definingTotal = 1, realFridgeMatched = 2, realFridgeItemCount = 3))
+    }
+
+    @Test
+    fun `isEffectivelyFullMatch requires at least 2 real fridge items and at least half the fridge`() {
+        // Only 1 real fridge item used -- fails the floor regardless of ratio.
+        assertFalse(isEffectivelyFullMatch(5, 6, definingMatched = 1, definingTotal = 1, realFridgeMatched = 1, realFridgeItemCount = 3))
+        // 2 of 6 real fridge items (33%) clears the floor of 2 but not the 50% share.
+        assertFalse(isEffectivelyFullMatch(5, 6, definingMatched = 1, definingTotal = 1, realFridgeMatched = 2, realFridgeItemCount = 6))
+        // 2 of 3 (67%) clears both.
+        assertTrue(isEffectivelyFullMatch(5, 6, definingMatched = 1, definingTotal = 1, realFridgeMatched = 2, realFridgeItemCount = 3))
+    }
+
+    @Test
+    fun `isEffectivelyFullMatch is false for a recipe with no ingredients or no fridge context`() {
+        assertFalse(isEffectivelyFullMatch(0, 0, definingMatched = 0, definingTotal = 0, realFridgeMatched = 0, realFridgeItemCount = 0))
+    }
+
+    // --- matchTier + effectivelyFullMatch ---
+
+    @Test
+    fun `matchTier promotes an effectively-full match to tier 2, gated by usesDirectMatch like a real 100 percent`() {
+        assertEquals(2, matchTier(5, 6, usesDirectMatch = true, effectivelyFullMatch = true))
+        assertEquals(1, matchTier(5, 6, usesDirectMatch = false, effectivelyFullMatch = true))
+    }
+
+    // --- recipeOrder: the Mediterranean Beef Stew vs Tomato Salad case ---
+
+    @Test
+    fun `recipeOrder ranks a near-complete, fridge-heavy recipe above a trivial full match`() {
+        // User-reported real-world case: fridge of "ground beef, tomato, potato" plus default
+        // pantry. "Mediterranean Beef Stew" (5/6, missing only green olives, using ground beef AND
+        // tomato -- 2 of the 3 real fridge items) read as the better answer to "what can I actually
+        // cook" than "Tomato Salad" (a literal 6/6, but only tomato -- 1 of 3 -- is a real fridge
+        // item, the rest is pantry).
+        val stew = recipe(
+            id = 1, matched = 5, total = 6, defining = 1, definingTotal = 1,
+            realFridgeMatchedCount = 2, realFridgeItemCount = 3, title = "Mediterranean Beef Stew"
+        )
+        val salad = recipe(
+            id = 2, matched = 6, total = 6, defining = 1, definingTotal = 1,
+            realFridgeMatchedCount = 1, realFridgeItemCount = 3, title = "Tomato Salad"
+        )
+        val ranked = listOf(salad, stew).sortedWith(recipeOrder)
+        assertEquals(stew, ranked.first())
+    }
+
+    @Test
+    fun `recipeOrderMostComplete keeps the literal ratio ordering for the same case`() {
+        // "Most Complete" mode deliberately has neither the promotion nor the fridge-utilization
+        // tiebreak, so the literal 6/6 salad still wins there -- the two modes must disagree on
+        // this exact case, or MOST_COMPLETE isn't actually doing anything different.
+        val stew = recipe(
+            id = 1, matched = 5, total = 6, defining = 1, definingTotal = 1,
+            realFridgeMatchedCount = 2, realFridgeItemCount = 3, title = "Mediterranean Beef Stew"
+        )
+        val salad = recipe(
+            id = 2, matched = 6, total = 6, defining = 1, definingTotal = 1,
+            realFridgeMatchedCount = 1, realFridgeItemCount = 3, title = "Tomato Salad"
+        )
+        val ranked = listOf(stew, salad).sortedWith(recipeOrderMostComplete)
+        assertEquals(salad, ranked.first())
+    }
+
+    @Test
+    fun `recipeOrder does not promote a recipe missing too many ingredients even with strong fridge usage`() {
+        // Same fridge utilization as the stew above (2 of 3), and still comfortably above the
+        // tier-1 floor (10/13 ≈ 77%), but missing 3 ingredient lines, not 1 or 2 -- the absolute
+        // cap must still block promotion regardless of how well it uses the fridge, addressing the
+        // "a big stew with a long ingredient list shouldn't always win" concern directly.
+        val bigStewMissingTooMuch = recipe(
+            id = 1, matched = 10, total = 13, defining = 1, definingTotal = 1,
+            realFridgeMatchedCount = 2, realFridgeItemCount = 3, title = "Big Stew"
+        )
+        val trivialFullMatch = recipe(
+            id = 2, matched = 3, total = 3, defining = 1, definingTotal = 1,
+            realFridgeMatchedCount = 1, realFridgeItemCount = 3, title = "Trivial Salad"
+        )
+        val ranked = listOf(bigStewMissingTooMuch, trivialFullMatch).sortedWith(recipeOrder)
+        assertEquals(trivialFullMatch, ranked.first())
     }
 
     @Test
