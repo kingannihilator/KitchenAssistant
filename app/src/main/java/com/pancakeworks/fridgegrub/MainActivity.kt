@@ -29,7 +29,10 @@ sealed class Screen {
     // every visitor back to Ingredients regardless of where they actually came from.
     data class Favorites(val returnTo: Screen = Ingredients) : Screen()
     object About : Screen()
-    data class Pantry(val isOnboarding: Boolean) : Screen()
+    // returnTo: same reasoning as Favorites above -- Pantry is now reachable from Ingredients,
+    // Recipes, and RecipeDetail, each with its own pantry-icon entry point, so a hardcoded
+    // destination would strand a visitor from Recipes/RecipeDetail back on Ingredients instead.
+    data class Pantry(val isOnboarding: Boolean, val returnTo: Screen = Ingredients) : Screen()
     data class Recipes(
         val fridgeIngredients: List<String>,
         val prioritizedIngredients: List<String>,
@@ -94,7 +97,7 @@ class MainActivity : ComponentActivity() {
                     )
                     is Screen.Pantry -> PantryScreen(
                         isOnboarding = screen.isOnboarding,
-                        onDone = { currentScreen = Screen.Ingredients }
+                        onDone = { currentScreen = screen.returnTo }
                     )
                     is Screen.Favorites -> FavoritesScreen(
                         onBack = { currentScreen = screen.returnTo },
@@ -123,7 +126,8 @@ class MainActivity : ComponentActivity() {
                                 pantryIngredients = screen.pantryIngredients
                             )
                         },
-                        onViewFavorites = { currentScreen = Screen.Favorites(returnTo = screen) }
+                        onViewFavorites = { currentScreen = Screen.Favorites(returnTo = screen) },
+                        onOpenPantry = { currentScreen = Screen.Pantry(isOnboarding = false, returnTo = screen) }
                     )
                     is Screen.RecipeDetail -> RecipeDetailScreen(
                         recipe = screen.recipe,
@@ -139,7 +143,8 @@ class MainActivity : ComponentActivity() {
                         hasNext = screen.index < screen.recipes.lastIndex,
                         onNavigate = { delta ->
                             currentScreen = screen.copy(index = screen.index + delta)
-                        }
+                        },
+                        onOpenPantry = { currentScreen = Screen.Pantry(isOnboarding = false, returnTo = screen) }
                     )
                 }
             }

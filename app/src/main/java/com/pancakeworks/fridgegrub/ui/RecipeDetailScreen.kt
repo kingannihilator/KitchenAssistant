@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -103,6 +104,10 @@ fun RecipeDetailScreen(
     hasPrevious: Boolean = false,
     hasNext: Boolean = false,
     onNavigate: (Int) -> Unit = {},
+    // Lets a user comparing this recipe's ingredients against their pantry checklist (e.g. "is
+    // scallion actually one of my checked pantry items?") check or edit it without backing all
+    // the way out to the fridge screen first -- same motivation as RecipeScreen's own pantry icon.
+    onOpenPantry: () -> Unit = {},
     viewModel: RecipeViewModel = viewModel(),
     ingredientViewModel: IngredientViewModel = viewModel()
 ) {
@@ -253,6 +258,9 @@ fun RecipeDetailScreen(
                 },
                 title = { Text(recipe.title) },
                 actions = {
+                    IconButton(onClick = onOpenPantry) {
+                        Icon(Icons.Default.Grain, contentDescription = "Pantry & seasonings")
+                    }
                     IconButton(onClick = { viewModel.toggleFavorite(recipe.id) }) {
                         Icon(
                             // A heart, not a star -- the star is already used for prioritized

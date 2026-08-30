@@ -55,7 +55,7 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Kitchen
+import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material.icons.filled.Search
@@ -249,11 +249,11 @@ fun IngredientScreen(
                             contentDescription = if (mode == AppMode.QUANTITY) "Quantity mode -- tap to switch to Checklist mode" else "Checklist mode -- tap to switch to Quantity mode"
                         )
                     }
+                    IconButton(onClick = onOpenPantry) {
+                        Icon(Icons.Default.Grain, contentDescription = "Pantry & seasonings")
+                    }
                     IconButton(onClick = onViewFavorites) {
                         FavoritesShortcutIcon()
-                    }
-                    IconButton(onClick = onOpenPantry) {
-                        Icon(Icons.Default.Kitchen, contentDescription = "Pantry & seasonings")
                     }
                     IconButton(onClick = onOpenAbout) {
                         Icon(Icons.Default.Info, contentDescription = "Recipe sources & licenses")

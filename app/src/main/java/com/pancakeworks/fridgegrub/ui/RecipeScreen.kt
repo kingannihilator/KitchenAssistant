@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Grain
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -109,6 +110,11 @@ fun RecipeScreen(
     // actionable from here -- without this, reaching the Favorites screen meant backing all the
     // way out to the fridge screen first.
     onViewFavorites: () -> Unit = {},
+    // Same motivation: a user comparing a recipe's ingredient list against their pantry
+    // checklist (e.g. "is scallion actually one of my checked pantry items?" -- see the
+    // pantry-category-expansion fix this session) shouldn't have to back all the way out to the
+    // fridge screen to check or edit it.
+    onOpenPantry: () -> Unit = {},
     viewModel: RecipeViewModel = viewModel()
 ) {
     val allRecipes by viewModel.sortedRecipes.collectAsState()
@@ -187,6 +193,9 @@ fun RecipeScreen(
                     )
                 },
                 actions = {
+                    IconButton(onClick = onOpenPantry) {
+                        Icon(Icons.Default.Grain, contentDescription = "Pantry & seasonings")
+                    }
                     IconButton(onClick = onViewFavorites) {
                         FavoritesShortcutIcon()
                     }
