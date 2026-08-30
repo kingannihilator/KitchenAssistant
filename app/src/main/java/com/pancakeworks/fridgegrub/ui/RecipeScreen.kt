@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -28,11 +29,14 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -65,23 +69,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pancakeworks.fridgegrub.model.Recipe
+import com.pancakeworks.fridgegrub.viewmodel.DIFFICULTY_BUCKETS
 import com.pancakeworks.fridgegrub.viewmodel.RecipeViewModel
+import com.pancakeworks.fridgegrub.viewmodel.difficultyLabel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** 1-4 difficulty scale from the corpus (see `RecipeEntity.difficulty`'s doc for why these
- * particular words) -- shared between the filter chips here and the card/detail metadata line. */
-internal val DIFFICULTY_LABELS = linkedMapOf(
-    1 to "Easy",
-    2 to "Everyday",
-    3 to "A Bit of Work",
-    4 to "Go For It!"
-)
-
-/** "Up to N minutes" filter presets -- a recipe's cook time is only ~24% populated, so a small
- * fixed set of single-select thresholds is simpler than a slider and self-documents what "no
- * value" means (see `matchesFilters`' doc: it always passes, rather than being hidden). */
-private val TIME_FILTER_OPTIONS = listOf(
+/** "Up to N minutes" filter presets, shown as a single dropdown rather than a chip row -- a
+ * recipe's cook time is only ~24% populated, so a small fixed set of single-select thresholds is
+ * simpler than a slider and self-documents what "no value" means (see `matchesFilters`' doc: it
+ * always passes, rather than being hidden). `null` is "Any time" -- the way a user backs out of
+ * the filter, per `RecipeViewModel.setMaxCookTimeFilter`'s doc. */
+private val TIME_FILTER_OPTIONS: List<Pair<String, Int?>> = listOf(
+    "Any time" to null,
     "Under 30 min" to 30,
     "Under 1 hr" to 60,
     "Under 2 hrs" to 120
@@ -104,8 +104,9 @@ fun RecipeScreen(
     val allRecipes by viewModel.sortedRecipes.collectAsState()
     val recipes by viewModel.filteredRecipes.collectAsState()
     val filterQuery by viewModel.filterQuery.collectAsState()
-    val selectedDifficulties by viewModel.selectedDifficulties.collectAsState()
+    val selectedDifficultyLabels by viewModel.selectedDifficultyLabels.collectAsState()
     val maxCookMinutes by viewModel.maxCookMinutes.collectAsState()
+    val exactMatchOnly by viewModel.exactMatchOnly.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val totalMatchCount by viewModel.totalMatchCount.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -212,20 +213,70 @@ fun RecipeScreen(
                         .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    DIFFICULTY_LABELS.forEach { (level, label) ->
-                        FilterChip(
-                            selected = level in selectedDifficulties,
-                            onClick = { viewModel.toggleDifficultyFilter(level) },
-                            label = { Text(label) }
-                        )
+                    // Time as a single dropdown rather than a chip row -- fixed-width regardless
+                    // of which option is selected, so it doesn't grow/shrink the row and cost an
+                    // extra swipe the way 3 separate chips did.
+                    var timeDropdownExpanded by remember { mutableStateOf(false) }
+                    val timeLabel = TIME_FILTER_OPTIONS.first { it.second == maxCookMinutes }.first
+                    Box {
+                        OutlinedButton(onClick = { timeDropdownExpanded = true }) {
+                            Text(timeLabel)
+                        }
+                        DropdownMenu(
+                            expanded = timeDropdownExpanded,
+                            onDismissRequest = { timeDropdownExpanded = false }
+                        ) {
+                            TIME_FILTER_OPTIONS.forEach { (label, minutes) ->
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = {
+                                        viewModel.setMaxCookTimeFilter(minutes)
+                                        timeDropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
                     }
-                    TIME_FILTER_OPTIONS.forEach { (label, minutes) ->
-                        FilterChip(
-                            selected = maxCookMinutes == minutes,
-                            onClick = { viewModel.setMaxCookTimeFilter(minutes) },
-                            label = { Text(label) }
-                        )
+                    // 3 buckets, not the raw 4 difficulty levels -- see DIFFICULTY_BUCKETS' doc.
+                    // A dropdown rather than a chip row, same motivation as the time filter above:
+                    // one fixed-width control instead of 3 chips to swipe past. Multi-select, so
+                    // unlike the time dropdown the menu stays open across taps (no onClick sets
+                    // expanded = false) -- only dismissed by tapping outside or the label itself.
+                    var difficultyDropdownExpanded by remember { mutableStateOf(false) }
+                    val difficultyLabelText = when (selectedDifficultyLabels.size) {
+                        0 -> "Any difficulty"
+                        1 -> selectedDifficultyLabels.first()
+                        else -> "${selectedDifficultyLabels.size} difficulties"
                     }
+                    Box {
+                        OutlinedButton(onClick = { difficultyDropdownExpanded = true }) {
+                            Text(difficultyLabelText)
+                        }
+                        DropdownMenu(
+                            expanded = difficultyDropdownExpanded,
+                            onDismissRequest = { difficultyDropdownExpanded = false }
+                        ) {
+                            DIFFICULTY_BUCKETS.forEach { bucket ->
+                                val selected = bucket.label in selectedDifficultyLabels
+                                DropdownMenuItem(
+                                    text = { Text(bucket.label) },
+                                    onClick = { viewModel.toggleDifficultyFilter(bucket.label) },
+                                    trailingIcon = {
+                                        if (selected) {
+                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    // Safeguard filter (Option B alongside the usesDirectMatch ranking tiebreak,
+                    // Option A) -- off by default, see matchesFilters' doc.
+                    FilterChip(
+                        selected = exactMatchOnly,
+                        onClick = { viewModel.toggleExactMatchOnly() },
+                        label = { Text("Exact match only") }
+                    )
                 }
             }
 
@@ -263,17 +314,18 @@ fun RecipeScreen(
                             }
                         }
                         // Scroll back to the top whenever any filter (text query, difficulty
-                        // chips, or cook-time chips) changes while on this screen -- listState is
-                        // never disposed just because a filter changed, so a scroll position from
-                        // before still points at whatever now-unrelated rows sit at that same
-                        // index/offset in the newly filtered list, which reads as "the filter did
-                        // nothing" (same underlying issue as the text-search "x" button, now
-                        // fixed for the difficulty/time chips too). Compared against a combined
-                        // filter-state snapshot from when this screen instance actually started,
-                        // not scrolled unconditionally, so restoring scroll position after
-                        // returning from a recipe detail -- a legitimate, separate feature via
-                        // viewModel.scrollIndex/scrollOffset above -- isn't undone by this.
-                        val filterState = Triple(filterQuery, selectedDifficulties, maxCookMinutes)
+                        // chips, cook-time dropdown, or exact-match toggle) changes while on this
+                        // screen -- listState is never disposed just because a filter changed, so
+                        // a scroll position from before still points at whatever now-unrelated
+                        // rows sit at that same index/offset in the newly filtered list, which
+                        // reads as "the filter did nothing" (same underlying issue as the
+                        // text-search "x" button, now fixed for every filter control). Compared
+                        // against a combined filter-state snapshot from when this screen instance
+                        // actually started, not scrolled unconditionally, so restoring scroll
+                        // position after returning from a recipe detail -- a legitimate, separate
+                        // feature via viewModel.scrollIndex/scrollOffset above -- isn't undone by
+                        // this.
+                        val filterState = listOf(filterQuery, selectedDifficultyLabels, maxCookMinutes, exactMatchOnly)
                         var lastFilterState by remember { mutableStateOf(filterState) }
                         LaunchedEffect(filterState) {
                             if (filterState != lastFilterState) {
@@ -322,7 +374,12 @@ fun RecipeScreen(
 @Composable
 private fun RecipeCard(recipe: Recipe, onClick: () -> Unit, onToggleFavorite: () -> Unit) {
     val matchRatio = if (recipe.totalCount > 0) recipe.matchedCount.toFloat() / recipe.totalCount else 0f
-    val isComplete = matchRatio == 1f
+    // A bare 100% ratio only counts as a genuine full match (green) when it's backed by a direct
+    // hit on a real fridge item -- see RecipeRanking.kt's matchTier doc for why (a small recipe
+    // fully covered by default pantry staples plus one category-expansion-only ingredient must
+    // not read as "you have everything" the way a real full match does). Falls through to partial
+    // (blue) rather than the plain surfaceVariant tier -- it's still a real, complete match.
+    val isComplete = matchRatio == 1f && recipe.usesDirectMatch
     val isPartial = matchRatio >= 0.75f && !isComplete
     val isDark = isSystemInDarkTheme()
     val cardContainerColor = when {
@@ -377,7 +434,7 @@ private fun RecipeCard(recipe: Recipe, onClick: () -> Unit, onToggleFavorite: ()
             // rate (see RecipeEntity's doc), so this line just doesn't render rather than
             // showing an empty "·". Ingredient count itself is already the denominator of the
             // "X/Y ingredients" line above -- no need to repeat it here.
-            val metadataParts = listOfNotNull(DIFFICULTY_LABELS[recipe.difficulty], recipe.timeText)
+            val metadataParts = listOfNotNull(difficultyLabel(recipe.difficulty), recipe.timeText)
             if (metadataParts.isNotEmpty()) {
                 Text(
                     metadataParts.joinToString(" · "),

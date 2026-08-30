@@ -80,17 +80,18 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setFilterQuery(query: String) { _filterQuery.value = query }
 
-    // --- State: difficulty / cook-time filters ---
+    // --- State: difficulty / cook-time / exact-match filters ---
 
     // Empty = no difficulty filter active (everything passes) -- see matchesFilters' doc for why
     // a recipe with no difficulty value always passes an active filter too, rather than being
-    // hidden for lack of data.
-    private val _selectedDifficulties = MutableStateFlow<Set<Int>>(emptySet())
-    val selectedDifficulties: StateFlow<Set<Int>> = _selectedDifficulties.asStateFlow()
+    // hidden for lack of data. Stores DIFFICULTY_BUCKETS labels, not raw 1-4 values, since a
+    // bucket (e.g. "Everyday") can cover more than one raw value.
+    private val _selectedDifficultyLabels = MutableStateFlow<Set<String>>(emptySet())
+    val selectedDifficultyLabels: StateFlow<Set<String>> = _selectedDifficultyLabels.asStateFlow()
 
-    fun toggleDifficultyFilter(difficulty: Int) {
-        _selectedDifficulties.update { current ->
-            if (difficulty in current) current - difficulty else current + difficulty
+    fun toggleDifficultyFilter(label: String) {
+        _selectedDifficultyLabels.update { current ->
+            if (label in current) current - label else current + label
         }
     }
 
@@ -98,11 +99,19 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     private val _maxCookMinutes = MutableStateFlow<Int?>(null)
     val maxCookMinutes: StateFlow<Int?> = _maxCookMinutes.asStateFlow()
 
-    /** Pass the same value again to clear the filter -- RecipeScreen's time chips are
-     * single-select, so tapping the already-selected chip is how a user backs out of it. */
+    /** Pass the same value again to clear the filter -- RecipeScreen's time dropdown re-selecting
+     * "Any time" (null) is how a user backs out of it. */
     fun setMaxCookTimeFilter(minutes: Int?) {
         _maxCookMinutes.value = if (_maxCookMinutes.value == minutes) null else minutes
     }
+
+    // Off by default -- see matchesFilters' doc: unlike difficulty/time, this is a real filter,
+    // not a soft exemption, so it stays opt-in rather than silently hiding category-expansion
+    // matches (e.g. "chicken pieces" recipes for a "chicken breast" fridge item) by default.
+    private val _exactMatchOnly = MutableStateFlow(false)
+    val exactMatchOnly: StateFlow<Boolean> = _exactMatchOnly.asStateFlow()
+
+    fun toggleExactMatchOnly() { _exactMatchOnly.update { !it } }
 
     // Plain vars, not StateFlow: only read once when RecipeScreen's LazyColumn is (re)created and
     // written once when it's torn down (navigating to detail/back), so no observers are needed.
@@ -120,8 +129,8 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     )
 
     val filteredRecipes: StateFlow<List<Recipe>> = combine(
-        sortedRecipes, _filterQuery, _selectedDifficulties, _maxCookMinutes
-    ) { recipes, query, difficulties, maxMinutes ->
+        sortedRecipes, _filterQuery, _selectedDifficultyLabels, _maxCookMinutes, _exactMatchOnly
+    ) { recipes, query, difficulties, maxMinutes, exactMatchOnly ->
         val q = query.trim().lowercase()
         recipes
             .filter { recipe ->
@@ -130,7 +139,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 recipe.categories.any { it.lowercase().contains(q) } ||
                 recipe.ingredients.any { it.lowercase().contains(q) }
             }
-            .filter { recipe -> matchesFilters(recipe, difficulties, maxMinutes) }
+            .filter { recipe -> matchesFilters(recipe, difficulties, maxMinutes, exactMatchOnly) }
             // Stable sort on top of the already-recipeOrder-sorted list: a recipe genuinely
             // rated within an active filter ranks above one that only passed via the unrated
             // exemption (see matchesKnownDifficulty/matchesKnownCookTime's doc) -- an unrated
@@ -463,12 +472,28 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
      * rather than a checked pantry one -- used to compute [RecipeMatch.usesRealFridgeItem], which
      * keeps a recipe satisfied purely by pantry staples (e.g. "Garlic Salt" when the fridge has
      * only "egg") from ranking alongside or above one that actually uses what's in the fridge.
+     *
+     * [MatchOrigin.direct] (also carried in [matchOrigins]) similarly feeds
+     * [RecipeMatch.usesDirectMatch]: whether at least one matched ingredient traces back to a
+     * *real fridge item* (not a pantry one -- same [realFridgeOriginKeys] gate as
+     * [RecipeMatch.usesRealFridgeItem]) that was reached by direct word-matching rather than only
+     * via category expansion -- e.g. fridge "chicken breast" directly matching recipe "chicken
+     * breast" vs. only reaching recipe "chicken drumsticks"/"chicken wings" through the shared
+     * Meat/Chicken category. The [realFridgeOriginKeys] gate matters here specifically: without
+     * it, a recipe whose *only* fridge-relevant ingredient is category-matched (e.g. "chicken
+     * breast" -> "chicken wings") still counted as a direct match whenever some unrelated pantry
+     * staple (garlic, salt, oil) it also calls for happened to match directly -- passing "Exact
+     * match only" on the strength of a pantry item having nothing to do with what the filter is
+     * meant to check. Both directness and reality are valid, real matches on their own; this just
+     * distinguishes "the exact thing you have" from "something the taxonomy says is a reasonable
+     * substitute", for
+     * `RecipeRanking.kt`'s tiebreak and `RecipeScreen`'s "Exact match only" filter.
      */
     private suspend fun scoreRecipesNew(
         dao: NewRecipeDao,
         matchedIds: Set<Int>,
         prioritizedIds: Set<Int>,
-        matchOrigins: Map<Int, String>,
+        matchOrigins: Map<Int, NewIngredientIndex.MatchOrigin>,
         realFridgeOriginKeys: Set<String>
     ): List<RecipeMatch> {
         val junkIds = if (SUPPRESS_BLOB_RECIPES_NEW) {
@@ -494,7 +519,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
             val seasoningMatchedIds: MutableSet<Int> = mutableSetOf(),
             var prioritized: Int = 0
         )
-        fun originsOf(ids: Set<Int>) = ids.mapTo(HashSet()) { matchOrigins[it] ?: it.toString() }
+        fun originsOf(ids: Set<Int>) = ids.mapTo(HashSet()) { matchOrigins[it]?.fridgeKey ?: it.toString() }
 
         val accumulated = HashMap<Int, Accumulator>()
         for (chunk in chunkIntLiterals(matchedIds)) {
@@ -520,7 +545,10 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 prioritized = acc.prioritized,
                 defining = originsOf(acc.definingIds).size,
                 definingTotal = acc.definingTotal,
-                usesRealFridgeItem = acc.matchedIds.any { matchOrigins[it] in realFridgeOriginKeys },
+                usesRealFridgeItem = acc.matchedIds.any { matchOrigins[it]?.fridgeKey in realFridgeOriginKeys },
+                usesDirectMatch = acc.matchedIds.any {
+                    matchOrigins[it]?.direct == true && matchOrigins[it]?.fridgeKey in realFridgeOriginKeys
+                },
                 unmatchedSeasoningCount = (acc.seasoningTotal - originsOf(acc.seasoningMatchedIds).size).coerceAtLeast(0)
             )
         }
@@ -596,6 +624,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 definingMatchedCount = match.defining,
                 definingTotalCount = match.definingTotal,
                 usesRealFridgeItem = match.usesRealFridgeItem,
+                usesDirectMatch = match.usesDirectMatch,
                 unmatchedSeasoningCount = match.unmatchedSeasoningCount,
                 difficulty = entity.difficulty,
                 timeText = entity.timeText,

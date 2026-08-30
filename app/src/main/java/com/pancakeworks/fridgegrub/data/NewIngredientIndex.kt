@@ -49,6 +49,23 @@ class NewIngredientIndex private constructor(
     fun matching(fridgeNames: List<String>): Set<Int> = matchOrigins(fridgeNames).keys
 
     /**
+     * Which fridge entry satisfied a matched ingredient (see [NewIngredientIndex.matchOrigins]'s
+     * doc), and whether that match is [direct] -- the recipe ingredient names the same thing as
+     * the fridge item, or a *more specific* variant of it (`IngredientMatcher.isSpecificVariantOf`)
+     * -- as opposed to only being satisfiable via the more-general direction of
+     * [IngredientMatcher.matches] or via category expansion (pass 2). This is what lets ranking
+     * (`RecipeMatch.usesDirectMatch`) and the "Exact match only" filter tell "fridge chicken
+     * breast satisfies recipe chicken breast" apart from two other cases that both look like a
+     * match but aren't what the user actually has: fridge chicken breast satisfying a recipe's
+     * *bare* "chicken" (`IngredientMatcher.matches` allows the fridge side to be the more specific
+     * one -- correct for search, since a fridge item should satisfy a more general recipe
+     * requirement, but not what "exact" means here), and fridge chicken breast reaching recipe
+     * "chicken wings"/"chicken drumsticks" only via the shared Meat/Chicken category. All three are
+     * valid, real matches; only the first is [direct].
+     */
+    data class MatchOrigin(val fridgeKey: String, val direct: Boolean)
+
+    /**
      * Like [matching], but also tags each matched ingredient_id with the fridge entry that
      * satisfied it -- a stable string built from that fridge term's own words, so two different
      * fridge rows that happen to normalize the same way collapse to one key, and two genuinely
@@ -62,9 +79,9 @@ class NewIngredientIndex private constructor(
      * exact ingredient before a broader one (e.g. plain "cheese") sweeps in and swallows the claim;
      * a category-expansion sibling (no shared words with any fridge term at all, e.g. "ribeye" via
      * fridge "beef") inherits the origin of whichever matched ingredient first pulled its category
-     * in.
+     * in, tagged `direct = false`.
      */
-    fun matchOrigins(fridgeNames: List<String>): Map<Int, String> {
+    fun matchOrigins(fridgeNames: List<String>): Map<Int, MatchOrigin> {
         val fridgeTerms = fridgeNames.map { IngredientMatcher.parseFridge(it) }
         // Same-head lookup for the category-expansion guard below -- a candidate can only be
         // "explicitly rejected" by a fridge item whose head it shares.
@@ -73,15 +90,25 @@ class NewIngredientIndex private constructor(
         // Indices into the parallel arrays, not ingredient_ids yet -- resolved at the end.
         val matchedIndices = LinkedHashSet<Int>()
         val origin = HashMap<Int, String>()
+        // Pass-1 matches where the recipe ingredient is the same thing or more specific than the
+        // fridge item -- see MatchOrigin.direct's doc for why this is narrower than "matched in
+        // pass 1": IngredientMatcher.matches also allows the fridge side to be the more specific
+        // one (fridge "chicken breast" legitimately satisfying a recipe's bare "chicken"), which
+        // is correct for search but not what "exact" should mean.
+        val exactIndices = HashSet<Int>()
         for (fridgeTerm in fridgeTerms.sortedByDescending { it.words.size }) {
             val head = fridgeTerm.head ?: continue
             val bucket = byHead[head] ?: continue
             val key = fridgeTerm.words.sorted().joinToString(" ")
             for (i in bucket) {
                 if (i in matchedIndices) continue
-                if (IngredientMatcher.matches(fridgeTerm, IngredientMatcher.parseRecipe(normalizedNames[i]))) {
+                val candidateTerm = IngredientMatcher.parseRecipe(normalizedNames[i])
+                if (IngredientMatcher.matches(fridgeTerm, candidateTerm)) {
                     matchedIndices.add(i)
                     origin[i] = key
+                    if (IngredientMatcher.isSpecificVariantOf(fridgeTerm, candidateTerm)) {
+                        exactIndices.add(i)
+                    }
                 }
             }
         }
@@ -109,9 +136,9 @@ class NewIngredientIndex private constructor(
             }
         }
 
-        val result = LinkedHashMap<Int, String>(matchedIndices.size)
+        val result = LinkedHashMap<Int, MatchOrigin>(matchedIndices.size)
         for (i in matchedIndices) {
-            result[ingredientIds[i]] = origin.getValue(i)
+            result[ingredientIds[i]] = MatchOrigin(origin.getValue(i), direct = i in exactIndices)
         }
         return result
     }

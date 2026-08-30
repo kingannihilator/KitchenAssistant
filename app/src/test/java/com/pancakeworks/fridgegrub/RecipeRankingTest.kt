@@ -75,6 +75,20 @@ class RecipeRankingTest {
         assertEquals(0, matchTier(0, 0))
     }
 
+    @Test
+    fun `matchTier downgrades a perfect ratio to tier 1 without a direct real-fridge match`() {
+        // "Breaded Chicken Livers" -- chicken liver/flour/salt/pepper, with flour/salt/pepper all
+        // default-checked pantry staples and chicken liver only reachable from fridge "chicken
+        // breast" via category expansion, never a direct hit. A bare 4/4 ratio must not read as a
+        // genuine full match the way a real 3/3 does.
+        assertEquals(1, matchTier(4, 4, usesDirectMatch = false))
+    }
+
+    @Test
+    fun `matchTier keeps tier 2 for a perfect ratio with a direct real-fridge match`() {
+        assertEquals(2, matchTier(3, 3, usesDirectMatch = true))
+    }
+
     // --- chunkIntLiterals ---
 
     @Test
@@ -207,6 +221,38 @@ class RecipeRankingTest {
         )
         val ranked = listOf(partialDefiningPoorOverall, fullDefiningCompleteOverall).sortedWith(matchOrder)
         assertEquals(fullDefiningCompleteOverall, ranked.first())
+    }
+
+    @Test
+    fun `matchOrder ranks a genuine full match above a pantry-inflated one at the same bare ratio`() {
+        // The exact "Breaded Chicken Livers" scenario: a bare 4/4 ratio propped up by pantry
+        // (flour/salt/pepper) plus one category-expansion-only ingredient must not outrank or tie
+        // a recipe the fridge genuinely completes.
+        val genuineFullMatch = RecipeMatch(id = 1, matched = 3, total = 3, prioritized = 0, usesDirectMatch = true)
+        val pantryInflatedFullRatio = RecipeMatch(id = 2, matched = 4, total = 4, prioritized = 0, usesDirectMatch = false)
+        val ranked = listOf(pantryInflatedFullRatio, genuineFullMatch).sortedWith(matchOrder)
+        assertEquals(genuineFullMatch, ranked.first())
+    }
+
+    @Test
+    fun `matchOrder prefers a direct match over a category-only match at the same tier and ratio`() {
+        val directMatch = RecipeMatch(id = 1, matched = 2, total = 2, prioritized = 0, usesDirectMatch = true)
+        val categoryOnlyMatch = RecipeMatch(id = 2, matched = 2, total = 2, prioritized = 0, usesDirectMatch = false)
+        val ranked = listOf(categoryOnlyMatch, directMatch).sortedWith(matchOrder)
+        assertEquals(directMatch, ranked.first())
+    }
+
+    @Test
+    fun `matchOrder ranks a direct match above a category-only match even at a much better ratio`() {
+        // User-confirmed: unlike definingMatchedCount (a within-tier nuance), usesDirectMatch is a
+        // correctness gate, ranked above matchTier/ratio -- a category-only match (e.g. fridge
+        // "chicken breast" only reaching recipe "chicken wings" via the shared Meat/Chicken
+        // category) must never outrank a genuine direct match, even when the category-only recipe
+        // is otherwise far more complete (here, a full 3/3 vs. a partial 1/3).
+        val categoryOnlyFullMatch = RecipeMatch(id = 1, matched = 3, total = 3, prioritized = 0, usesDirectMatch = false)
+        val directButPartialMatch = RecipeMatch(id = 2, matched = 1, total = 3, prioritized = 0, usesDirectMatch = true)
+        val ranked = listOf(categoryOnlyFullMatch, directButPartialMatch).sortedWith(matchOrder)
+        assertEquals(directButPartialMatch, ranked.first())
     }
 
     @Test

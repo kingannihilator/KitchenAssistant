@@ -75,6 +75,7 @@ import com.pancakeworks.fridgegrub.model.Ingredient
 import com.pancakeworks.fridgegrub.model.Recipe
 import com.pancakeworks.fridgegrub.viewmodel.IngredientViewModel
 import com.pancakeworks.fridgegrub.viewmodel.RecipeViewModel
+import com.pancakeworks.fridgegrub.viewmodel.difficultyLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -318,7 +319,7 @@ fun RecipeDetailScreen(
                     val metadataParts = listOfNotNull(
                         recipe.servings?.let { "Serves $it" },
                         "${recipe.ingredientCount} ingredients",
-                        DIFFICULTY_LABELS[recipe.difficulty],
+                        difficultyLabel(recipe.difficulty),
                         recipe.timeText
                     )
                     Text(

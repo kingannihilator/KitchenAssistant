@@ -1,6 +1,7 @@
 package com.pancakeworks.fridgegrub
 
 import com.pancakeworks.fridgegrub.model.Recipe
+import com.pancakeworks.fridgegrub.viewmodel.difficultyLabel
 import com.pancakeworks.fridgegrub.viewmodel.matchesFilters
 import com.pancakeworks.fridgegrub.viewmodel.matchesKnownCookTime
 import com.pancakeworks.fridgegrub.viewmodel.matchesKnownDifficulty
@@ -10,11 +11,15 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Guards the difficulty/cook-time filter logic and servings parsing added alongside the recipe
- * metadata feature -- see RecipeMetadata.kt's doc. */
+/** Guards the difficulty/cook-time/exact-match filter logic and servings parsing added alongside
+ * the recipe metadata feature -- see RecipeMetadata.kt's doc. */
 class RecipeMetadataTest {
 
-    private fun recipe(difficulty: Int? = null, cookMinutesMin: Int? = null) = Recipe(
+    private fun recipe(
+        difficulty: Int? = null,
+        cookMinutesMin: Int? = null,
+        usesDirectMatch: Boolean = true
+    ) = Recipe(
         id = 1,
         title = "recipe",
         servings = null,
@@ -23,7 +28,8 @@ class RecipeMetadataTest {
         matchedCount = 0,
         totalCount = 0,
         difficulty = difficulty,
-        cookMinutesMin = cookMinutesMin
+        cookMinutesMin = cookMinutesMin,
+        usesDirectMatch = usesDirectMatch
     )
 
     // --- parseServings ---
@@ -49,6 +55,26 @@ class RecipeMetadataTest {
         assertEquals(null, parseServings(null))
     }
 
+    // --- difficultyLabel / DIFFICULTY_BUCKETS ---
+
+    @Test
+    fun `difficultyLabel collapses raw levels 1 and 2 into Everyday`() {
+        assertEquals("Everyday", difficultyLabel(1))
+        assertEquals("Everyday", difficultyLabel(2))
+    }
+
+    @Test
+    fun `difficultyLabel keeps 3 and 4 as their own buckets`() {
+        assertEquals("A Bit of Work", difficultyLabel(3))
+        assertEquals("Go For It!", difficultyLabel(4))
+    }
+
+    @Test
+    fun `difficultyLabel is null for unrated or out-of-range values`() {
+        assertEquals(null, difficultyLabel(null))
+        assertEquals(null, difficultyLabel(0))
+    }
+
     // --- matchesFilters ---
 
     @Test
@@ -58,17 +84,23 @@ class RecipeMetadataTest {
 
     @Test
     fun `matchesFilters excludes a recipe whose difficulty is not selected`() {
-        assertFalse(matchesFilters(recipe(difficulty = 3), setOf(1, 2), null))
+        assertFalse(matchesFilters(recipe(difficulty = 3), setOf("Everyday"), null))
     }
 
     @Test
     fun `matchesFilters includes a recipe whose difficulty is selected`() {
-        assertTrue(matchesFilters(recipe(difficulty = 2), setOf(1, 2), null))
+        assertTrue(matchesFilters(recipe(difficulty = 2), setOf("Everyday"), null))
+    }
+
+    @Test
+    fun `matchesFilters treats raw levels 1 and 2 as the same Everyday bucket`() {
+        assertTrue(matchesFilters(recipe(difficulty = 1), setOf("Everyday"), null))
+        assertTrue(matchesFilters(recipe(difficulty = 2), setOf("Everyday"), null))
     }
 
     @Test
     fun `matchesFilters always includes a recipe with unknown difficulty`() {
-        assertTrue(matchesFilters(recipe(difficulty = null), setOf(1, 2), null))
+        assertTrue(matchesFilters(recipe(difficulty = null), setOf("Everyday"), null))
     }
 
     @Test
@@ -86,6 +118,23 @@ class RecipeMetadataTest {
         assertTrue(matchesFilters(recipe(cookMinutesMin = null), emptySet(), 30))
     }
 
+    // --- matchesFilters: exactMatchOnly ---
+
+    @Test
+    fun `matchesFilters ignores usesDirectMatch when exactMatchOnly is off`() {
+        assertTrue(matchesFilters(recipe(usesDirectMatch = false), emptySet(), null, exactMatchOnly = false))
+    }
+
+    @Test
+    fun `matchesFilters excludes a category-only match when exactMatchOnly is on`() {
+        assertFalse(matchesFilters(recipe(usesDirectMatch = false), emptySet(), null, exactMatchOnly = true))
+    }
+
+    @Test
+    fun `matchesFilters includes a direct match when exactMatchOnly is on`() {
+        assertTrue(matchesFilters(recipe(usesDirectMatch = true), emptySet(), null, exactMatchOnly = true))
+    }
+
     // --- matchesKnownDifficulty / matchesKnownCookTime (ranking tiebreak, not inclusion) ---
 
     @Test
@@ -95,9 +144,9 @@ class RecipeMetadataTest {
 
     @Test
     fun `matchesKnownDifficulty is true only for a genuine match, not an unrated pass-through`() {
-        assertTrue(matchesKnownDifficulty(recipe(difficulty = 1), setOf(1)))
-        assertFalse(matchesKnownDifficulty(recipe(difficulty = null), setOf(1)))
-        assertFalse(matchesKnownDifficulty(recipe(difficulty = 2), setOf(1)))
+        assertTrue(matchesKnownDifficulty(recipe(difficulty = 1), setOf("Everyday")))
+        assertFalse(matchesKnownDifficulty(recipe(difficulty = null), setOf("Everyday")))
+        assertFalse(matchesKnownDifficulty(recipe(difficulty = 3), setOf("Everyday")))
     }
 
     @Test

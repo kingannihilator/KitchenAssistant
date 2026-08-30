@@ -40,6 +40,23 @@ data class Recipe(
      */
     val usesRealFridgeItem: Boolean = true,
     /**
+     * Whether at least one matched ingredient traces back to a *real fridge item* (not a pantry
+     * one, same gate as [usesRealFridgeItem]) that was reached by direct word-matching (fridge
+     * "chicken breast" satisfying recipe "chicken breast") rather than only via category
+     * expansion (fridge "chicken breast" only reaching recipe "chicken wings"/"chicken
+     * drumsticks" through the shared Meat/Chicken taxonomy node -- see
+     * `data/NewIngredientIndex.kt`'s class doc). The pantry gate matters: without it, a recipe
+     * whose only fridge-relevant ingredient is category-matched still counted as direct whenever
+     * some unrelated pantry staple (garlic, salt, oil) it also calls for happened to match
+     * directly. Both are genuine matches; this is what lets
+     * [com.pancakeworks.fridgegrub.viewmodel.recipeOrder] and the "Exact match only" filter
+     * (`RecipeScreen.kt`) prefer "the exact thing you have" over "a taxonomy-approved substitute"
+     * without hiding the substitute outright. Defaults `true` for the same reason as
+     * [usesRealFridgeItem]: favorites loaded by id never compute a real match and shouldn't be
+     * penalized for it.
+     */
+    val usesDirectMatch: Boolean = true,
+    /**
      * How many `SEASONING`-tier ingredients this recipe calls for that neither the fridge nor
      * pantry supply. `SEASONING`-tier ingredients count toward [matchedCount]/[totalCount] like
      * any other tier (see `RecipeViewModel.scoreRecipesNew`'s doc for why that changed once
