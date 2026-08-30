@@ -102,21 +102,27 @@ internal fun matchTier(matched: Int, total: Int): Int {
  * Starred ingredients boost rather than filter: a recipe using two of them outranks one using a
  * single starred ingredient, but recipes using none are still shown.
  *
- * `definingMatchedCount` boosts the same way, right after starred ingredients: a recipe where the
- * fridge covers the dish's namesake ingredient (e.g. garlic in "Garlic Chicken") outranks one at
- * the same match tier/ratio where it doesn't. Ranked above `matchTier` on purpose, matching how
- * `prioritizedCount` already outranks it: both are deliberate boosts, not filters, so they get
- * first say over the raw ratio.
+ * `definingMatchedCount` boosts *within* a match tier -- a recipe where the fridge covers the
+ * dish's namesake ingredient (e.g. garlic in "Garlic Chicken") outranks one at the same match
+ * tier/ratio where it doesn't. Ranked below `matchTier`/the main ratio on purpose: it's a
+ * tiebreaker among recipes that are already equally good overall matches, not a key that can
+ * override tier. It used to sit above tier, which looked equivalent to a raw-count boost but
+ * wasn't -- and even after being changed to a ratio (see below), still let a recipe with *more*
+ * defining ingredients beat a fully-matched recipe with fewer, purely because the smoothing
+ * formula (`matched / (total + 2)`) scores a higher raw `total` more favorably at the *same*
+ * coverage percentage (e.g. 2-of-2 smooths to 0.50, but a genuinely equal 1-of-1 only smooths to
+ * 0.33). Concretely: a fridge holding just "chicken breast" once ranked "Ayam Goreng Mentega"
+ * (2 defining ingredients, both matched, but only 50% of the recipe overall) above "Pan-Seared
+ * Chicken Breast" (1 defining ingredient, matched, 100% of the recipe) -- a complete match losing
+ * to a half match, solely because the loser tagged more ingredients `DEFINING`. Ranking this
+ * below tier/ratio instead means a recipe's overall completeness always decides first; defining
+ * coverage only ever chooses between recipes that are already tied on that.
  *
- * That boost is compared as [ratioScore] of `definingMatchedCount`/`definingTotalCount`, not the
- * raw count -- a recipe tagging several ingredients `DEFINING` (e.g. a pancake recipe naming rice
- * flour, coconut milk, coconut flakes, *and* water as defining) otherwise gets more chances to
- * rack up defining-matches than one naming just its one namesake ingredient (e.g. garlic in a
- * garlic soup), even when the multi-defining recipe is a poor overall match and the water/flour it
- * matched are near-universal pantry items, not the dish's actual identity. The smoothing already
- * used for the main ratio does the right thing here too: 2-of-4 and 1-of-1 both smooth to the same
- * score, so the tie correctly falls through to `matchTier`/ratio -- where a recipe genuinely
- * missing most of its real ingredients loses to one that's actually complete.
+ * The boost is still compared as [ratioScore] of `definingMatchedCount`/`definingTotalCount`, not
+ * the raw count -- a recipe tagging several ingredients `DEFINING` (e.g. a pancake recipe naming
+ * rice flour, coconut milk, coconut flakes, *and* water as defining) otherwise gets more chances
+ * to rack up defining-matches than one naming just its one namesake ingredient, even when tied on
+ * tier/ratio.
  *
  * `usesRealFridgeItem` is ranked right after favorites, above every other key -- a recipe
  * satisfied entirely by checked pantry staples (e.g. "Garlic Salt" when the fridge holds only
@@ -130,16 +136,16 @@ internal fun matchTier(matched: Int, total: Int): Int {
 internal val recipeOrder = compareByDescending<Recipe> { it.isFavorite }
     .thenByDescending { it.usesRealFridgeItem }
     .thenByDescending { it.prioritizedCount }
-    .thenByDescending { ratioScore(it.definingMatchedCount, it.definingTotalCount) }
     .thenByDescending { matchTier(it.matchedCount, it.totalCount) }
     .thenByDescending { ratioScore(it.matchedCount, it.totalCount) }
+    .thenByDescending { ratioScore(it.definingMatchedCount, it.definingTotalCount) }
     .thenByDescending { it.matchedCount }
     .thenBy { it.title }
 
 /** [recipeOrder] applied to raw scores, for the cut to MAX_RESULTS. */
 internal val matchOrder = compareByDescending<RecipeMatch> { it.usesRealFridgeItem }
     .thenByDescending { it.prioritized }
-    .thenByDescending { ratioScore(it.defining, it.definingTotal) }
     .thenByDescending { matchTier(it.matched, it.total) }
     .thenByDescending { ratioScore(it.matched, it.total) }
+    .thenByDescending { ratioScore(it.defining, it.definingTotal) }
     .thenByDescending { it.matched }

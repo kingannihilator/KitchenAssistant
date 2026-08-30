@@ -112,11 +112,29 @@ class RecipeRankingTest {
     }
 
     @Test
-    fun `matchOrder ranks defining-tier matches ahead of a higher raw ratio without one`() {
-        val higherRatioNoDefining = RecipeMatch(id = 1, matched = 3, total = 3, prioritized = 0, defining = 0)
-        val lowerRatioWithDefining = RecipeMatch(id = 2, matched = 2, total = 3, prioritized = 0, defining = 1)
-        val ranked = listOf(higherRatioNoDefining, lowerRatioWithDefining).sortedWith(matchOrder)
-        assertEquals(lowerRatioWithDefining, ranked.first())
+    fun `matchOrder never lets defining coverage override a real match-tier difference`() {
+        // A fridge of just "chicken breast" once ranked "Ayam Goreng Mentega" (2 defining
+        // ingredients, both matched, but only 50% of the recipe overall) above "Pan-Seared
+        // Chicken Breast" (1 defining ingredient, matched, 100% of the recipe) -- a complete
+        // match losing to a half match solely because the loser tagged more ingredients
+        // DEFINING. Defining coverage must only ever break ties within the same tier/ratio, not
+        // override a real difference in overall match quality.
+        val halfMatchTwoDefiningBothMatched = RecipeMatch(
+            id = 1, matched = 6, total = 12, prioritized = 0, defining = 2, definingTotal = 2
+        )
+        val fullMatchOneDefiningMatched = RecipeMatch(
+            id = 2, matched = 5, total = 5, prioritized = 0, defining = 1, definingTotal = 1
+        )
+        val ranked = listOf(halfMatchTwoDefiningBothMatched, fullMatchOneDefiningMatched).sortedWith(matchOrder)
+        assertEquals(fullMatchOneDefiningMatched, ranked.first())
+    }
+
+    @Test
+    fun `matchOrder lets defining coverage break a tie within the same match tier`() {
+        val withDefining = RecipeMatch(id = 1, matched = 2, total = 2, prioritized = 0, defining = 1, definingTotal = 1)
+        val withoutDefining = RecipeMatch(id = 2, matched = 2, total = 2, prioritized = 0, defining = 0, definingTotal = 0)
+        val ranked = listOf(withoutDefining, withDefining).sortedWith(matchOrder)
+        assertEquals(withDefining, ranked.first())
     }
 
     @Test
