@@ -189,13 +189,12 @@ fun IngredientScreen(
 
     // Delete-with-undo safety net, replacing what used to be an instant delete below a count of
     // 5 and a confirm dialog at or above it -- an arbitrary threshold that made "how safe is
-    // this delete" depend on quantity. Rendered as a row *inline in the fridge list, at the
-    // deleted item's own position* (see PendingDelete/UndoRow below) rather than a Material
-    // Snackbar docked to the bottom of the screen -- the whole point of undo is reversing what
-    // you just did, and that's a shorter reach right where your finger already is than the
-    // opposite corner of the screen. Only one pending delete is tracked at a time: deleting a
-    // second item while the first's undo window is still open finalizes the first (matches how
-    // a second Snackbar would have dismissed the first one anyway).
+    // this delete" depend on quantity. Rendered as a bar docked to the bottom of the screen,
+    // above the "Find Recipes" button (see PendingDelete/DeleteUndoBar below) -- user-confirmed,
+    // reads more like the standard undo affordance than a row popping in mid-list, and the list
+    // doesn't reflow around it. Only one pending delete is tracked at a time: deleting a second
+    // item while the first's undo window is still open finalizes the first (matches how a second
+    // Snackbar would have dismissed the first one anyway).
     var pendingDelete by remember { mutableStateOf<PendingDelete?>(null) }
 
     fun deleteWithUndo(ingredient: Ingredient, index: Int) {
@@ -262,37 +261,52 @@ fun IngredientScreen(
             )
         },
         bottomBar = {
-            // Elevated surface so the bar stands out from the list content behind it.
-            Surface(shadowElevation = 8.dp) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding() // respect the system navigation bar inset
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                        // Tapping this bar is "outside the manual add form" too.
-                        .clearFocusOnTap(focusManager) { isAddFormFieldFocused },
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Disabled until there's something in the fridge to search with. Starring is
-                    // optional — it boosts ranking rather than gating the search.
-                    Button(
-                        onClick = {
-                            // Pantry items are passed to onFindRecipes separately, not merged in
-                            // here -- RecipeViewModel needs to know which matches trace back to a
-                            // real fridge item vs. a pantry one, to keep pantry-only matches from
-                            // outranking real ones (see RecipeMatch.usesRealFridgeItem's doc).
-                            onFindRecipes(
-                                ingredients.map { it.name },
-                                ingredients.filter { it.isPrioritized }.map { it.name },
-                                pantryItems.toList()
-                            )
-                        },
-                        modifier = Modifier.weight(1f),
-                        enabled = ingredients.isNotEmpty()
+            Column {
+                // Undo bar sits directly above the Find Recipes row, not inside the same
+                // Surface -- its own inverseSurface coloring reads as transient feedback,
+                // distinct from the button row beneath it.
+                pendingDelete?.let { pending ->
+                    DeleteUndoBar(
+                        ingredientName = pending.ingredient.name,
+                        onUndo = {
+                            pending.autoDismissJob.cancel()
+                            viewModel.restoreIngredient(pending.ingredient, pending.index)
+                            pendingDelete = null
+                        }
+                    )
+                }
+                // Elevated surface so the bar stands out from the list content behind it.
+                Surface(shadowElevation = 8.dp) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding() // respect the system navigation bar inset
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            // Tapping this bar is "outside the manual add form" too.
+                            .clearFocusOnTap(focusManager) { isAddFormFieldFocused },
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // Disabled until there's something in the fridge to search with. Starring is
+                        // optional — it boosts ranking rather than gating the search.
+                        Button(
+                            onClick = {
+                                // Pantry items are passed to onFindRecipes separately, not merged in
+                                // here -- RecipeViewModel needs to know which matches trace back to a
+                                // real fridge item vs. a pantry one, to keep pantry-only matches from
+                                // outranking real ones (see RecipeMatch.usesRealFridgeItem's doc).
+                                onFindRecipes(
+                                    ingredients.map { it.name },
+                                    ingredients.filter { it.isPrioritized }.map { it.name },
+                                    pantryItems.toList()
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = ingredients.isNotEmpty()
+                        ) {
 //                        Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
 //                        Spacer(Modifier.width(4.dp))
-                        Text("Find Recipes")
+                            Text("Find Recipes")
+                        }
                     }
                 }
             }
@@ -348,31 +362,13 @@ fun IngredientScreen(
             // The fridge list gets the remaining vertical space and scrolls on its own,
             // independent of the fixed quick-add row and add form above it.
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                // The undo row for [pendingDelete] is spliced into the display list at the index
-                // the ingredient was removed from, so it appears right below where that card used
-                // to be rather than at a fixed screen position. Computed here, not inside the
-                // LazyColumn's content lambda -- that lambda is a LazyListScope DSL builder, not
-                // a composable context, so remember() can't be called directly inside it.
-                val rows: List<FridgeRow> = remember(sortedIngredients, pendingDelete) {
-                    val items = sortedIngredients.map { FridgeRow.Item(it) }
-                    val pending = pendingDelete
-                    if (pending == null) {
-                        items
-                    } else {
-                        items.toMutableList<FridgeRow>().apply {
-                            add(pending.index.coerceIn(0, size), FridgeRow.Undo(pending))
-                        }
-                    }
-                }
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Only render the section header and list when there is at least one ingredient
-                    // -- or a just-deleted one is still showing its undo row (see PendingDelete).
-                    if (ingredients.isEmpty() && pendingDelete == null) {
+                    if (ingredients.isEmpty()) {
                         item(key = "empty_fridge") {
                             EmptyFridgeMessage()
                         }
@@ -385,57 +381,28 @@ fun IngredientScreen(
                                 modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
                             )
                         }
-                        // Each row gets a stable key (the ingredient's UUID, prefixed for the undo
-                        // variant so it never collides with a real card sharing the same
-                        // underlying id) so Compose can animate additions/removals correctly.
-                        items(
-                            rows,
-                            key = { row ->
-                                when (row) {
-                                    is FridgeRow.Item -> row.ingredient.id
-                                    is FridgeRow.Undo -> "undo_${row.pendingDelete.ingredient.id}"
-                                }
-                            }
-                        ) { row ->
-                            when (row) {
-                                is FridgeRow.Item -> {
-                                    val ingredient = row.ingredient
-                                    Box(
-                                        // Tapping an ingredient card is "outside the manual add form" too.
-                                        modifier = Modifier.clearFocusOnTap(focusManager) { isAddFormFieldFocused }
-                                    ) {
-                                        IngredientItem(
-                                            ingredient = ingredient,
-                                            dateFormat = dateFormat,
-                                            mode = mode,
-                                            onDelete = {
-                                                deleteWithUndo(ingredient, sortedIngredients.indexOf(ingredient))
-                                            },
-                                            onToggleStar = { viewModel.togglePrioritized(ingredient.id) },
-                                            // onToggleExclude = { viewModel.toggleExclude(ingredient.id) },
-                                            onSetExpirationDate = { viewModel.setExpirationDate(ingredient.id, it) },
-                                            onIncrement = { viewModel.incrementCount(ingredient.id) },
-                                            onDecrement = { viewModel.decrementCount(ingredient.id) },
-                                            onSetCount = { viewModel.setCount(ingredient.id, it) },
-                                            onSetUnit = { viewModel.setUnit(ingredient.id, it) },
-                                            onRename = { viewModel.renameIngredient(ingredient.id, it) },
-                                            isValidName = { viewModel.isKnownIngredientName(it) }
-                                        )
-                                    }
-                                }
-                                is FridgeRow.Undo -> {
-                                    UndoRow(
-                                        ingredientName = row.pendingDelete.ingredient.name,
-                                        onUndo = {
-                                            row.pendingDelete.autoDismissJob.cancel()
-                                            viewModel.restoreIngredient(
-                                                row.pendingDelete.ingredient,
-                                                row.pendingDelete.index
-                                            )
-                                            pendingDelete = null
-                                        }
-                                    )
-                                }
+                        items(sortedIngredients, key = { it.id }) { ingredient ->
+                            Box(
+                                // Tapping an ingredient card is "outside the manual add form" too.
+                                modifier = Modifier.clearFocusOnTap(focusManager) { isAddFormFieldFocused }
+                            ) {
+                                IngredientItem(
+                                    ingredient = ingredient,
+                                    dateFormat = dateFormat,
+                                    mode = mode,
+                                    onDelete = {
+                                        deleteWithUndo(ingredient, sortedIngredients.indexOf(ingredient))
+                                    },
+                                    onToggleStar = { viewModel.togglePrioritized(ingredient.id) },
+                                    // onToggleExclude = { viewModel.toggleExclude(ingredient.id) },
+                                    onSetExpirationDate = { viewModel.setExpirationDate(ingredient.id, it) },
+                                    onIncrement = { viewModel.incrementCount(ingredient.id) },
+                                    onDecrement = { viewModel.decrementCount(ingredient.id) },
+                                    onSetCount = { viewModel.setCount(ingredient.id, it) },
+                                    onSetUnit = { viewModel.setUnit(ingredient.id, it) },
+                                    onRename = { viewModel.renameIngredient(ingredient.id, it) },
+                                    isValidName = { viewModel.isKnownIngredientName(it) }
+                                )
                             }
                         }
                     }
@@ -498,9 +465,9 @@ private fun Modifier.minimumTouchTargetSize(minWidth: Dp = 0.dp, minHeight: Dp =
     }
 
 /**
- * A just-deleted ingredient still eligible for undo, tracked by [IngredientScreen] so its undo
- * row can be spliced back into the fridge list at [index] -- the position it was removed from --
- * rather than shown as a Material Snackbar docked to the bottom of the screen.
+ * A just-deleted ingredient still eligible for undo, tracked by [IngredientScreen] so
+ * [restoreIngredient] can put it back at [index] -- the position it was removed from -- if the
+ * user taps Undo on [DeleteUndoBar].
  *
  * @param autoDismissJob Cancels the pending 4s auto-dismiss (see IngredientScreen's
  *   deleteWithUndo) when Undo is tapped, so it can't fire late and null out a *different*,
@@ -512,26 +479,14 @@ private data class PendingDelete(
     val autoDismissJob: Job
 )
 
-/** One row of the fridge [LazyColumn]: either a real ingredient card, or the undo row standing
- * in for a [PendingDelete] at its original position. */
-private sealed interface FridgeRow {
-    data class Item(val ingredient: Ingredient) : FridgeRow
-    data class Undo(val pendingDelete: PendingDelete) : FridgeRow
-}
-
 /**
- * Inline replacement for the card at [PendingDelete.index] while its ingredient is pending undo.
- * Styled like a Material Snackbar (inverse surface colors) so it still reads as transient,
- * temporary feedback despite living in the list rather than docked to the screen edge.
+ * Snackbar-style bar shown at the bottom of the screen, directly above the "Find Recipes"
+ * button, while a [PendingDelete] is active -- same 4s auto-dismiss window as before, just
+ * docked to the bottom of the screen instead of spliced inline into the fridge list.
  */
 @Composable
-private fun UndoRow(ingredientName: String, onUndo: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.inverseSurface
-        ),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+private fun DeleteUndoBar(ingredientName: String, onUndo: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.inverseSurface) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
