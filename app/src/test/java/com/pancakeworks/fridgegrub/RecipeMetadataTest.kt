@@ -59,15 +59,15 @@ class RecipeMetadataTest {
     // --- difficultyLabel / DIFFICULTY_BUCKETS ---
 
     @Test
-    fun `difficultyLabel collapses raw levels 1 and 2 into Everyday`() {
-        assertEquals("Everyday", difficultyLabel(1))
-        assertEquals("Everyday", difficultyLabel(2))
+    fun `difficultyLabel collapses raw levels 1 and 2 into Easy`() {
+        assertEquals("Easy", difficultyLabel(1))
+        assertEquals("Easy", difficultyLabel(2))
     }
 
     @Test
     fun `difficultyLabel keeps 3 and 4 as their own buckets`() {
-        assertEquals("A Bit of Work", difficultyLabel(3))
-        assertEquals("Go For It!", difficultyLabel(4))
+        assertEquals("Medium", difficultyLabel(3))
+        assertEquals("Hard", difficultyLabel(4))
     }
 
     @Test
@@ -85,23 +85,23 @@ class RecipeMetadataTest {
 
     @Test
     fun `matchesFilters excludes a recipe whose difficulty is not selected`() {
-        assertFalse(matchesFilters(recipe(difficulty = 3), setOf("Everyday"), null))
+        assertFalse(matchesFilters(recipe(difficulty = 3), setOf("Easy"), null))
     }
 
     @Test
     fun `matchesFilters includes a recipe whose difficulty is selected`() {
-        assertTrue(matchesFilters(recipe(difficulty = 2), setOf("Everyday"), null))
+        assertTrue(matchesFilters(recipe(difficulty = 2), setOf("Easy"), null))
     }
 
     @Test
-    fun `matchesFilters treats raw levels 1 and 2 as the same Everyday bucket`() {
-        assertTrue(matchesFilters(recipe(difficulty = 1), setOf("Everyday"), null))
-        assertTrue(matchesFilters(recipe(difficulty = 2), setOf("Everyday"), null))
+    fun `matchesFilters treats raw levels 1 and 2 as the same Easy bucket`() {
+        assertTrue(matchesFilters(recipe(difficulty = 1), setOf("Easy"), null))
+        assertTrue(matchesFilters(recipe(difficulty = 2), setOf("Easy"), null))
     }
 
     @Test
     fun `matchesFilters always includes a recipe with unknown difficulty`() {
-        assertTrue(matchesFilters(recipe(difficulty = null), setOf("Everyday"), null))
+        assertTrue(matchesFilters(recipe(difficulty = null), setOf("Easy"), null))
     }
 
     @Test
@@ -146,9 +146,9 @@ class RecipeMetadataTest {
 
     @Test
     fun `matchesKnownDifficulty is true only for a genuine match, not an unrated pass-through`() {
-        assertTrue(matchesKnownDifficulty(recipe(difficulty = 1), setOf("Everyday")))
-        assertFalse(matchesKnownDifficulty(recipe(difficulty = null), setOf("Everyday")))
-        assertFalse(matchesKnownDifficulty(recipe(difficulty = 3), setOf("Everyday")))
+        assertTrue(matchesKnownDifficulty(recipe(difficulty = 1), setOf("Easy")))
+        assertFalse(matchesKnownDifficulty(recipe(difficulty = null), setOf("Easy")))
+        assertFalse(matchesKnownDifficulty(recipe(difficulty = 3), setOf("Easy")))
     }
 
     @Test

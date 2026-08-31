@@ -20,16 +20,16 @@ internal fun parseServings(raw: String?): Int? =
 /**
  * One difficulty filter chip: a human label plus every raw corpus [difficulty] value (1-4, see
  * `RecipeEntity.difficulty`'s doc) it covers. Collapsed from 4 raw levels to 3 labeled buckets --
- * levels 1 ("Easy") and 2 ("Everyday") turned out too close to reliably tell apart from the corpus
- * data alone, so they're folded into one "Everyday" bucket for now rather than presenting a
- * distinction the data doesn't clearly support, and it's one fewer chip to scroll past.
+ * raw levels 1 and 2 turned out too close to reliably tell apart from the corpus data alone, so
+ * they're folded into one "Easy" bucket for now rather than presenting a distinction the data
+ * doesn't clearly support, and it's one fewer chip to scroll past.
  */
 internal data class DifficultyBucket(val label: String, val rawValues: Set<Int>)
 
 internal val DIFFICULTY_BUCKETS = listOf(
-    DifficultyBucket("Everyday", setOf(1, 2)),
-    DifficultyBucket("A Bit of Work", setOf(3)),
-    DifficultyBucket("Go For It!", setOf(4))
+    DifficultyBucket("Easy", setOf(1, 2)),
+    DifficultyBucket("Medium", setOf(3)),
+    DifficultyBucket("Hard", setOf(4))
 )
 
 /** Which [DIFFICULTY_BUCKETS] label a raw corpus difficulty value falls into, or `null` for an

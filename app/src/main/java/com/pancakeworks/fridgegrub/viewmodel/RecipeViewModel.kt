@@ -85,7 +85,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     // Empty = no difficulty filter active (everything passes) -- see matchesFilters' doc for why
     // a recipe with no difficulty value always passes an active filter too, rather than being
     // hidden for lack of data. Stores DIFFICULTY_BUCKETS labels, not raw 1-4 values, since a
-    // bucket (e.g. "Everyday") can cover more than one raw value.
+    // bucket (e.g. "Easy") can cover more than one raw value.
     private val _selectedDifficultyLabels = MutableStateFlow<Set<String>>(emptySet())
     val selectedDifficultyLabels: StateFlow<Set<String>> = _selectedDifficultyLabels.asStateFlow()
 

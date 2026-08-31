@@ -94,9 +94,8 @@ fun PantryScreen(
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (isOnboarding) {
                 Text(
-                    "We've pre-checked the basics most kitchens have. Check off anything else " +
-                        "you keep on hand, and uncheck anything you don't -- it'll help us find " +
-                        "recipes you can actually make.",
+                    "Check off anything else you keep on hand and uncheck anything you don't. " +
+                        "We've already checked off the basic things that most kitchens have.",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Start,
                     modifier = Modifier.padding(16.dp)

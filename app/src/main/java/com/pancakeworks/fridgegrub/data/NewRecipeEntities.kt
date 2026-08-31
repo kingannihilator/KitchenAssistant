@@ -43,7 +43,7 @@ import androidx.room.PrimaryKey
  *   a value at all (measured against the v1.4 corpus, not assumed).
  * @property difficulty A bare 1-4 integer with no source-documented meaning; empirically, average
  *   cook time rises with the number. Labeled app-side (see `RecipeScreen.kt`/`RecipeDetailScreen
- *   .kt`) as Easy/Everyday/"A Bit of Work"/"Go For It!". ~74% populated.
+ *   .kt`) as Easy/Medium/Hard. ~74% populated.
  * @property timeText Human-readable total time ("1 hour 30 minutes", "30-40 minutes") for display.
  *   ~25% populated, same rows as [totalMinutesMin]/[totalMinutesMax].
  * @property totalMinutesMin @property totalMinutesMax Numeric total time, for filtering (display
