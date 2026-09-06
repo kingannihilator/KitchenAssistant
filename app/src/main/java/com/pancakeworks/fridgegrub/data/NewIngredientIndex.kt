@@ -47,7 +47,18 @@ class NewIngredientIndex private constructor(
     private val normalizedNames: Array<String>,
     private val categoryIds: Array<Int?>,
     private val byHead: Map<String, IntArray>,
-    private val byCategory: Map<Int, IntArray>
+    private val byCategory: Map<Int, IntArray>,
+    /**
+     * `ingredient_id`s whose `normalized_name` parses to a null head -- a stray fragment ("(1
+     * cup", a section header) or a bare adjective/quantity word ("soft", "dry", "warm", "plain",
+     * 400 rows across 300 recipes in the bundled corpus) rather than a real ingredient name. No
+     * fridge item can ever satisfy one of these (a null head matches nothing, per
+     * [IngredientMatcher.matches]'s doc), so a DEFINING-tier row like this permanently caps its
+     * recipe below 100% for every user regardless of what's in their fridge. `RecipeViewModel`
+     * folds this into the same exclude-from-scoring mechanism as [SUPPRESS_GARBAGE_INGREDIENTS_NEW]'s
+     * exact-name list, generalizing what that list used to handle one entry (`""`) of by hand.
+     */
+    val unmatchableIds: Set<Int>
 ) {
 
     /** Number of matchable (non-blob) ingredients indexed. */
@@ -203,6 +214,7 @@ class NewIngredientIndex private constructor(
             val categoryIds = arrayOfNulls<Int>(rows.size)
             val byHead = HashMap<String, MutableList<Int>>(4_096)
             val byCategory = HashMap<Int, MutableList<Int>>(1_024)
+            val unmatchableIds = HashSet<Int>()
 
             for (i in rows.indices) {
                 val row = rows[i]
@@ -216,6 +228,8 @@ class NewIngredientIndex private constructor(
                 val head = IngredientMatcher.parseRecipe(row.normalizedName).head
                 if (head != null) {
                     byHead.getOrPut(head) { mutableListOf() }.add(i)
+                } else {
+                    unmatchableIds.add(row.ingredientId)
                 }
                 row.categoryId?.let { categoryId ->
                     byCategory.getOrPut(categoryId) { mutableListOf() }.add(i)
@@ -227,7 +241,8 @@ class NewIngredientIndex private constructor(
                 normalizedNames = normalizedNames,
                 categoryIds = categoryIds,
                 byHead = byHead.mapValues { it.value.toIntArray() },
-                byCategory = byCategory.mapValues { it.value.toIntArray() }
+                byCategory = byCategory.mapValues { it.value.toIntArray() },
+                unmatchableIds = unmatchableIds
             )
         }
     }

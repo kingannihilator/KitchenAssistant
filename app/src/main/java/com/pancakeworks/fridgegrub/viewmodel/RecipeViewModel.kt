@@ -70,21 +70,18 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
          * to ids at runtime ([NewRecipeDao.getIngredientIdsByName]) rather than hardcoding
          * ingredient_id values, which could shift across a corpus rebuild.
          *
-         * `""` is a different, second bug folded into the same list rather than a separate
-         * mechanism, since the fix is identical either way: `porting-reference/
-         * fix_ingredient_identity_v1_4.py`'s `true_key()` falls back
-         * `ingredient_match_name -> normalized_ingredient -> ""` with no further fallback to
-         * `raw_text`, so ~328 rows whose match_name *and* normalized_ingredient were both NULL
-         * (despite a perfectly clean raw_text -- "beef", "water", "rice", ...) collapsed into one
-         * bogus empty-name ingredient row. 300 of those rows were remapped to their real ingredient
-         * directly in the bundled corpus (each had exactly one existing ingredient row with a
-         * matching name); this covers the remaining 28 (8 distinct texts -- chutney, curds,
-         * cocoanut, radish, dal, pastry, roselle, jelly -- with no existing exact-name match to
-         * remap to). */
+         * This list is only for names that DO parse to a head (so [NewIngredientIndex] can't tell
+         * them apart from a real ingredient on its own) but are nonetheless unit/container words
+         * once a human looks at them. A name that parses to a *null* head -- including the old
+         * `""` empty-identity bucket this list used to carry a special-cased entry for -- is
+         * handled generally instead, by [garbageIngredientIds] unioning in
+         * [NewIngredientIndex.unmatchableIds]: see that property's doc for why a null head can
+         * never be satisfied by any fridge item, so nothing is lost by handling it the same way
+         * regardless of which specific name produced it. */
         val GARBAGE_INGREDIENT_NAMES = listOf(
             "inch", "inches", "pound", "pounds", "ounce", "ounces", "tablespoon", "tablespoons",
             "teaspoon", "bag", "bottle", "box", "boxes", "head", "jars", "package", "packages",
-            "sheet", "tub", ""
+            "sheet", "tub", "tin", "tins", "plate"
         )
     }
 
@@ -385,14 +382,23 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     /** Recipes with a blob ingredient row in the new corpus; cached for the session. */
     private var blobRecipeIdsNew: Set<Int>? = null
 
-    /** [GARBAGE_INGREDIENT_NAMES] resolved to ids; cached for the session. */
+    /** [GARBAGE_INGREDIENT_NAMES] resolved to ids, unioned with
+     * [NewIngredientIndex.unmatchableIds]; cached for the session. */
     private var garbageIngredientIdsNew: Set<Int>? = null
 
+    /**
+     * Ingredient ids to exclude from scoring and the detail screen's checklist: the exact-name
+     * [GARBAGE_INGREDIENT_NAMES] list plus every null-head ingredient
+     * ([NewIngredientIndex.unmatchableIds]) -- see that property's doc for why a null head can
+     * never be satisfied by any fridge item. [NewIngredientIndex.get] is cheap to call again here
+     * even though the search path already built it, since it's a memoized singleton.
+     */
     private suspend fun garbageIngredientIds(dao: NewRecipeDao): Set<Int> {
         if (!SUPPRESS_GARBAGE_INGREDIENTS_NEW) return emptySet()
-        return garbageIngredientIdsNew ?: dao.getIngredientIdsByName(GARBAGE_INGREDIENT_NAMES).toSet().also {
-            garbageIngredientIdsNew = it
-        }
+        garbageIngredientIdsNew?.let { return it }
+        val exactNameIds = dao.getIngredientIdsByName(GARBAGE_INGREDIENT_NAMES).toSet()
+        val unmatchableIds = NewIngredientIndex.get(dao, BLOB_NAME_LENGTH_THRESHOLD_NEW).unmatchableIds
+        return (exactNameIds + unmatchableIds).also { garbageIngredientIdsNew = it }
     }
 
     private fun newRecipeDao(): NewRecipeDao = NewRecipeDatabase.getInstance(getApplication()).newRecipeDao()
