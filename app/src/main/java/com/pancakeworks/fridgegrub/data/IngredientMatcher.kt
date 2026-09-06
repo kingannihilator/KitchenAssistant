@@ -204,7 +204,15 @@ object IngredientMatcher {
             if (token.isEmpty()) continue
             // Only truncate once we have something to keep, so a name that opens with a
             // connective doesn't collapse to nothing.
-            if (ordered.isNotEmpty() && token in cutWords) break
+            if (ordered.isNotEmpty() && token in cutWords) {
+                // "bone-in" (108 rows) tokenizes to "bone", "in" -- without this carve-out the
+                // "in" cut (added for "food in packing medium" names -- see RECIPE_CUT's doc)
+                // fires immediately and strands the head on "bone". "in" is dropped, not kept, so
+                // parsing continues past it to the real ingredient ("bone-in chicken thighs" ->
+                // "bone", "chicken", "thigh", head "chicken" via the PART_WORDS skip below).
+                if (token == "in" && ordered.last() == "bone") continue
+                break
+            }
             if (token in STOPWORDS) continue
             if (token in dropWords) continue
             ordered.add(singularize(token))
@@ -328,7 +336,11 @@ object IngredientMatcher {
         // Both forms are listed because the STOPWORDS/dropWords check in parse() runs on the raw
         // token before singularize(), so the plural "servings" ("... for 4 servings") wouldn't be
         // caught by "serving" alone.
-        "serving", "servings"
+        "serving", "servings",
+        // A cut/bone-content descriptor, not the ingredient's identity -- "skinless bone-in
+        // chicken thighs and drumsticks" (108 combined rows for boneless+skinless) otherwise
+        // resolves to head "skinless".
+        "boneless", "skinless"
     )
     // Deliberately not stop words, though they look like ones: `flavoring`/`flavour` and
     // `substitute` change what a thing *is*. Dropping them made "butter flavoring" read as butter

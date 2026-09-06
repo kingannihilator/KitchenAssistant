@@ -390,6 +390,17 @@ class IngredientMatcherTest {
     }
 
     @Test
+    fun `bone-in does not steal the head from the in-cut`() {
+        // "bone-in" (108 rows) tokenizes to "bone", "in" -- the "in" cut fired immediately and
+        // stranded the head on "bone" before the carve-out below. "boneless"/"skinless" are the
+        // same class of cut/bone-content descriptor as "bone-in" itself.
+        assertMatches("chicken", "bone-in chicken thighs")
+        assertMatches("pork chop", "thick-cut bone-in pork rib chops")
+        assertMatches("chicken thigh", "boneless skinless chicken thighs and drumsticks")
+        assertMatches("salmon", "skin-on coho salmon fillets")
+    }
+
+    @Test
     fun `the recipe side truncates at in, unlike other connectives`() {
         // The reported bug: "tuna in water" resolved to head "water" instead of "tuna", because
         // dropping (not cutting) "in" left "water" as the last surviving word. Real corpus rows
