@@ -33,7 +33,10 @@ On Windows, use `gradlew.bat` instead of `./gradlew`.
 
 ## Project Vision
 
-Kitchen Assistant helps users manage their fridge ingredients and get personalized recipe recommendations.
+Fridge Grub (originally built as "Kitchen Assistant" — renamed at the `com.example.kitchenassistant` →
+`com.pancakeworks.fridgegrub` package/rebrand; some internal class names like `KitchenAssistantTheme`
+were left as-is) helps users manage their fridge ingredients and get personalized recipe
+recommendations.
 
 ### Core Features
 
@@ -69,7 +72,9 @@ No networking library (no Retrofit/OkHttp) is currently in the dependency graph 
 
 ## Architecture
 
-Single `app` module. Source root: `app/src/main/java/com/example/kitchenassistant/`
+Single `app` module. Source root: `app/src/main/java/com/pancakeworks/fridgegrub/` (`com.example.kitchenassistant`
+before the Fridge Grub rebrand — some historical docs in `porting-reference/` still reference the
+old package path since they describe code as it existed at the time).
 
 ```
 ├── MainActivity.kt   Screen navigation (sealed class Screen: Ingredients / Recipes / RecipeDetail)

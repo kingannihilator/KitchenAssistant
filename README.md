@@ -1,21 +1,22 @@
-# Kitchen Assistant
+# Fridge Grub
 
 Android app that matches your fridge contents against an offline recipe corpus and ranks
 recipes by how much of each one you can already make. No network calls — all data is local.
+(Originally built as "Kitchen Assistant"; some internal class names still reflect that.)
 
 See [CLAUDE.md](CLAUDE.md) for architecture, the matching rules, and build commands.
 
-## Setup: the recipe database is not in this repo
+## The recipe database is in this repo
 
-The app needs `app/src/main/assets/database/recipe_database.sqlite` (~95MB, odunola/foodie
-corpus), which is excluded from version control — it's past GitHub's 100MB per-file hard limit,
-and it's built via the scripts in `porting-reference/` (see
-`porting-reference/INGREDIENT_MATCHING_CONCEPTS.md` and
-`porting-reference/NEW_CORPUS_DATA_QUALITY.md`) rather than committed directly.
+Both bundled data files are tracked in git and ready to use after a clone — no separate build
+or download step is needed to run the app:
 
-`app/src/main/assets/ingredients.db` (0.3 MB) is small enough to stay tracked in git.
+- `app/src/main/assets/database/recipe_database.sqlite` (~7MB, the `recipes_open_v1_4` corpus,
+  4,779 recipes) — tracked since the `recipe-db-v1.4-cleanup` tag. See CLAUDE.md's "The recipe
+  corpus" section for its provenance and the corpus it replaced.
+- `app/src/main/assets/ingredients.db` (0.3 MB) — the fridge-autocomplete taxonomy.
 
-### What happens if it's missing
-
-The Gradle build still succeeds — a missing asset is not a compile error. The failure shows up
-at runtime the first time you open the recipe screen.
+`porting-reference/` holds the build scripts and historical write-ups for how the *previous*
+corpus (odunola/foodie, ~88-95MB, too large for GitHub's 100MB per-file limit and so never
+committed) was built and later swapped out — worth reading before touching the recipe-search
+code path, but not needed just to build and run the app.

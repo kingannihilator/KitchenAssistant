@@ -30,6 +30,21 @@ local.properties
 # second source, and not meant to be tracked.
 /porting-reference/recipe_database.sqlite
 
+# The exact odunola/foodie asset bundled before the v1.4 swap -- the only copy, needed to roll
+# the swap back (see porting-reference/legacy-recipe-path/ROLLBACK_TO_ODUNOLA_CORPUS.md). Was
+# already untracked but NOT actually covered by any ignore rule until this line was added
+# (confirmed via `git check-ignore`) -- back it up somewhere outside this repo too, since
+# nothing about this rule protects it from being deleted on this machine.
+/porting-reference/legacy-recipe-path/recipe_database_odunola_backup.sqlite
+
+# The WIP source database (recipes_open_v1_4.sqlite, pre-Room-schema-transform) the v1.4 swap
+# was built from -- see new_db_workable/HANDOVER.md. The transform's *output*
+# (app/src/main/assets/database/recipe_database.sqlite, tracked above) is what the app actually
+# ships; this source file isn't needed to build or run the app, same rationale as
+# porting-reference/recipe_database.sqlite above. The provenance docs alongside it
+# (HANDOVER.md, recipes_open_v1_4_README.md, recipes_open_v1_4_audit.json) ARE tracked.
+/new_db_workable/recipes_open_v1_4.sqlite
+
 # Python bytecode cache from running the porting-reference/ scripts.
 __pycache__/
 

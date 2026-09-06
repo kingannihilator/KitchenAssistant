@@ -9,18 +9,27 @@ doesn't rely on line numbers or the current state of any file, only on things th
 
 ## Why this isn't a plain `git revert`
 
-The recipe database file itself — `app/src/main/assets/database/recipe_database.sqlite` — is
-gitignored and always has been, for both corpora. Git has no history of it in either direction,
-so there's nothing for `git revert` to restore. The rollback is a manual file swap, not a git
-operation on its own (the tag is there to show you what *code* changed alongside it, via
-`git diff recipe-db-v1.4-swap^ recipe-db-v1.4-swap` or `git show recipe-db-v1.4-swap`).
+The recipe database file at `app/src/main/assets/database/recipe_database.sqlite` is gitignored
+now (again) for the pre-swap odunola/foodie corpus, but that's not the whole story: it was
+gitignored at swap time too (tag `recipe-db-v1.4-swap` itself doesn't contain it), then tracked in
+git starting at tag `recipe-db-v1.4-cleanup` the next day, and has stayed tracked since — so
+there IS git history for the *v1.4* side of this (`git log -- app/src/main/assets/database/
+recipe_database.sqlite` shows every post-swap fix, this repo's own audits included). What there
+is NOT, and never was, is any git history for the *odunola/foodie* side: that corpus was always
+too large for GitHub's 100MB limit, so no commit ever contained it, and `git revert`/`git show`
+on the swap commit has nothing to restore. That's specifically why the rollback below is a manual
+file swap from a local backup, not a git operation (the tag is there to show you what *code*
+changed alongside the data swap, via `git diff recipe-db-v1.4-swap^ recipe-db-v1.4-swap` or
+`git show recipe-db-v1.4-swap`).
 
 ## What you need
 
-**`porting-reference/legacy-recipe-path/recipe_database_odunola_backup.sqlite`** — the exact
-odunola/foodie asset file that was bundled before the swap. Don't delete this file; it's the only
-copy. It's gitignored too (same reason the live asset is), so back it up somewhere outside this
-repo if you want real redundancy.
+**`porting-reference/legacy-recipe-path/recipe_database_odunola_backup.sqlite`** (39MB, 15,121
+recipes — verified directly against the file, not assumed) — the exact odunola/foodie asset file
+that was bundled before the swap. Don't delete this file; it's the only copy. It's gitignored
+(same reason the live asset briefly was, before the v1.4 corpus shrank below the size limit), so
+`git clean`/a fresh clone won't touch it either way — but a gitignore rule is not a backup, so
+copy it somewhere outside this repo too if you want real redundancy against local disk loss.
 
 If that file is ever missing, there's no way to regenerate the odunola/foodie corpus from
 scratch in this repo — it was a third-party dataset, not something built here.
@@ -71,9 +80,12 @@ scratch in this repo — it was a third-party dataset, not something built here.
    ingredient list (`FridgeRepository`) is unaffected — it's stored by ingredient *name*, not id.
 
 5. **Rebuild and reinstall**, then sanity-check the same way the swap itself was verified: app
-   launches with no Room schema-validation crash, recipe count reflects ~16,090 (not 4,779, which
-   would mean the asset didn't actually change), a recipe detail screen renders ingredients and
-   directions correctly.
+   launches with no Room schema-validation crash, recipe count reflects 15,121 (the backup file's
+   actual count as of this writing — verify with `select count(*) from recipes` against whatever
+   backup you're actually restoring, don't trust this number blindly if the backup file has
+   changed since; CLAUDE.md's "~16,090 after dedupe" figure describes a *different* odunola/foodie
+   snapshot, not this specific backup file, so don't expect them to match), a recipe detail screen
+   renders ingredients and directions correctly.
 
 ## Data differences worth knowing if you're merging/adapting instead of reverting outright
 
