@@ -499,6 +499,42 @@ class IngredientMatcherTest {
         assertMatches("hummus", "hummus")
         assertMatches("couscous", "couscous")
         assertMatches("asparagus", "asparagus")
+        assertMatches("species", "species")
+    }
+
+    @Test
+    fun `irregular -ies plurals resolve to their real singular, not the generic -y rule`() {
+        // The generic "ies" -> "y" rule mangles these into non-words: "chilies" -> "chily",
+        // "cookies" -> "cooky", "brownies" -> "browny". "chilis" is a second, different bug --
+        // it ends in "is", which the ss/us/is over-stemming guard leaves untouched entirely.
+        assertMatches("chili", "chilies")
+        assertMatches("chili", "chillies")
+        assertMatches("chili", "chilis")
+        assertMatches("cookie", "cookies")
+        assertMatches("brownie", "brownies")
+        assertMatches("blondie", "blondies")
+    }
+
+    @Test
+    fun `spelling and single-word regional aliases match across spellings`() {
+        assertMatches("chili", "chile")
+        assertMatches("chili pepper", "chile peppers")
+        assertMatches("chili", "chilli")
+        assertMatches("eggplant", "aubergine")
+        assertMatches("zucchini", "courgette")
+        assertMatches("shrimp", "prawns")
+        assertMatches("phyllo", "filo")
+        assertMatches("beet", "beetroot")
+        assertMatches("arugula", "rocket")
+        assertMatches("rutabaga", "swede")
+        assertMatches("chickpea", "garbanzo")
+        assertMatches("yogurt", "plain yoghurt")
+        // A processed form is still a different product from the plain ingredient, alias or not --
+        // same "onion does not satisfy onion powder" shape as the existing produce test.
+        assertDoesNotMatch("chili", "chile powder")
+        // Deliberately not aliased -- cilantro/coriander distinguish leaf from seed in this
+        // corpus, so conflating them would be a real regression, not a fix.
+        assertDoesNotMatch("cilantro", "coriander seed")
     }
 
     // -----------------------------------------------------------------------------------------

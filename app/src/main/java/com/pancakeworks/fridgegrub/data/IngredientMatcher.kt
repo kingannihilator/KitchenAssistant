@@ -227,7 +227,8 @@ object IngredientMatcher {
             }
             if (token in STOPWORDS) continue
             if (token in dropWords) continue
-            ordered.add(singularize(token))
+            val word = singularize(token)
+            ordered.add(TOKEN_ALIASES[word] ?: word)
         }
         return Term(words = ordered.toSet(), head = effectiveHead(ordered))
     }
@@ -496,7 +497,15 @@ object IngredientMatcher {
         "calves" to "calf",
         "knives" to "knife",
         "geese" to "goose",
-        "shelves" to "shelf"
+        "shelves" to "shelf",
+        // The generic "-ies" -> "-y" rule mangles these into non-words ("chily", "cooky",
+        // "browny", "blondy", "veggy") instead of their real singulars. "chilis"/"chilies"/
+        // "chillies" are also folded straight to the [TOKEN_ALIASES] canonical spelling here,
+        // since the generic rule would otherwise strand "chilis" untouched (matches the
+        // ss/us/is over-stemming guard below) and "chilies"/"chillies" as "chily"/"chilly".
+        "chilis" to "chili", "chilies" to "chili", "chillies" to "chili",
+        "cookies" to "cookie", "brownies" to "brownie", "blondies" to "blondie",
+        "veggies" to "veggie"
     )
 
     /**
@@ -506,6 +515,31 @@ object IngredientMatcher {
      */
     private val NEVER_STEM = setOf(
         "molasses", "asparagus", "hummus", "couscous", "watercress", "swiss", "anise", "haggis",
-        "series"
+        "series", "species"
+    )
+
+    /**
+     * Per-token spelling and single-word regional-name aliases, applied after [singularize] on
+     * both sides. Deliberately narrow: only unambiguous, single-word substitutions where the two
+     * spellings/names always mean the same ingredient. Left out on purpose:
+     * - `cilantro`/`coriander` -- in this corpus `coriander` alone usually means the seed and
+     *   `cilantro`/`coriander leaves` the leaf; aliasing them would conflate two different spices.
+     * - `capsicum` -- ambiguous between bell pepper and chili pepper across regions.
+     * - Multi-word phrases (`spring onion` -> `scallion`, `bicarbonate of soda` -> `baking soda`,
+     *   `caster sugar`/`icing sugar`/`confectioner's sugar` -> `powdered sugar`, `cornflour` ->
+     *   `cornstarch`) -- `parse()` only ever sees one token at a time here, so a phrase-level
+     *   alias would need to run on the whole name before tokenizing; deferred as future work.
+     */
+    private val TOKEN_ALIASES = mapOf(
+        "chile" to "chili", "chilli" to "chili",
+        "yoghurt" to "yogurt",
+        "aubergine" to "eggplant",
+        "courgette" to "zucchini",
+        "prawn" to "shrimp",
+        "filo" to "phyllo",
+        "beetroot" to "beet",
+        "rocket" to "arugula",
+        "swede" to "rutabaga",
+        "garbanzo" to "chickpea"
     )
 }
