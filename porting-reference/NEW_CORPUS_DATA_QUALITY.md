@@ -1,5 +1,18 @@
 # New corpus (`recipe_database.sqlite`) data quality: investigation notes
 
+**If you didn't arrive here from `CLAUDE.md`, read this first.** "New corpus" in this file's own
+title means odunola/foodie (19,566 recipes here, 16,090 after the dedup pass documented near the
+bottom) — itself now the *old*, superseded corpus, replaced by `recipes_open_v1_4` in the
+`recipe-db-v1.4-swap` commit (see `CLAUDE.md`'s "The recipe corpus"). Every specific number below
+(percentages, row counts, the "as"/"more"/"if" head-collision gap) describes that old corpus and
+has not been re-verified against the current one — spot-checks done for a later doc-consistency
+pass found neither the `as`/`more`/`if` gap nor the `tender` gap from `INGREDIENT_MATCHING_CONCEPTS.md`
+reproduce in the current corpus (different dataset, different quirks). The *pattern* this file
+argues for — filter at the matching/scoring layer instead of chasing 100% clean parsing — is still
+exactly how the current corpus's own data-quality issues are handled (`SUPPRESS_BLOB_RECIPES_NEW`,
+`SUPPRESS_GARBAGE_INGREDIENTS_NEW` in `RecipeViewModel.kt`); that reasoning is the part worth
+reading this for.
+
 Findings from a direct measurement pass against the shipped `recipe_database.sqlite`
 (19,566 recipes, odunola/foodie), done while planning how to port fridge search onto it. See
 `INGREDIENT_MATCHING_CONCEPTS.md` for how this connects to the matching/ranking design, and

@@ -1,5 +1,11 @@
 # Offline Recipe SQLite Builder
 
+**Builds the superseded corpus, not the one the app ships today.** See `CLAUDE.md`'s "The recipe
+corpus" for what's currently bundled (`recipes_open_v1_4`, built by an entirely separate external
+project — see `new_db_workable/HANDOVER.md` — not by anything in this directory). This package is
+kept for reference and in case the odunola/foodie corpus is ever needed again (see
+`legacy-recipe-path/ROLLBACK_TO_ODUNOLA_CORPUS.md`).
+
 This package builds a self-contained SQLite recipe database from the
 Global Food Recipes Dataset (`odunola/foodie`).
 

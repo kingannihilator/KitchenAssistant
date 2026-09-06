@@ -1,5 +1,19 @@
 # Ingredient matching & ranking: concept inventory
 
+**Read this note before the rest of the file, if you didn't arrive here from `CLAUDE.md`.** This
+was written while planning the odunola/foodie corpus port, under the pre-rebrand package
+`com.example.kitchenassistant` — that corpus has since been replaced entirely (see CLAUDE.md's "The
+recipe corpus"), and the package is now `com.pancakeworks.fridgegrub`. Despite that, **`IngredientMatcher.kt`'s
+scheme described below is not historical — it's still the live matcher today**, grown since (more
+entries in `PART_WORDS`/`STOPWORDS`, an `"in"`-cut fix, etc. — see `IngredientMatcher.kt`'s own
+docstrings and `IngredientMatcherTest.kt` for what's current). What genuinely didn't survive:
+`CanonicalIndex.kt` was deleted outright (see `legacy-recipe-path/README.md`) and replaced by
+`NewIngredientIndex.kt`'s category-aware index; the old corpus itself is gone. Treat every *specific
+number or finding* below (row counts, "identified this conversation" gaps) as describing the old
+corpus, not verified against today's — re-check against the current `.sqlite` before acting on any
+of them, the same way this repo's own later audits did for `tender`/`as`/`more`/`if` below (spoiler:
+neither reproduced in the current corpus).
+
 This is a reference, not a spec — it catalogues the *ideas* behind ingredient matching and recipe
 ranking in this project: what's already implemented (in `IngredientMatcher.kt`, `CanonicalIndex.kt`,
 `RecipeViewModel.kt`, all under `app/src/main/java/com/example/kitchenassistant/`), and what's been

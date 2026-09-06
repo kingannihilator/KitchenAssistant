@@ -1,5 +1,12 @@
 # Handoff: Porting recipe_database.sqlite to an Android app
 
+**Superseded — read `CLAUDE.md`'s "The recipe corpus" section for the current state first.** This
+handoff is for the odunola/foodie corpus (~95MB, 19,566 recipes) that was ported in first; it was
+later replaced entirely by `recipes_open_v1_4` (~7MB, 4,779 recipes, see `new_db_workable/
+HANDOVER.md`). The Room/`createFromAsset` setup pattern and the general porting approach below are
+still the right idea, but concrete row counts, file sizes, and data-quality numbers are all for the
+corpus this repo no longer ships.
+
 This file is written for a fresh Claude session working in Android Studio,
 with no memory of how this database was built. Read this before touching
 the schema or writing search code — it explains what's already done, what
