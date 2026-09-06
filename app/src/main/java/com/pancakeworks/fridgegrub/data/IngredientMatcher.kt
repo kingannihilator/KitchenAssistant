@@ -289,7 +289,13 @@ object IngredientMatcher {
         "toasted", "deveined", "chilled", "juiced", "undrained", "mashed", "warmed", // 58/58/56/55/53/52/36
         "pitted", "sifted", "flaked", "cooled", "separated", "zested", "scrubbed", // 36/27/25/24/24/22/20
         "unpeeled", "discarded", "cleaned", "stemmed", "pressed", "heated", "undiluted", // 12/12/12/10/9/8/7
-        "baked", "unwrapped", "blanched", "defrosted", "slivered", "boiled", "pureed", "squeezed" // 7/5/5/5/5/5/5/5
+        "baked", "unwrapped", "blanched", "defrosted", "slivered", "boiled", "pureed", "squeezed", // 7/5/5/5/5/5/5/5
+        // Found via the "in" cut fix below: these aren't trailing, they sit mid-string in
+        // "X dissolved in Y" / "X tied in Y" rows, but they're the same kind of preparation
+        // participle -- without them, cutting at "in" left them as the last surviving word and
+        // effectiveHead picked them over the real ingredient (e.g. "dry yeast dissolved in ...
+        // water" resolved to head "dissolved" instead of "yeast").
+        "dissolved", "tied" // 1/4
     )
     // Deliberately not stop words, though they look like ones: `flavoring`/`flavour` and
     // `substitute` change what a thing *is*. Dropping them made "butter flavoring" read as butter

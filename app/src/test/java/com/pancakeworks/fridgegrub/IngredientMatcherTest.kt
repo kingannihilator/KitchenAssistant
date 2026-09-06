@@ -367,6 +367,15 @@ class IngredientMatcherTest {
         assertDoesNotMatch("water", "tuna in water")
     }
 
+    @Test
+    fun `mid-string preparation participles do not steal the head from an in-clause`() {
+        // Real corpus rows: "dissolved" and "tied" aren't trailing like the participles in
+        // `trailing preparation participles do not steal the head`, but the "in" cut still exposes
+        // them as the last surviving word unless they're stopwords too.
+        assertMatches("yeast", "dry yeast dissolved in ½ cup of warm water")
+        assertMatches("pandan", "pandan leaves tied in a knot")
+    }
+
     // -----------------------------------------------------------------------------------------
     // Singularization
     // -----------------------------------------------------------------------------------------
