@@ -113,17 +113,31 @@ The four word lists (`PART_WORDS`, `STOPWORDS`, `FRIDGE_CUT`, `BLOCK_MODIFIERS`)
 
 ## The recipe corpus
 
-`recipe_database.sqlite` (~88MB, odunola/foodie, 16,090 recipes after
-`porting-reference/dedupe_exact_recipes.py` removed 3,476 exact-duplicate rows the source dataset
-itself shipped with — see `NEW_CORPUS_DATA_QUALITY.md`) is the app's only recipe data source,
-opened via Room. An earlier, much larger corpus (`recipes.db`, ~620MB, raw SQLite) existed
-alongside it for a time, switched between at compile time; that path has since been removed
-outright (not just disabled) to keep the large file from ever shipping in an APK build — see
+`recipe_database.sqlite` (~7MB, `recipes_open_v1_4`, 4,779 recipes — Wikibooks Cookbook plus
+several public-domain Project Gutenberg cookbooks; see `new_db_workable/HANDOVER.md` for the full
+per-source count/license table) is the app's only recipe data source, opened via Room. This
+replaced an earlier odunola/foodie corpus (~88MB, 16,090 recipes after dedupe) in the
+`recipe-db-v1.4-swap` commit (`71762f7`, 2026-08-29 — tags `recipe-db-v1.4-swap` and
+`recipe-db-v1.4-cleanup` mark the swap and the first round of post-swap fixes, respectively). The
+swap was a build-time transform of the source database into the app's existing Room schema — it
+deliberately touched no Room entities, DAO queries, or matching/ranking code — so everything below
+this paragraph (schema, tiers, category taxonomy, Room specifics) describes both corpora equally.
+
+`porting-reference/NEW_CORPUS_DATA_QUALITY.md` and `INGREDIENT_MATCHING_CONCEPTS.md` were written
+against the *odunola/foodie* corpus and now describe a superseded data source — read them for the
+ideas (the blob-name mitigation pattern, the matching/ranking design rationale), not for numbers
+specific to what's bundled today (e.g. its "~2.7% of recipe_ingredients rows are blob text" figure
+measures the old corpus; the current one measures ~0.64%, per direct query against the bundled
+`.sqlite`). `porting-reference/recipe_database.sqlite` (~88MB, gitignored) is that old corpus's
+leftover scratch copy, not a second live source. For the *current* corpus's own provenance and
+quality notes, see `new_db_workable/HANDOVER.md`, `recipes_open_v1_4_README.md`, and
+`recipes_open_v1_4_audit.json` (also gitignored — `new_db_workable/` is a working directory, not a
+shipped path).
+
+An earlier, much larger corpus (`recipes.db`, ~620MB, raw SQLite) existed alongside the *original*
+corpus for a time, switched between at compile time; that path has since been removed outright
+(not just disabled) to keep the large file from ever shipping in an APK build — see
 `porting-reference/legacy-recipe-path/README.md` if it's ever needed for reference.
-`porting-reference/` (outside the app module, not bundled) holds the build scripts,
-taxonomy-construction scripts, and two write-ups — `INGREDIENT_MATCHING_CONCEPTS.md` (the ideas
-behind the matching scheme) and `NEW_CORPUS_DATA_QUALITY.md` (the corpus's known data-quality
-issues) — worth reading before touching the recipe-search code path.
 
 **Schema differences that matter:** the new corpus tags every ingredient `DEFINING`/`SEASONING`/
 `SUPPORTING` relative to its recipe (`recipe_ingredients.tier`). `SEASONING` rows originally
@@ -150,9 +164,15 @@ is added too. An ingredient with `category_id = NULL` (blob name, or a head not 
 taxonomy — see `NEW_CORPUS_DATA_QUALITY.md` for the coverage numbers) just falls back to plain
 string matching; nothing is ever removed by having no category, only possibly not boosted.
 
-**Data-quality mitigation:** `SUPPRESS_BLOB_RECIPES_NEW` (~2.7% of `recipe_ingredients` rows are
-un-stripped raw text, see `NEW_CORPUS_DATA_QUALITY.md`) suppresses affected recipes from ranking
-rather than deleting anything, and is a named, reversible, app-side flag in `RecipeViewModel`'s
+**Data-quality mitigation:** `SUPPRESS_BLOB_RECIPES_NEW` (~0.64% of `recipe_ingredients` rows in
+the current corpus are un-stripped raw text — the pattern itself, and the older corpus's much
+higher ~2.7% rate, are described in `NEW_CORPUS_DATA_QUALITY.md`) suppresses affected *recipes*
+from ranking entirely, rather than deleting anything. `SUPPRESS_GARBAGE_INGREDIENTS_NEW` is the
+same idea at finer grain: 19 `ingredients` rows in the current corpus are unit/container words
+("inch", "pound", "bottle", "package", …) that the corpus's extraction step mistook for the
+ingredient itself, rather than suppressing the whole recipe, this excludes just those
+`ingredient_id`s from scoring and the detail screen's checklist — see the doc on
+`GARBAGE_INGREDIENT_NAMES`. Both are named, reversible, app-side flags in `RecipeViewModel`'s
 companion object.
 
 **Room specifics:** `recipe_ingredients` is deliberately *not* a Room `@Entity` — its real composite
