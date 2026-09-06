@@ -84,6 +84,16 @@ interface NewRecipeDao {
     @Query("SELECT ingredient_id, normalized_name, category_id FROM ingredients WHERE LENGTH(normalized_name) <= :blobLengthThreshold")
     suspend fun getMatchableIngredients(blobLengthThreshold: Int): List<IngredientForIndexRow>
 
+    /**
+     * Ingredient ids whose exact `name` is in [names] -- used to resolve
+     * [com.pancakeworks.fridgegrub.viewmodel.RecipeViewModel.GARBAGE_INGREDIENT_NAMES] to ids at
+     * runtime rather than hardcoding ingredient_id values that could shift across a corpus
+     * rebuild. Plain `ingredients`-table query, so unlike everything below it doesn't need
+     * `@RawQuery`.
+     */
+    @Query("SELECT ingredient_id FROM ingredients WHERE name IN (:names)")
+    suspend fun getIngredientIdsByName(names: List<String>): List<Int>
+
     @Query("SELECT instruction FROM recipe_steps WHERE recipe_id = :recipeId ORDER BY step_no")
     suspend fun getSteps(recipeId: Int): List<RecipeStepRow>
 

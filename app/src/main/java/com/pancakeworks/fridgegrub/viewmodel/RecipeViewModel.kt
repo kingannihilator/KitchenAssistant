@@ -50,6 +50,30 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         // source of truth here and threaded into NewRecipeDao/NewIngredientIndex calls, rather
         // than hardcoded in multiple places.
         const val BLOB_NAME_LENGTH_THRESHOLD_NEW = 40
+
+        // A second, narrower data-quality issue than the blob one above: a handful of ingredient
+        // rows are unit/container words, not real ingredients -- the corpus's extraction step
+        // apparently sometimes picked the measurement out of a line instead of the ingredient it
+        // measures (e.g. "1 pound (450 g) leg of lamb (shank end), cut into 1½ inch cubes"
+        // resolved to ingredient_id "pound", not "lamb"). Confirmed against the bundled corpus:
+        // 250 recipe_ingredients rows across the 19 names below, ~15 of them tagged tier DEFINING
+        // -- which, left alone, permanently caps those recipes below 100% no matter what's in the
+        // fridge, since nobody's fridge item is literally named "pound" or "package". Reversible,
+        // app-side mitigation, same shape as SUPPRESS_BLOB_RECIPES_NEW just at ingredient-row
+        // granularity instead of whole-recipe: excludes these rows from scoring and the detail
+        // screen's ingredient checklist, rather than suppressing the recipes entirely (most of
+        // their other ingredient rows are perfectly fine).
+        const val SUPPRESS_GARBAGE_INGREDIENTS_NEW = true
+
+        /** Exact `ingredients.name` values confirmed to be unit/container words rather than real
+         * ingredients (see [SUPPRESS_GARBAGE_INGREDIENTS_NEW]). Matched by exact name and resolved
+         * to ids at runtime ([NewRecipeDao.getIngredientIdsByName]) rather than hardcoding
+         * ingredient_id values, which could shift across a corpus rebuild. */
+        val GARBAGE_INGREDIENT_NAMES = listOf(
+            "inch", "inches", "pound", "pounds", "ounce", "ounces", "tablespoon", "tablespoons",
+            "teaspoon", "bag", "bottle", "box", "boxes", "head", "jars", "package", "packages",
+            "sheet", "tub"
+        )
     }
 
     private val favoritesRepository = FavoritesRepository(getApplication())
@@ -303,13 +327,21 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                     NewIngredientIndex.get(dao, BLOB_NAME_LENGTH_THRESHOLD_NEW).matching(fridgeSet, pantrySet)
                 }
 
-                _detailIngredients.value = dao.getIngredientLines(recipeId).map { row ->
-                    DetailIngredient(
-                        line = row.originalText,
-                        canonical = row.normalizedName,
-                        matched = row.ingredientId in matchedIds
-                    )
-                }
+                // Drops SUPPRESS_GARBAGE_INGREDIENTS_NEW's known unit/container-word rows -- their
+                // ingredient_id was misresolved from the surrounding quantity text rather than the
+                // real ingredient in the line (e.g. "1 pound (450 g) leg of lamb" resolved to
+                // "pound"), so showing that line here would always render as an incorrect red X
+                // even when the fridge has the real thing.
+                val garbageIds = garbageIngredientIds(dao)
+                _detailIngredients.value = dao.getIngredientLines(recipeId)
+                    .filterNot { it.ingredientId in garbageIds }
+                    .map { row ->
+                        DetailIngredient(
+                            line = row.originalText,
+                            canonical = row.normalizedName,
+                            matched = row.ingredientId in matchedIds
+                        )
+                    }
 
                 _detailDirections.value = dao.getSteps(recipeId).flatMap { step ->
                     val instruction = step.instruction.trim().takeIf { it.isNotBlank() } ?: return@flatMap emptyList()
@@ -340,6 +372,16 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
 
     /** Recipes with a blob ingredient row in the new corpus; cached for the session. */
     private var blobRecipeIdsNew: Set<Int>? = null
+
+    /** [GARBAGE_INGREDIENT_NAMES] resolved to ids; cached for the session. */
+    private var garbageIngredientIdsNew: Set<Int>? = null
+
+    private suspend fun garbageIngredientIds(dao: NewRecipeDao): Set<Int> {
+        if (!SUPPRESS_GARBAGE_INGREDIENTS_NEW) return emptySet()
+        return garbageIngredientIdsNew ?: dao.getIngredientIdsByName(GARBAGE_INGREDIENT_NAMES).toSet().also {
+            garbageIngredientIdsNew = it
+        }
+    }
 
     private fun newRecipeDao(): NewRecipeDao = NewRecipeDatabase.getInstance(getApplication()).newRecipeDao()
 
@@ -531,6 +573,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         } else {
             emptySet()
         }
+        val garbageIds = garbageIngredientIds(dao)
 
         // Chunks partition the matched set; `total`/`seasoningTotal` are NOT chunk-dependent
         // (every ingredient the recipe calls for, computed the same regardless of which chunk is
@@ -552,7 +595,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         val accumulated = HashMap<Int, Accumulator>()
         for (chunk in chunkIntLiterals(matchedIds)) {
             val prioritizedChunk = chunk.filter { it in prioritizedIds }
-            val rows = dao.scoreChunk(SimpleSQLiteQuery(buildScoreQuerySql(chunk, prioritizedChunk)))
+            val rows = dao.scoreChunk(SimpleSQLiteQuery(buildScoreQuerySql(chunk, prioritizedChunk, garbageIds)))
             for (row in rows) {
                 if (row.recipeId in junkIds) continue
                 val acc = accumulated.getOrPut(row.recipeId) { Accumulator() }
@@ -586,7 +629,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun buildScoreQuerySql(matchedChunk: List<Int>, prioritizedChunk: List<Int>): String = buildString {
+    private fun buildScoreQuerySql(matchedChunk: List<Int>, prioritizedChunk: List<Int>, garbageIds: Set<Int>): String = buildString {
         append("SELECT recipe_id, ")
         // Every tier counts toward total/matched now -- see scoreRecipesNew's doc for why the
         // old SEASONING exclusion no longer applies now that pantry gives real seasoning-
@@ -622,7 +665,18 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         } else {
             append("0 AS prioritized")
         }
-        append(" FROM recipe_ingredients GROUP BY recipe_id HAVING matched_ids IS NOT NULL")
+        append(" FROM recipe_ingredients")
+        // Excludes SUPPRESS_GARBAGE_INGREDIENTS_NEW's known unit/container-word rows from total
+        // and every count above -- see its doc. Without this a handful of recipes could never
+        // reach 100% (a DEFINING-tier "pound"/"package" row is never satisfiable by any real
+        // fridge item), and every other recipe referencing one of these rows had its denominator
+        // padded by a row nobody could ever match.
+        if (garbageIds.isNotEmpty()) {
+            append(" WHERE ingredient_id NOT IN (")
+            append(garbageIds.joinToString(","))
+            append(")")
+        }
+        append(" GROUP BY recipe_id HAVING matched_ids IS NOT NULL")
     }
 
     /** Loads recipe rows and ingredient lists for the recipes that will actually be shown.
