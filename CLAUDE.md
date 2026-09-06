@@ -214,34 +214,40 @@ All dependency versions in `gradle/libs.versions.toml`.
 
 ## Release versioning and changelog routine
 
-`versionCode`/`versionName` (`app/build.gradle.kts`) had never been bumped as of this writing —
-still `1`/`"1.0"` from the original upload. **Do not bump on every commit or every push.**
-`versionCode` exists solely to identify distinct artifacts uploaded to Google Play Console (every
-upload, including internal/beta tracks, needs a strictly higher one than the last), so it should
-only change immediately before cutting an actual release build — treat it as the last step of a
+`versionCode`/`versionName` (`app/build.gradle.kts`) are currently `2`/`"1.1.0"` — bumped from the
+original `1`/`"1.0"` in commit `2fe2d08` ("Bump version to 1.1.0 (versionCode 2) for release") and
+shipped as tag `playstore-v1.1.0-2`. **Do not bump on every commit or every push.** `versionCode`
+exists solely to identify distinct artifacts uploaded to Google Play Console (every upload,
+including internal/beta tracks, needs a strictly higher one than the last), so it should only
+change immediately before cutting an actual release build — treat it as the last step of a
 release checklist, not a development habit. `versionName` should follow semver
 (`MAJOR.MINOR.PATCH`): PATCH for bug-fix-only releases, MINOR for backward-compatible new features
 (the normal case), MAJOR reserved for a genuinely big user-visible overhaul.
 
 **The tag is the source of truth for "what shipped."** Every commit actually uploaded to Play
-Console gets tagged `playstore-v<versionName>-<versionCode>` (e.g. `playstore-v1.0-1`) at the
+Console gets tagged `playstore-v<versionName>-<versionCode>` (e.g. `playstore-v1.1.0-2`) at the
 moment of upload — this is the only reliable way to answer "what's changed since the last
 published version," since git history alone has no other marker for it. `playstore-v1.0-1` marks
 the commit right after "Add landing page for GitHub Pages with a brief app overview"
-(`37619f0`) — confirmed by the user as the actual last Play Store upload date (2026-08-15), and is
-the oldest such tag; there was no way to reconstruct this retroactively from git alone, so if this
-tag is ever missing or looks wrong, ask the user rather than guessing from commit dates.
+(`37619f0`) — confirmed by the user as the actual last Play Store upload date before the 1.1.0
+release (2026-08-15) — and `playstore-v1.1.0-2` marks commit `2fe2d08` (2026-08-31), the version
+bump for the 1.1.0 release described in the paragraph this replaced. There was no way to
+reconstruct either tag's placement retroactively from git alone, so if a `playstore-v*` tag is
+ever missing or looks wrong, ask the user rather than guessing from commit dates.
 
 **To write a changelog since the last release:** `git log <last-playstore-tag>..HEAD --oneline`
 lists every candidate commit. Write the actual changelog as a short, grouped, user-facing summary
 (by feature area, in plain language) — not a copy-paste of raw commit messages — the same way
-Play Console's "What's new" release notes should read. As of the `playstore-v1.0-1` tag, 6 commits
-are unreleased: rebranding to Fridge Grub, the full recipe corpus swap (odunola/foodie →
-`recipes_open_v1_4`, along with several corpus data-quality fixes), the CC BY-SA attribution
-screen the new corpus requires, the pantry/seasoning checklist feature, recipe-ranking fixes, two
-navigation bug fixes, and recipe metadata (difficulty/time/ingredient-count) with filters —
-comfortably enough for at least a MINOR bump (`1.0` → `1.1.0`, versionCode 2) whenever the user is
-ready to cut that release; nothing forces it before then.
+Play Console's "What's new" release notes should read. As of this writing, 13 commits are
+unreleased since `playstore-v1.1.0-2`: several `IngredientMatcher` head/word-list fixes (packing-
+medium names, mid-string head words, part-words for sticks/chunks/wedges/cubes), a fix for an
+empty-identity ingredient bucket and further misidentified-ingredient-row cleanup in the bundled
+recipe corpus, suppression of unit/container-word ingredient rows from scoring, a privacy-policy
+update to list Pantry data in the storage disclosures, and several doc-only consistency fixes to
+this file and `porting-reference/`. Unlike the 1.1.0 batch, none of these are new user-facing
+features — this batch leans PATCH (`1.1.0` → `1.1.1`) rather than MINOR, though the ingredient-
+matching fixes are still worth shipping since they change real recipe results; nothing forces a
+release before the user is ready to cut one.
 
 **Proactive reminder, for whichever session is active when this becomes relevant:** if the user
 asks to commit, asks about shipping/releasing, or a work session is wrapping up, check
