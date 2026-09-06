@@ -99,14 +99,16 @@ old package path since they describe code as it existed at the time).
 
 `data/IngredientMatcher.kt` is the single source of truth for "does this fridge item satisfy this recipe ingredient" — recipe scoring and the detail screen's check/X icons both call it, so the card's "X/Y ingredients" and the detail screen can't disagree.
 
-Matching is **word-level and head-anchored**, not substring. A name reduces to a set of content words plus a *head* (the last word, skipping trailing part-words like `breast`/`half`/`clove`). Two names match when their heads are equal, one word set contains the other, and the extra words aren't in `BLOCK_MODIFIERS`. Consequences worth knowing:
+Matching is **word-level and head-anchored**, not substring. A name reduces to a set of content words plus a *head* (the last word, skipping trailing part-words like `breast`/`half`/`clove`). Two names match when their heads are equal, one word set contains the other, and the extra words aren't in `BLOCK_MODIFIERS`. Diacritics are folded (NFD-normalized, combining marks stripped) before tokenizing, so `purée`/`puree` and `jalapeño`/`jalapeno` are the same word. Consequences worth knowing:
 
 - fridge `chicken` matches `chicken breast half` and `cut up chicken`, but **not** `chicken broth`, `chicken bouillon` or `cream chicken soup` — different head noun
 - fridge `butter` doesn't match `peanut butter`; `cheese` doesn't match `cream cheese`; `egg` doesn't match `egg substitute`
 - `egg` **does** match `egg white`/`egg yolk` (21,900 rows — the biggest single regression risk if `PART_WORDS` changes)
 - fridge names are truncated at connectives (`and`, `with`, `without`, …) because the OpenFoodFacts taxonomy has entries like "organic cocoa mass and organic cocoa butter"; canonical names are never truncated, so `cream of tartar` keeps its head
+- a recipe canonical shaped like "X or Y" (`butter or margarine`, `beef or lamb` — 1,300 rows) parses to a primary term plus a list of alternatives (`IngredientMatcher.Term.alternatives`), and a fridge item satisfies the recipe ingredient if it matches *either* side — but only when every side has its own distinct head; a shared-head or unparseable side (`salt or` trailing junk) falls back to parsing the whole string as one ordinary term. `NewIngredientIndex`/`IngredientPopularityIndex` index such a row under every alternative's head, not just the primary one, so a fridge search for either name reaches it
+- an ingredient whose name parses to a **null head** (a bare adjective like `soft`/`dry`/`warm`, a stray fragment) can never be satisfied by any fridge item; `NewIngredientIndex.unmatchableIds` collects these during indexing and `RecipeViewModel` folds them into the same scoring/detail-screen exclusion as `GARBAGE_INGREDIENT_NAMES`'s exact-name list (see below), so a null-head row no longer permanently caps its recipe below 100%
 
-The four word lists (`PART_WORDS`, `STOPWORDS`, `FRIDGE_CUT`, `BLOCK_MODIFIERS`) are tuned against the real corpus and guarded by `app/src/test/java/.../IngredientMatcherTest.kt`. **Change a list only alongside that test** — `IngredientMatcher` has no Android imports specifically so it runs under plain JUnit.
+The word lists (`PART_WORDS`, `NEVER_HEAD`, `STOPWORDS`, `RECIPE_ONLY_STOPWORDS`, `RECIPE_CUT`, `FRIDGE_CUT`, `BLOCK_MODIFIERS`, `TOKEN_ALIASES`) are tuned against the real corpus and guarded by `app/src/test/java/.../IngredientMatcherTest.kt`. **Change a list only alongside that test** — `IngredientMatcher` has no Android imports specifically so it runs under plain JUnit. `TOKEN_ALIASES` is deliberately narrow (single-word spelling/regional-name variants like `chile`/`chilli` → `chili`, `aubergine` → `eggplant`); it skips ambiguous pairs (`cilantro`/`coriander`, since this corpus uses them to distinguish leaf from seed) and every multi-word phrase (`spring onion` → `scallion`), which would need whole-name matching before tokenizing rather than a per-token map — see the map's doc for the full list of what's deliberately excluded and why.
 
 **Query strategy:** `NewIngredientIndex` resolves the fridge+pantry to the set of `ingredient_id`s they can supply (head-word matching plus category-taxonomy expansion — see "Category taxonomy" below), and `searchRecipes` scores every recipe in one `GROUP BY recipe_id` pass over `recipe_ingredients` using inline SQL literals — bound parameters can't be used, the matched set can be far past SQLite's 999-parameter limit (`RecipeViewModel.chunkIntLiterals` splits it into multiple queries if needed). `COUNT(DISTINCT ingredient_id)` is used for both numerator and denominator across every tier including `SEASONING` (see "Schema differences that matter" below for why that changed) — a recipe whose only gap is an unmatched `SEASONING`-tier ingredient still scores below 100% and shows a small "missing N seasonings" indicator on its card (`Recipe.unmatchedSeasoningCount`) rather than being silently treated as a full match.
 
@@ -195,11 +197,15 @@ string matching; nothing is ever removed by having no category, only possibly no
 the current corpus are un-stripped raw text — the pattern itself, and the older corpus's much
 higher ~2.7% rate, are described in `NEW_CORPUS_DATA_QUALITY.md`) suppresses affected *recipes*
 from ranking entirely, rather than deleting anything. `SUPPRESS_GARBAGE_INGREDIENTS_NEW` is the
-same idea at finer grain: 19 `ingredients` rows in the current corpus are unit/container words
-("inch", "pound", "bottle", "package", …) that the corpus's extraction step mistook for the
-ingredient itself, rather than suppressing the whole recipe, this excludes just those
-`ingredient_id`s from scoring and the detail screen's checklist — see the doc on
-`GARBAGE_INGREDIENT_NAMES`. Both are named, reversible, app-side flags in `RecipeViewModel`'s
+same idea at finer grain: `GARBAGE_INGREDIENT_NAMES` names unit/container words ("inch", "pound",
+"bottle", "package", "tin", "plate", …) that the corpus's extraction step mistook for the
+ingredient itself and DO parse to a head (so `IngredientMatcher` can't tell them apart from a real
+ingredient on its own); `NewIngredientIndex.unmatchableIds` catches the broader, more common case
+of a name that parses to **no** head at all (see "Recipe matching" above) generally rather than by
+enumerated name. Both feed the same exclusion — scoring and the detail screen's checklist skip
+these `ingredient_id`s — rather than suppressing the whole recipe, since most of a recipe's other
+ingredient rows are perfectly fine. `SUPPRESS_BLOB_RECIPES_NEW`/`SUPPRESS_GARBAGE_INGREDIENTS_NEW`
+are named, reversible, app-side flags in `RecipeViewModel`'s
 companion object.
 
 **Room specifics:** `recipe_ingredients` is deliberately *not* a Room `@Entity` — its real composite
