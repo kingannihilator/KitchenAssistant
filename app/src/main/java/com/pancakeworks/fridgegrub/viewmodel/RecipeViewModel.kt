@@ -68,11 +68,23 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         /** Exact `ingredients.name` values confirmed to be unit/container words rather than real
          * ingredients (see [SUPPRESS_GARBAGE_INGREDIENTS_NEW]). Matched by exact name and resolved
          * to ids at runtime ([NewRecipeDao.getIngredientIdsByName]) rather than hardcoding
-         * ingredient_id values, which could shift across a corpus rebuild. */
+         * ingredient_id values, which could shift across a corpus rebuild.
+         *
+         * `""` is a different, second bug folded into the same list rather than a separate
+         * mechanism, since the fix is identical either way: `porting-reference/
+         * fix_ingredient_identity_v1_4.py`'s `true_key()` falls back
+         * `ingredient_match_name -> normalized_ingredient -> ""` with no further fallback to
+         * `raw_text`, so ~328 rows whose match_name *and* normalized_ingredient were both NULL
+         * (despite a perfectly clean raw_text -- "beef", "water", "rice", ...) collapsed into one
+         * bogus empty-name ingredient row. 300 of those rows were remapped to their real ingredient
+         * directly in the bundled corpus (each had exactly one existing ingredient row with a
+         * matching name); this covers the remaining 28 (8 distinct texts -- chutney, curds,
+         * cocoanut, radish, dal, pastry, roselle, jelly -- with no existing exact-name match to
+         * remap to). */
         val GARBAGE_INGREDIENT_NAMES = listOf(
             "inch", "inches", "pound", "pounds", "ounce", "ounces", "tablespoon", "tablespoons",
             "teaspoon", "bag", "bottle", "box", "boxes", "head", "jars", "package", "packages",
-            "sheet", "tub"
+            "sheet", "tub", ""
         )
     }
 

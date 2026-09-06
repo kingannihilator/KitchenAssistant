@@ -18,6 +18,18 @@ Concretely, two failure modes were found:
    shrimp, haddock, tomato, tortilla, and rabbit rows that have nothing to do with each other,
    because 9 further rows have a genuine upstream parsing bug where "N large, X" got parsed as
    ingredient "large" instead of X, and other unrelated rows collided into the same bucket).
+3. **Empty-identity bucket** (found later, auditing the app's bundled recipe_database.sqlite):
+   `true_key()`'s original fallback chain was `ingredient_match_name -> normalized_ingredient -> ""`
+   with no further fallback to raw_text, so ~328 rows with both of the first two NULL -- despite a
+   perfectly clean raw_text ("beef", "water", "rice", "curry powder", ...) -- collapsed into one
+   bogus identity with an empty canonical_name (ingredient_id 1 in the app's bundled corpus). Since
+   28 of those rows are tagged DEFINING, this permanently capped the recipes that called for them
+   below 100% even with the exact ingredient in the fridge, and rendered as an incorrect red X in
+   the detail screen. Fixed by adding raw_text as a third fallback to true_key(); already
+   hand-patched directly in the app's bundled recipe_database.sqlite (300 of 328 rows had exactly
+   one existing ingredient row with a matching name to remap to -- see the app repo's git history
+   for that one-off script), so re-running this script from scratch should be spot-checked against
+   that patch rather than assumed to reproduce it exactly.
 
 Fix strategy: rebuild `ingredients` and `recipe_ingredients.ingredient_id` from scratch, keyed by
 `ingredient_match_name` (falling back to `normalized_ingredient` for the ~328 rows where
@@ -82,8 +94,16 @@ UNRECOVERABLE_FRAGMENT_IDS = [
 ]
 
 
-def true_key(match_name: str | None, normalized: str | None) -> str:
-    key = (match_name or normalized or "").strip().lower()
+def true_key(match_name: str | None, normalized: str | None, raw_text: str | None = None) -> str:
+    # raw_text is the last resort, not a peer of the other two: match_name/normalized are already
+    # cleaned, but a handful of rows (~328, found auditing the app's bundled recipe_database.sqlite
+    # for the "beef"/"water"/"rice"/... empty-identity bucket this fallback used to produce) have
+    # BOTH fields NULL despite a perfectly clean raw_text -- collapsing them all into one bogus ""
+    # identity instead of falling back one step further. raw_text is used as-is (not re-cleaned)
+    # since every case found so far already was a single clean word; a messier raw_text falling
+    # back this far would still be better than "", but should be spot-checked like any other
+    # ingredient identity this script produces.
+    key = (match_name or normalized or raw_text or "").strip().lower()
     return key
 
 
@@ -116,15 +136,15 @@ def main():
 
     # Step 3: rebuild ingredient identity from ingredient_match_name (fallback normalized_ingredient).
     rows = cur.execute(
-        "SELECT id, ingredient_match_name, normalized_ingredient FROM recipe_ingredients"
+        "SELECT id, ingredient_match_name, normalized_ingredient, raw_text FROM recipe_ingredients"
     ).fetchall()
 
     key_of_row: dict[int, str] = {}
     name_votes: dict[str, Counter] = defaultdict(Counter)
-    for ri_id, match_name, normalized in rows:
-        key = true_key(match_name, normalized)
+    for ri_id, match_name, normalized, raw_text in rows:
+        key = true_key(match_name, normalized, raw_text)
         key_of_row[ri_id] = key
-        name_votes[key][(match_name or normalized or "").strip()] += 1
+        name_votes[key][(match_name or normalized or raw_text or "").strip()] += 1
 
     keys_sorted = sorted(name_votes.keys())
     new_id_of_key = {key: i + 1 for i, key in enumerate(keys_sorted)}
