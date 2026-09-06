@@ -26,13 +26,25 @@ changed alongside the data swap, via `git diff recipe-db-v1.4-swap^ recipe-db-v1
 
 **`porting-reference/legacy-recipe-path/recipe_database_odunola_backup.sqlite`** (39MB, 15,121
 recipes — verified directly against the file, not assumed) — the exact odunola/foodie asset file
-that was bundled before the swap. Don't delete this file; it's the only copy. It's gitignored
-(same reason the live asset briefly was, before the v1.4 corpus shrank below the size limit), so
-`git clean`/a fresh clone won't touch it either way — but a gitignore rule is not a backup, so
-copy it somewhere outside this repo too if you want real redundancy against local disk loss.
+that was bundled before the swap.
 
-If that file is ever missing, there's no way to regenerate the odunola/foodie corpus from
-scratch in this repo — it was a third-party dataset, not something built here.
+**A fresh clone of this repo will NOT have this file.** It has never been in git — not before the
+swap (always too large for GitHub's 100MB limit) and not after (explicitly gitignored once the
+v1.4 corpus made the live asset small enough to track, so this backup wouldn't be too). A
+`.gitignore` rule only stops it from being *added*; it does nothing to preserve a copy that
+isn't there in the first place. Concretely: if you're doing this rollback on the same machine
+where the swap happened and this file is still sitting on disk, follow the steps below. If you're
+on a fresh clone (a different machine, a re-cloned working copy, a new session with no local
+history), **this file will not exist and there is no command that recreates it** — go find
+whoever has a copy (ask the project owner) before doing anything else. Don't delete your only
+copy of it once you have one, and don't rely on git for redundancy — copy it somewhere outside
+this repo too.
+
+If no copy of this file can be found anywhere, there's no way to regenerate the odunola/foodie
+corpus from scratch in this repo — it was a third-party dataset, not something built here, so a
+missing backup means this specific rollback is no longer possible at all (reverting to some
+*other* corpus is a different, unrelated question — see "If you're swapping to a *different*
+future corpus instead" below).
 
 ## Steps
 

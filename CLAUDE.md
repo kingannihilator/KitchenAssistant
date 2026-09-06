@@ -133,11 +133,29 @@ against the *odunola/foodie* corpus and now describe a superseded data source �
 ideas (the blob-name mitigation pattern, the matching/ranking design rationale), not for numbers
 specific to what's bundled today (e.g. its "~2.7% of recipe_ingredients rows are blob text" figure
 measures the old corpus; the current one measures ~0.64%, per direct query against the bundled
-`.sqlite`). `porting-reference/recipe_database.sqlite` (~88MB, gitignored) is that old corpus's
-leftover scratch copy, not a second live source. For the *current* corpus's own provenance and
-quality notes, see `new_db_workable/HANDOVER.md`, `recipes_open_v1_4_README.md`, and
-`recipes_open_v1_4_audit.json` (also gitignored — `new_db_workable/` is a working directory, not a
-shipped path).
+`.sqlite`). For the *current* corpus's own provenance and quality notes, see
+`new_db_workable/HANDOVER.md`, `recipes_open_v1_4_README.md`, and `recipes_open_v1_4_audit.json`
+— all three **are tracked in git**, unlike the two large binaries below.
+
+**Two large `.sqlite` files are deliberately absent from a fresh clone — this is expected, not a
+bug, and neither can be regenerated from anything else in this repo:**
+- `porting-reference/recipe_database.sqlite` (~88MB) — the pre-swap odunola/foodie corpus's own
+  leftover scratch/working copy, not a second live source. Gitignored (`.gitignore`'s
+  `/porting-reference/recipe_database.sqlite` line) purely because it's too large, not because
+  it's obsolete-and-safe-to-lose — see `porting-reference/legacy-recipe-path/
+  ROLLBACK_TO_ODUNOLA_CORPUS.md` if this corpus is ever needed again (that doc's actual backup
+  copy is a *different* file, `recipe_database_odunola_backup.sqlite`, also gitignored, also
+  absent from a fresh clone, also physical-copy-only to restore).
+- `new_db_workable/recipes_open_v1_4.sqlite` (~22MB) — the pre-Room-schema-transform source for
+  the *current* corpus, built entirely outside this repo (a separate "Open Recipe Database
+  Project" — see `new_db_workable/HANDOVER.md`). Gitignored deliberately; the app doesn't need it
+  (it needs the already-transformed `app/src/main/assets/database/recipe_database.sqlite`, which
+  *is* tracked), and there is no build script anywhere in this repo that reproduces it.
+
+For both: if a task ever seems to need one of these two files and it isn't on disk, that almost
+certainly means physically copying it in from wherever it's actually kept (ask the user) — not a
+sign that something is broken or a build step was skipped, and not something to try to regenerate
+or work around silently.
 
 An earlier, much larger corpus (`recipes.db`, ~620MB, raw SQLite) existed alongside the *original*
 corpus for a time, switched between at compile time; that path has since been removed outright

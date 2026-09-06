@@ -25,20 +25,46 @@ them what they can cook. The whole database was built around that goal, not
 around maximizing recipe count — see `ingredient-matching algorithm` section
 below for why the schema looks the way it does.
 
-## Files you should have
+## Files you should have — and which ones a fresh clone actually gives you
 
-- `recipes_open_v1_4.sqlite` — the database itself
+This database comes from a separate external project ("Open Recipe Database
+Project") — nothing in *this* repo can build or regenerate
+`recipes_open_v1_4.sqlite` from scratch. It's not like
+`porting-reference/`'s odunola/foodie scripts, which at least reproduce their
+own corpus from a public source; if this file is ever missing and you need
+it, the only way back is a physical copy from wherever that external
+project's output currently lives (ask the project owner) — do not attempt to
+regenerate it, and do not treat its absence as something to silently work
+around.
+
+- `recipes_open_v1_4.sqlite` — the database itself. **Deliberately excluded
+  from this repo's git history** (see `.gitignore`'s
+  `/new_db_workable/recipes_open_v1_4.sqlite` line) — a fresh clone will NOT
+  have this file. It's only needed if you're re-running the swap-to-a-new-
+  corpus process described in `porting-reference/legacy-recipe-path/
+  ROLLBACK_TO_ODUNOLA_CORPUS.md`'s "swapping to a different future corpus"
+  section; it is *not* needed to build or run the app itself, since the
+  already-transformed output
+  (`app/src/main/assets/database/recipe_database.sqlite`) is what's tracked
+  and bundled.
 - `recipes_open_v1_4_README.md` — full change log, v1.2 through v1.4, phase
-  by phase, with every bug found and fixed documented
+  by phase, with every bug found and fixed documented. **Tracked in git.**
 - `recipes_open_v1_4_audit.json` — machine-readable version of the same,
-  useful if you want to script anything against the history
+  useful if you want to script anything against the history. **Tracked in
+  git.**
 - `OPEN_RECIPE_DATABASE_PROJECT.txt` — the original project charter (goals,
-  design principles, phase plan). Worth skimming for the *why* behind the
+  design principles, phase plan). Worth reading for the *why* behind the
   schema, especially the ingredient role system and the "quality over
-  quantity" principle.
+  quantity" principle. **Not tracked, and not present in this repo at all as
+  of this writing** — it lives only wherever the external project itself is
+  kept; if you need it, ask rather than assuming it was simply misplaced
+  from this directory.
 
-If any of these are missing, ask before proceeding — don't guess at the
-history.
+If the `.sqlite` or the charter `.txt` are missing, that's expected on a
+fresh clone, not a bug — see above for what to do instead of trying to
+regenerate or recover them from this repo. If the two tracked `.md`/`.json`
+files are missing, something is actually wrong (a bad clone, or history was
+altered) — that case is worth asking about.
 
 ## Current numbers
 
