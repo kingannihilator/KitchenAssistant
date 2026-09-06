@@ -253,13 +253,27 @@ object IngredientMatcher {
      *
      * Deliberately absent after checking the corpus: `steak` (turns `round steak` into head
      * `round`, a net loss), `flake` (`corn flake` is not corn, and `red pepper flake` is not black
-     * pepper), `strip` (9 rows), `end` (matches junk titles).
+     * pepper), `strip` (9 rows), `end` (matches junk titles), `chip` (mostly `chocolate chip` /
+     * `tortilla chip` / `potato chip`, distinct products rather than a cut of their modifier), and
+     * `shell`/`roast` (both mixed: `pastry shell`/`taco shell` and `chuck roast`/`rib roast` are
+     * their own products, not reducible to a leading word, alongside a minority of rows where they
+     * would help).
+     *
+     * `chunk`, `wedge`, and `cube` were added after auditing every canonical whose head resolution
+     * lands on the literal last word of the name (see the "in"-cut and `dissolved`/`tied` fixes
+     * this list and [STOPWORDS] grew out of) — all three follow the same "a cut of a thing is still
+     * that thing" pattern as the rest of this list: `pineapple chunks`/`beef chunks` (`chunk`),
+     * `lemon wedge`/`mandarin orange wedges` (`wedge`), and `bread cubes`/`onion cubes`/`sugar
+     * cubes` plus the `bouillon`/`stock`/`seasoning cube` family — the last of which previously
+     * resolved to head `cube` instead of `bouillon`/`stock`, inconsistent with how `chicken
+     * bouillon` (no `cube`) already resolves.
      */
     private val PART_WORDS = setOf(
         "breast", "thigh", "wing", "leg", "drumstick", "liver", "fillet", "filet", "cutlet",
         "meat", "part", "half", "piece", "slice", "clove", "bulb", "stalk", "sprig", "leaf",
         "kernel", "floret", "chop", "loin", "rib", "shank", "tenderloin", "tip", "top", "stem",
-        "root", "skin", "bone", "heart", "gizzard", "neck", "white", "yolk"
+        "root", "skin", "bone", "heart", "gizzard", "neck", "white", "yolk",
+        "chunk", "wedge", "cube"
     )
 
     /**
@@ -295,7 +309,13 @@ object IngredientMatcher {
         // participle -- without them, cutting at "in" left them as the last surviving word and
         // effectiveHead picked them over the real ingredient (e.g. "dry yeast dissolved in ...
         // water" resolved to head "dissolved" instead of "yeast").
-        "dissolved", "tied" // 1/4
+        "dissolved", "tied", // 1/4
+        // "X for serving" rows (13 total) -- without this, "extra-virgin olive oil for serving"
+        // and "hamburger buns for serving" resolved to head "serving" instead of "oil"/"bun".
+        // Both forms are listed because the STOPWORDS/dropWords check in parse() runs on the raw
+        // token before singularize(), so the plural "servings" ("... for 4 servings") wouldn't be
+        // caught by "serving" alone.
+        "serving", "servings"
     )
     // Deliberately not stop words, though they look like ones: `flavoring`/`flavour` and
     // `substitute` change what a thing *is*. Dropping them made "butter flavoring" read as butter

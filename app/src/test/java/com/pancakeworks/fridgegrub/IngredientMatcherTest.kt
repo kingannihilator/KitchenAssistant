@@ -97,6 +97,38 @@ class IngredientMatcherTest {
     }
 
     @Test
+    fun `chunks, wedges and cubes resolve to the whole ingredient`() {
+        // Real corpus rows found while auditing every canonical whose head landed on the literal
+        // last word -- same "a cut is still the thing" pattern as the rest of PART_WORDS.
+        assertMatches("pineapple", "pineapple chunks")
+        assertMatches("beef", "beef chunks")
+        assertMatches("cauliflower", "big cauliflower cut into chunks")
+        assertMatches("lemon", "lemon wedge")
+        assertMatches("lemon", "lemon wedges")
+        assertMatches("orange", "canned mandarin orange wedges in syrup")
+        assertMatches("bread", "bread cubes")
+        assertMatches("onion", "onion cubes")
+        assertMatches("sugar", "sugar cubes")
+        // The bouillon/stock/seasoning "cube" family should resolve the same way its "cube"-less
+        // counterpart already does -- "chicken bouillon" (no cube) has head "bouillon", not
+        // "chicken" (see `chicken does not satisfy chicken derived products`), so
+        // "chicken bouillon cube" landing anywhere but "bouillon" would be inconsistent.
+        assertMatches("bouillon", "chicken bouillon cube")
+        assertMatches("stock", "chicken stock cube")
+        assertDoesNotMatch("chicken", "chicken bouillon cube")
+    }
+
+    @Test
+    fun `trailing for serving does not steal the head`() {
+        // Real corpus rows: "for serving" is a common trailing clause, distinct from the
+        // preparation participles above but the same class of bug -- without "serving" in
+        // STOPWORDS these resolved to head "serving" instead of the actual ingredient.
+        assertMatches("oil", "extra-virgin olive oil for serving")
+        assertMatches("bun", "hamburger buns for serving")
+        assertMatches("pasta", "enough pasta for 4 servings")
+    }
+
+    @Test
     fun `a specific fridge item satisfies a generic recipe ingredient`() {
         assertMatches("wheat flour", "flour")
         assertMatches("chicken breast", "chicken")
