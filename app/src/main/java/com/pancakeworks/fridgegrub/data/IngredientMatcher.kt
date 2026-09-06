@@ -237,10 +237,15 @@ object IngredientMatcher {
      * resolves to the thing ("chicken breast half" -> "chicken").
      *
      * Stops at index 0 so a name that *is* a part word ("liver", "breast") keeps its own head.
+     *
+     * Also stops when the word just before the part word is in [NEVER_HEAD] -- a quantity/form
+     * word like "whole"/"ground" is never itself an ingredient's identity, so unlike "garlic"
+     * before "clove" (which should keep stripping down to "garlic"), stripping must stop at
+     * "clove" itself rather than exposing "whole"/"ground" as the head.
      */
     internal fun effectiveHead(words: List<String>): String? {
         var i = words.lastIndex
-        while (i > 0 && words[i] in PART_WORDS) i--
+        while (i > 0 && words[i] in PART_WORDS && words[i - 1] !in NEVER_HEAD) i--
         return words.getOrNull(i)
     }
 
@@ -308,6 +313,19 @@ object IngredientMatcher {
         "root", "skin", "bone", "heart", "gizzard", "neck", "white", "yolk",
         "chunk", "wedge", "cube", "stick"
     )
+
+    /**
+     * Quantity/form words that must never be exposed as the head by [effectiveHead]'s
+     * [PART_WORDS]-skipping, found auditing every canonical whose head resolution landed on the
+     * word immediately before a part word: "whole cloves" (18 rows), "ground cloves"/"powdered
+     * cloves" (3), "few cloves" (2) all stripped past `clove` and surfaced `whole`/`ground`/
+     * `powdered`/`few` as the head instead. Unlike "garlic" before "clove" -- a real ingredient
+     * name that should keep stripping down to "garlic" -- these describe quantity or preparation
+     * form, never identity, so stripping stops at the part word itself instead. `powdered` doubles
+     * as a [BLOCK_MODIFIERS] entry, so "powdered cloves" still correctly fails to match plain
+     * "cloves" -- but now via [isDifferentSubstance] rejecting it, not an accidental head mismatch.
+     */
+    private val NEVER_HEAD = setOf("whole", "ground", "powdered", "few", "pinch", "dozen", "some", "several", "couple")
 
     /**
      * Dropped from both sides: preparation participles, sizes, quality adjectives, and the unit

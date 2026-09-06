@@ -122,6 +122,23 @@ class IngredientMatcherTest {
     }
 
     @Test
+    fun `quantity words before a part word do not steal the head`() {
+        // "whole cloves" (18 rows), "ground cloves"/"powdered cloves" (3), "few cloves" (2) --
+        // PART_WORDS stripped past "clove" and surfaced the quantity/form word before it as the
+        // head instead. Unlike "garlic clove" (a real ingredient name, still expected to resolve
+        // to "garlic" below), these describe quantity or form, never identity.
+        assertMatches("cloves", "whole cloves")
+        assertMatches("cloves", "ground cloves")
+        assertMatches("cloves", "few cloves")
+        assertMatches("garlic", "garlic cloves")
+        // "powdered" is also a BLOCK_MODIFIERS entry (same product-form distinction as "powdered
+        // milk" vs "milk"), so this correctly still does not match -- but now because
+        // isDifferentSubstance rejects it, not because of an accidental head mismatch ("powdered"
+        // vs "clove") the way it did before this fix.
+        assertDoesNotMatch("cloves", "powdered cloves")
+    }
+
+    @Test
     fun `trailing for serving does not steal the head`() {
         // Real corpus rows: "for serving" is a common trailing clause, distinct from the
         // preparation participles above but the same class of bug -- without "serving" in
