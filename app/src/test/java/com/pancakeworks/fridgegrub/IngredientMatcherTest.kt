@@ -426,6 +426,31 @@ class IngredientMatcherTest {
     }
 
     @Test
+    fun `the recipe side also truncates at for, same shape as in`() {
+        // Same "food in packing medium" shape as the "in" cut, one clause later: without cutting
+        // here, "frying"/"browning"/"coating" (236 " for " rows) were winning the head instead of
+        // the real ingredient before "for".
+        assertMatches("vegetable oil", "vegetable oil for frying")
+        assertMatches("oil", "oil for deep frying")
+        assertMatches("butter", "butter for browning")
+        assertMatches("sugar", "extra sugar for coating")
+    }
+
+    @Test
+    fun `as required and as necessary do not steal the head, unlike a real as-example`() {
+        // "as"/"such as" is deliberately NOT cut like "for" is -- most rows name the real
+        // ingredient right after it, which effectiveHead already resolves correctly by taking the
+        // last word. Only the abstract, non-food exceptions need their own STOPWORDS entry.
+        assertMatches("water", "warm water as required")
+        assertMatches("water", "water as necessary")
+        // Regression guard: the common case, where "as"/"such as" precedes the real ingredient,
+        // must keep working exactly as it already does today.
+        assertMatches("tomato", "vegetables such as tomatoes")
+        assertMatches("spinach", "handfuls of a leafy green such as spinach")
+        assertMatches("porter", "fl oz beer such as porter")
+    }
+
+    @Test
     fun `mid-string preparation participles do not steal the head from an in-clause`() {
         // Real corpus rows: "dissolved" and "tied" aren't trailing like the participles in
         // `trailing preparation participles do not steal the head`, but the "in" cut still exposes

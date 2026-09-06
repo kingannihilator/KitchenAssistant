@@ -361,7 +361,12 @@ object IngredientMatcher {
         // A parenthetical note about the ingredient, not the ingredient -- appears both inside
         // parens ("cayenne pepper (optional)", cut by the paren rule above) and without them
         // (58 rows total either way).
-        "optional"
+        "optional",
+        // "water as required"/"water as necessary" (3 rows): these two trailing words are the
+        // exception to "as" naming the real ingredient (see RECIPE_CUT's doc) -- abstract, not
+        // food, so they must not win the head the way "porter"/"tomato" correctly do in the
+        // otherwise-identical "beer such as porter" shape.
+        "required", "necessary"
     )
     // Deliberately not stop words, though they look like ones: `flavoring`/`flavour` and
     // `substitute` change what a thing *is*. Dropping them made "butter flavoring" read as butter
@@ -387,19 +392,40 @@ object IngredientMatcher {
      * `tartar` head and `chicken breast without skin` still resolves to `chicken`.
      */
     private val RECIPE_ONLY_STOPWORDS = setOf(
-        "and", "or", "with", "without", "for", "from", "into", "on", "at", "by"
+        "and", "or", "with", "without", "from", "into", "on", "at", "by",
+        // Dropped, not cut (see RECIPE_CUT's doc on why "such"/"as" aren't cut words): without
+        // this, "as" itself becomes the last surviving word whenever the word actually after it
+        // is a STOPWORDS entry ("required"/"necessary"), so "warm water as required" resolved to
+        // head "as" instead of "water".
+        "as"
     )
 
     /**
-     * The one recipe-side connective that truncates instead of just dropping (see [RECIPE_ONLY_STOPWORDS]
-     * for why the rest don't). Corpus rows like `tuna in water`, `chipotle chiles in adobo sauce`
-     * and `canned pineapple in juice` all follow the same "food in packing medium" shape, where
-     * merely dropping `in` leaves the medium (`water`, `sauce`, `juice`) as the last surviving word
-     * and [effectiveHead] picks it over the actual ingredient. Unlike `and`/`or`/`with`/`without`,
+     * Recipe-side connectives that truncate instead of just dropping (see [RECIPE_ONLY_STOPWORDS]
+     * for why the rest don't).
+     *
+     * `in`: corpus rows like `tuna in water`, `chipotle chiles in adobo sauce` and `canned
+     * pineapple in juice` all follow the same "food in packing medium" shape, where merely
+     * dropping `in` leaves the medium (`water`, `sauce`, `juice`) as the last surviving word and
+     * [effectiveHead] picks it over the actual ingredient. Unlike `and`/`or`/`with`/`without`,
      * `in` has no legitimate corpus use where the words after it are needed to find the true head
      * (there's no `in`-equivalent of `cream of tartar` or `half and half`), so cutting here is safe.
+     *
+     * `for`: the same shape, one clause later -- "oil **for** deep frying", "butter **for**
+     * browning", "extra sugar **for** coating" (236 rows; `frying`/`browning`/`coating`/`griddle`/
+     * the-purpose-or-equipment-named were winning the head instead of the real ingredient before
+     * it). [FRIDGE_CUT] already truncates the fridge side at `for` for the same reason.
+     *
+     * `such`/`as` are deliberately **not** here, unlike `in`/`for` above, even though they read
+     * the same way at a glance ("vegetables such as tomatoes"). Audited every "such as"/" as "
+     * row in the corpus: most name the real, specific ingredient *after* "as" (`porter`, `carrot`,
+     * `claret`, `spinach`, `tomato`...), which [effectiveHead] already picks correctly today by
+     * simply taking the last word -- cutting here would regress those back to the vague leading
+     * noun (`vegetable`, `wine`, `beer`). Only the minority ending in an abstract, non-food word
+     * (`required`, `necessary`) are actually broken, and those are fixed individually via
+     * [STOPWORDS] instead.
      */
-    private val RECIPE_CUT = setOf("in")
+    private val RECIPE_CUT = setOf("in", "for")
 
     /**
      * The fridge side stops here. Taxonomy names trail off into clauses that name a second,
