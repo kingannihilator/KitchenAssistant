@@ -40,11 +40,13 @@ package com.pancakeworks.fridgegrub.data
  *
  * Taken whole, those trailing clauses are poison: "…and organic cocoa butter" would make every
  * butter recipe look satisfied. So the **fridge side truncates** at the first connective in
- * [FRIDGE_CUT], keeping only the leading noun phrase. The **recipe side never truncates** — the
- * only canonicals containing connectives are things like `cream of tartar` and `half and half`,
+ * [FRIDGE_CUT], keeping only the leading noun phrase. The **recipe side almost never truncates** —
+ * most canonicals containing connectives are things like `cream of tartar` and `half and half`,
  * and cutting those would let fridge "cream" swallow 2,348 rows of cream of tartar. There, the
  * connectives are dropped as ordinary stop words instead, which also cleans up the corpus's
- * trailing junk (`thyme or`, `all purpose flour mixed w`).
+ * trailing junk (`thyme or`, `all purpose flour mixed w`). The one exception is `"in"`
+ * ([RECIPE_CUT]): `tuna in water`-style rows need it cut, not dropped, or the packing medium
+ * (`water`) is left as the last word and wins the head over the actual ingredient.
  */
 object IngredientMatcher {
 
@@ -62,10 +64,14 @@ object IngredientMatcher {
     )
 
     /** Parses a fridge ingredient name, truncating at the first [FRIDGE_CUT] connective. */
-    fun parseFridge(name: String): Term = parse(name, cut = true)
+    fun parseFridge(name: String): Term = parse(name, cutWords = FRIDGE_CUT, dropWords = emptySet())
 
-    /** Parses a recipe's `clean_ingredients.canonical` value. Never truncates. */
-    fun parseRecipe(canonical: String): Term = parse(canonical, cut = false)
+    /**
+     * Parses a recipe's `clean_ingredients.canonical` value. Never truncates, except at [RECIPE_CUT]
+     * (currently just `"in"` — see its doc for why that one connective is special-cased).
+     */
+    fun parseRecipe(canonical: String): Term =
+        parse(canonical, cutWords = RECIPE_CUT, dropWords = RECIPE_ONLY_STOPWORDS)
 
     /** True when the fridge ingredient satisfies the recipe's ingredient. */
     fun matches(fridge: Term, recipe: Term): Boolean {
@@ -180,15 +186,15 @@ object IngredientMatcher {
     // would put their head on a number.
     private val TOKEN_SEPARATOR = Regex("[^a-z]+")
 
-    private fun parse(raw: String, cut: Boolean): Term {
+    private fun parse(raw: String, cutWords: Set<String>, dropWords: Set<String>): Term {
         val ordered = mutableListOf<String>()
         for (token in raw.lowercase().split(TOKEN_SEPARATOR)) {
             if (token.isEmpty()) continue
             // Only truncate once we have something to keep, so a name that opens with a
             // connective doesn't collapse to nothing.
-            if (cut && ordered.isNotEmpty() && token in FRIDGE_CUT) break
+            if (ordered.isNotEmpty() && token in cutWords) break
             if (token in STOPWORDS) continue
-            if (!cut && token in RECIPE_ONLY_STOPWORDS) continue
+            if (token in dropWords) continue
             ordered.add(singularize(token))
         }
         return Term(words = ordered.toSet(), head = effectiveHead(ordered))
@@ -309,8 +315,19 @@ object IngredientMatcher {
      * `tartar` head and `chicken breast without skin` still resolves to `chicken`.
      */
     private val RECIPE_ONLY_STOPWORDS = setOf(
-        "and", "or", "with", "without", "in", "for", "from", "into", "on", "at", "by"
+        "and", "or", "with", "without", "for", "from", "into", "on", "at", "by"
     )
+
+    /**
+     * The one recipe-side connective that truncates instead of just dropping (see [RECIPE_ONLY_STOPWORDS]
+     * for why the rest don't). Corpus rows like `tuna in water`, `chipotle chiles in adobo sauce`
+     * and `canned pineapple in juice` all follow the same "food in packing medium" shape, where
+     * merely dropping `in` leaves the medium (`water`, `sauce`, `juice`) as the last surviving word
+     * and [effectiveHead] picks it over the actual ingredient. Unlike `and`/`or`/`with`/`without`,
+     * `in` has no legitimate corpus use where the words after it are needed to find the true head
+     * (there's no `in`-equivalent of `cream of tartar` or `half and half`), so cutting here is safe.
+     */
+    private val RECIPE_CUT = setOf("in")
 
     /**
      * The fridge side stops here. Taxonomy names trail off into clauses that name a second,

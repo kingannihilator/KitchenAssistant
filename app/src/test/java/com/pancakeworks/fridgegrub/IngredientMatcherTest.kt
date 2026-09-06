@@ -354,6 +354,19 @@ class IngredientMatcherTest {
         assertMatches("half", "half and half")
     }
 
+    @Test
+    fun `the recipe side truncates at in, unlike other connectives`() {
+        // The reported bug: "tuna in water" resolved to head "water" instead of "tuna", because
+        // dropping (not cutting) "in" left "water" as the last surviving word. Real corpus rows
+        // following the same "food in packing medium" shape.
+        assertMatches("tuna", "tuna in water")
+        assertMatches("tuna", "chunk tuna in water")
+        assertMatches("chile", "chipotle chiles in adobo sauce")
+        assertMatches("pineapple", "canned pineapple in juice")
+        assertMatches("olive", "green olives packed in brine")
+        assertDoesNotMatch("water", "tuna in water")
+    }
+
     // -----------------------------------------------------------------------------------------
     // Singularization
     // -----------------------------------------------------------------------------------------
