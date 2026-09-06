@@ -150,9 +150,13 @@ rows were folded into `total`/`matched` like any other tier; `RecipeMatch`/`rati
 (`scoreRecipesNew`'s SQL) did. `SEASONING` totals are *also* tracked separately purely to power
 `Recipe.unmatchedSeasoningCount` — a small card indicator (not a ranking input) calling out when
 the only gap left is a seasoning, since that's a much lower bar to clear than a missing
-Supportive/Defining ingredient. `servings`/`category`/`cuisine`/`country` are always `NULL` in this
-corpus build, so `Recipe.servings`/`categories` are hardcoded empty for new-corpus recipes rather
-than queried.
+Supportive/Defining ingredient. `category`/`cuisine`/`country` are always `NULL` in this corpus
+build, so `Recipe.categories` is hardcoded empty rather than queried. `servings`/`difficulty`/
+`time_text`/`total_minutes_min`/`total_minutes_max` are a different story in the current
+(`recipes_open_v1_4`) corpus — genuinely populated (`servings` ~26%, `difficulty` ~74%, time
+~25%, per `NewRecipeEntities.kt`'s `RecipeEntity` doc) and queried/surfaced as recipe metadata
+with filters (`viewmodel/RecipeMetadata.kt`); this used to be true of them too, back when the
+odunola/foodie corpus left them NULL.
 
 **Category taxonomy (`categories` table, `ingredients.category_id`):** a hand-curated (LLM-assigned)
 tree — e.g. `Meat/Beef`, `Produce/Pepper/Bell` — built by `porting-reference/apply_categories.py`
