@@ -486,6 +486,21 @@ class IngredientMatcherTest {
     }
 
     // -----------------------------------------------------------------------------------------
+    // Diacritics
+    // -----------------------------------------------------------------------------------------
+
+    @Test
+    fun `accented names match their plain-ascii equivalents`() {
+        // TOKEN_SEPARATOR splits on anything that isn't a lowercase ascii letter, so an accented
+        // letter used to act as a separator and strand everything after it as its own token --
+        // "tomato purée" -> head "e" (258 corpus rows total across these patterns).
+        assertMatches("tomato puree", "tomato purée")
+        assertMatches("jalapeno", "jalapeños")
+        assertMatches("creme fraiche", "crème fraîche")
+        assertMatches("crouton", "croûtons")
+    }
+
+    // -----------------------------------------------------------------------------------------
     // Degenerate input
     // -----------------------------------------------------------------------------------------
 

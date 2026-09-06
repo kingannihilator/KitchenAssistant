@@ -1,5 +1,7 @@
 package com.pancakeworks.fridgegrub.data
 
+import java.text.Normalizer
+
 /**
  * Decides whether an ingredient sitting in the user's fridge satisfies an ingredient a recipe
  * calls for.
@@ -186,9 +188,19 @@ object IngredientMatcher {
     // would put their head on a number.
     private val TOKEN_SEPARATOR = Regex("[^a-z]+")
 
+    // Combining marks, stripped after NFD decomposition -- turns "é" into "e" + a mark, so
+    // stripping the mark leaves a plain "e" for TOKEN_SEPARATOR to keep. Without this, "tomato
+    // purée" -> head "e" (258 corpus rows), "jalapeños" -> "os", "crème fraîche" -> "che" --
+    // TOKEN_SEPARATOR treats each accented letter as a separator, so everything after it becomes
+    // its own doomed token.
+    private val COMBINING_MARKS = Regex("\\p{Mn}+")
+
+    private fun stripDiacritics(raw: String): String =
+        COMBINING_MARKS.replace(Normalizer.normalize(raw, Normalizer.Form.NFD), "")
+
     private fun parse(raw: String, cutWords: Set<String>, dropWords: Set<String>): Term {
         val ordered = mutableListOf<String>()
-        for (token in raw.lowercase().split(TOKEN_SEPARATOR)) {
+        for (token in stripDiacritics(raw).lowercase().split(TOKEN_SEPARATOR)) {
             if (token.isEmpty()) continue
             // Only truncate once we have something to keep, so a name that opens with a
             // connective doesn't collapse to nothing.
