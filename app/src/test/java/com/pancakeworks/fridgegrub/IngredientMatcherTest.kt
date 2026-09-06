@@ -116,6 +116,9 @@ class IngredientMatcherTest {
         assertMatches("bouillon", "chicken bouillon cube")
         assertMatches("stock", "chicken stock cube")
         assertDoesNotMatch("chicken", "chicken bouillon cube")
+        assertMatches("cinnamon", "cinnamon stick")
+        assertMatches("cinnamon", "cinnamon sticks")
+        assertMatches("celery", "celery sticks")
     }
 
     @Test

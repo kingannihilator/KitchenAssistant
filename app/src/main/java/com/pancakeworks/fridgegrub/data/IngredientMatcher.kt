@@ -259,21 +259,22 @@ object IngredientMatcher {
      * their own products, not reducible to a leading word, alongside a minority of rows where they
      * would help).
      *
-     * `chunk`, `wedge`, and `cube` were added after auditing every canonical whose head resolution
-     * lands on the literal last word of the name (see the "in"-cut and `dissolved`/`tied` fixes
-     * this list and [STOPWORDS] grew out of) — all three follow the same "a cut of a thing is still
-     * that thing" pattern as the rest of this list: `pineapple chunks`/`beef chunks` (`chunk`),
-     * `lemon wedge`/`mandarin orange wedges` (`wedge`), and `bread cubes`/`onion cubes`/`sugar
-     * cubes` plus the `bouillon`/`stock`/`seasoning cube` family — the last of which previously
-     * resolved to head `cube` instead of `bouillon`/`stock`, inconsistent with how `chicken
-     * bouillon` (no `cube`) already resolves.
+     * `chunk`, `wedge`, `cube`, and `stick` were added after auditing every canonical whose head
+     * resolution lands on the literal last word of the name (see the "in"-cut and `dissolved`/
+     * `tied` fixes this list and [STOPWORDS] grew out of) — all four follow the same "a cut of a
+     * thing is still that thing" pattern as the rest of this list: `pineapple chunks`/`beef chunks`
+     * (`chunk`), `lemon wedge`/`mandarin orange wedges` (`wedge`), `bread cubes`/`onion cubes`/
+     * `sugar cubes` plus the `bouillon`/`stock`/`seasoning cube` family (`cube` — the last of which
+     * previously resolved to head `cube` instead of `bouillon`/`stock`, inconsistent with how
+     * `chicken bouillon` with no `cube` already resolves), and `cinnamon stick(s)` (36 rows)/
+     * `celery sticks` (`stick`).
      */
     private val PART_WORDS = setOf(
         "breast", "thigh", "wing", "leg", "drumstick", "liver", "fillet", "filet", "cutlet",
         "meat", "part", "half", "piece", "slice", "clove", "bulb", "stalk", "sprig", "leaf",
         "kernel", "floret", "chop", "loin", "rib", "shank", "tenderloin", "tip", "top", "stem",
         "root", "skin", "bone", "heart", "gizzard", "neck", "white", "yolk",
-        "chunk", "wedge", "cube"
+        "chunk", "wedge", "cube", "stick"
     )
 
     /**
