@@ -306,13 +306,25 @@ object IngredientMatcher {
      * previously resolved to head `cube` instead of `bouillon`/`stock`, inconsistent with how
      * `chicken bouillon` with no `cube` already resolves), and `cinnamon stick(s)` (36 rows)/
      * `celery sticks` (`stick`).
+     *
+     * `pod` (41 rows: `cardamom pods`, `vanilla pod`, `okra pods`, `star anise pods`), `belly`
+     * (7 rows: `pork belly`, the same "a cut is still the thing" shape as `loin`/`rib`), and
+     * `weed` (7 rows: `dill weed`) were added in the same follow-up pass.
+     *
+     * Deliberately absent, also checked in that pass: `seed` (317 rows: `cumin seed`, `mustard
+     * seed`, `sesame seed`, `celery seed`, `fennel seed`, `coriander seed`...). Unlike the words
+     * above, a seed is not interchangeable with its plant across this list — fridge `mustard`,
+     * `fennel`, `celery`, and `pumpkin` are all genuinely different purchases from their seeds, so
+     * stripping `seed` would wrongly satisfy those recipes from the whole plant. The fridge
+     * taxonomy already carries the seed forms as their own entries (`cumin seeds`, `sesame
+     * seeds`, `mustard seed`) for the cases where fridge and recipe do mean the same thing.
      */
     private val PART_WORDS = setOf(
         "breast", "thigh", "wing", "leg", "drumstick", "liver", "fillet", "filet", "cutlet",
         "meat", "part", "half", "piece", "slice", "clove", "bulb", "stalk", "sprig", "leaf",
         "kernel", "floret", "chop", "loin", "rib", "shank", "tenderloin", "tip", "top", "stem",
         "root", "skin", "bone", "heart", "gizzard", "neck", "white", "yolk",
-        "chunk", "wedge", "cube", "stick"
+        "chunk", "wedge", "cube", "stick", "pod", "belly", "weed"
     )
 
     /**

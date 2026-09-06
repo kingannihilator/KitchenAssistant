@@ -139,6 +139,27 @@ class IngredientMatcherTest {
     }
 
     @Test
+    fun `pods, belly, and weed resolve to the whole ingredient`() {
+        // Same "a cut is still the thing" pattern as loin/rib/chunk/wedge/cube/stick.
+        assertMatches("cardamom", "green cardamom pods")
+        assertMatches("vanilla", "vanilla pod")
+        assertMatches("okra", "okra pods")
+        assertMatches("pork", "pork belly")
+        assertMatches("dill", "dill weed")
+    }
+
+    @Test
+    fun `seed is deliberately not a part word`() {
+        // Unlike pod/belly/weed above, a seed is a genuinely different purchase from its plant
+        // for these -- checked against the corpus before deciding not to add "seed" here.
+        assertDoesNotMatch("mustard", "mustard seed")
+        assertDoesNotMatch("fennel", "fennel seed")
+        assertDoesNotMatch("celery", "celery seed")
+        // The fridge taxonomy carries the seed form as its own entry for cases like this one.
+        assertMatches("cumin seeds", "cumin seed")
+    }
+
+    @Test
     fun `trailing for serving does not steal the head`() {
         // Real corpus rows: "for serving" is a common trailing clause, distinct from the
         // preparation participles above but the same class of bug -- without "serving" in
