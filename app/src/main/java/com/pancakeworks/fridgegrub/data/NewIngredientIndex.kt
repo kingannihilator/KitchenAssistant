@@ -166,10 +166,17 @@ class NewIngredientIndex private constructor(
             for (i in siblings) {
                 if (i in matchedIndices) continue
                 val candidateTerm = IngredientMatcher.parseRecipe(normalizedNames[i])
-                val sameHeadFridgeTerms = candidateTerm.head?.let { fridgeTermsByHead[it] }
-                val explicitlyRejected = sameHeadFridgeTerms?.any {
+                // An "X or Y" candidate (see IngredientMatcher.Term.alternatives) is indexed
+                // under every alternative's head, so the rejection check must look up fridge
+                // terms sharing ANY of those heads, not just the primary one -- isDifferentSubstance
+                // itself already folds across candidateTerm.alternatives once it has the right
+                // fridge terms to check against.
+                val candidateHeads = listOfNotNull(candidateTerm.head) +
+                    candidateTerm.alternatives.mapNotNull { it.head }
+                val sameHeadFridgeTerms = candidateHeads.flatMap { fridgeTermsByHead[it] ?: emptyList() }
+                val explicitlyRejected = sameHeadFridgeTerms.any {
                     IngredientMatcher.isDifferentSubstance(it, candidateTerm)
-                } ?: false
+                }
                 if (!explicitlyRejected) {
                     matchedIndices.add(i)
                     origin[i] = categoryOrigin.getValue(categoryId)
@@ -225,9 +232,14 @@ class NewIngredientIndex private constructor(
                 // A name that normalizes to nothing (a stray fragment, a bare adjective) has no
                 // head and can never match, so it is left out of the head index entirely -- it can
                 // still be reached via category expansion if it has a category_id, though.
-                val head = IngredientMatcher.parseRecipe(row.normalizedName).head
-                if (head != null) {
-                    byHead.getOrPut(head) { mutableListOf() }.add(i)
+                val term = IngredientMatcher.parseRecipe(row.normalizedName)
+                if (term.head != null) {
+                    // An "X or Y" alternative (see IngredientMatcher.Term.alternatives) is indexed
+                    // under every alternative's head too, not just the primary one, so a fridge
+                    // "margarine" lookup can find "butter or margarine" even though "butter" is
+                    // the primary side -- matches() itself already accepts either side once found.
+                    val heads = setOf(term.head) + term.alternatives.mapNotNull { it.head }
+                    heads.forEach { head -> byHead.getOrPut(head) { mutableListOf() }.add(i) }
                 } else {
                     unmatchableIds.add(row.ingredientId)
                 }

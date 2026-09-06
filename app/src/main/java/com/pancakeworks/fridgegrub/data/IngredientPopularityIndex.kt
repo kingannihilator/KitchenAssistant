@@ -82,8 +82,13 @@ class IngredientPopularityIndex private constructor(
             val frequencies = IntArray(rows.size) { rows[it].frequency }
             val byHead = HashMap<String, MutableList<Int>>(4_096)
             for (i in rows.indices) {
-                val head = terms[i].head ?: continue
-                byHead.getOrPut(head) { mutableListOf() }.add(i)
+                val term = terms[i]
+                val head = term.head ?: continue
+                // Index an "X or Y" row (see IngredientMatcher.Term.alternatives) under every
+                // alternative's head too, same as NewIngredientIndex, so a "margarine" lookup
+                // finds "butter or margarine"'s frequency even though "butter" is the primary side.
+                val heads = setOf(head) + term.alternatives.mapNotNull { it.head }
+                heads.forEach { byHead.getOrPut(it) { mutableListOf() }.add(i) }
             }
 
             return IngredientPopularityIndex(

@@ -243,6 +243,32 @@ class IngredientMatcherTest {
     }
 
     @Test
+    fun `either side of an or-alternative can satisfy the recipe`() {
+        // 1,300 corpus rows are "X or Y" alternatives where the two sides name genuinely
+        // different things -- only the last used to survive as the whole term's head.
+        assertMatches("butter", "butter or margarine")
+        assertMatches("margarine", "butter or margarine")
+        assertMatches("cilantro", "fresh parsley or cilantro")
+        assertMatches("parsley", "fresh parsley or cilantro")
+        assertMatches("lamb", "beef or lamb")
+        assertMatches("beef", "beef or lamb")
+        assertMatches("vegetable broth", "chicken or vegetable broth")
+        assertMatches("shortening", "canola oil or shortening for frying")
+        assertMatches("oil", "canola oil or shortening for frying")
+        assertDoesNotMatch("pork", "beef or lamb")
+    }
+
+    @Test
+    fun `or-alternatives fall back to a plain term when heads don't actually differ`() {
+        // "salt or" (11 rows) is trailing junk, not a real alternative -- the same connective
+        // that gets dropped everywhere else. A shared-head "or" must not force alternative
+        // parsing either.
+        assertMatches("salt", "salt or")
+        assertMatches("thyme", "thyme or")
+        assertMatches("butter", "butter or")
+    }
+
+    @Test
     fun `corpus trailing junk still matches`() {
         // 693 canonicals end in a stray "or", 255 in a stray "w".
         assertMatches("thyme", "thyme or")

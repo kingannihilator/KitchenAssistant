@@ -59,24 +59,60 @@ object IngredientMatcher {
      * @property head the word carrying the ingredient's identity, or `null` when nothing survived
      *   normalization (a heading like `"-----"`, or a bare adjective like `"chopped"`). A term with
      *   a null head matches nothing, including another null-headed term.
+     * @property alternatives other terms this one names interchangeably ("butter or margarine"
+     *   parses to a primary term for "butter" plus one alternative for "margarine") -- see
+     *   [parseRecipe]'s doc. Empty for every term that isn't this shape, including every
+     *   [parseFridge] result.
      */
     class Term internal constructor(
         val words: Set<String>,
-        val head: String?
+        val head: String?,
+        val alternatives: List<Term> = emptyList()
     )
 
     /** Parses a fridge ingredient name, truncating at the first [FRIDGE_CUT] connective. */
-    fun parseFridge(name: String): Term = parse(name, cutWords = FRIDGE_CUT, dropWords = emptySet())
+    fun parseFridge(name: String): Term = parseSingle(name, cutWords = FRIDGE_CUT, dropWords = emptySet())
 
     /**
      * Parses a recipe's `clean_ingredients.canonical` value. Never truncates, except at [RECIPE_CUT]
-     * (currently just `"in"` — see its doc for why that one connective is special-cased).
+     * (currently `"in"`/`"for"` — see its doc for why those two connectives are special-cased).
+     *
+     * 1,300 corpus rows are "X or Y" alternatives where the two sides genuinely name different
+     * things — `butter or margarine`, `beef or lamb`, `fresh cilantro or parsley` — so only the
+     * last alternative used to survive as the whole term's identity (`effectiveHead` just takes
+     * the last word). Splitting on `or` first and parsing each side separately lets [matches] and
+     * friends accept a fridge item that satisfies *any* side, via [Term.alternatives].
+     *
+     * Only treated as alternatives when every side parses to a non-null head and the heads
+     * actually differ — a shared head (`"salt or"` trailing junk, `"cream of tartar or"`) or an
+     * unparseable side falls back to parsing the whole string as one ordinary term, same as
+     * before this existed.
      */
-    fun parseRecipe(canonical: String): Term =
-        parse(canonical, cutWords = RECIPE_CUT, dropWords = RECIPE_ONLY_STOPWORDS)
+    fun parseRecipe(canonical: String): Term {
+        val orParts = OR_SPLIT.split(canonical).map { it.trim() }.filter { it.isNotEmpty() }
+        if (orParts.size >= 2) {
+            val parsedParts = orParts.map { parseRecipeSingle(it) }
+            val heads = parsedParts.mapNotNull { it.head }
+            if (heads.size == parsedParts.size && heads.toSet().size > 1) {
+                val primary = parsedParts.first()
+                return Term(words = primary.words, head = primary.head, alternatives = parsedParts.drop(1))
+            }
+        }
+        return parseRecipeSingle(canonical)
+    }
 
-    /** True when the fridge ingredient satisfies the recipe's ingredient. */
-    fun matches(fridge: Term, recipe: Term): Boolean {
+    private fun parseRecipeSingle(canonical: String): Term =
+        parseSingle(canonical, cutWords = RECIPE_CUT, dropWords = RECIPE_ONLY_STOPWORDS)
+
+    /** Case-insensitive, word-bounded "or" -- see [parseRecipe]'s doc. */
+    private val OR_SPLIT = Regex("(?i)\\bor\\b")
+
+    /** True when the fridge ingredient satisfies the recipe's ingredient, or any of its
+     * [Term.alternatives]. */
+    fun matches(fridge: Term, recipe: Term): Boolean =
+        matchesSingle(fridge, recipe) || recipe.alternatives.any { matchesSingle(fridge, it) }
+
+    private fun matchesSingle(fridge: Term, recipe: Term): Boolean {
         val fridgeHead = fridge.head ?: return false
         val recipeHead = recipe.head ?: return false
         if (fridgeHead != recipeHead) return false
@@ -92,11 +128,12 @@ object IngredientMatcher {
     }
 
     /**
-     * True when [recipe] is specifically rejected as a different substance from [fridge] — same
-     * head, but a [BLOCK_MODIFIERS] word among the extra words (`fridge=milk` vs
-     * `recipe=powdered milk`). False for every other reason two terms fail to match, including a
-     * head mismatch, which is what lets [NewIngredientIndex]'s cross-head category expansion work
-     * at all (`beef` reaching `ribeye` shares no words, let alone a blocked one).
+     * True when [recipe] (or any of its [Term.alternatives]) is specifically rejected as a
+     * different substance from [fridge] — same head, but a [BLOCK_MODIFIERS] word among the extra
+     * words (`fridge=milk` vs `recipe=powdered milk`). False for every other reason two terms fail
+     * to match, including a head mismatch, which is what lets [NewIngredientIndex]'s cross-head
+     * category expansion work at all (`beef` reaching `ribeye` shares no words, let alone a
+     * blocked one).
      *
      * [NewIngredientIndex] calls this to stop category expansion from re-admitting a sibling that
      * direct matching already rejected for exactly this reason. Without it, categories that group a
@@ -105,7 +142,10 @@ object IngredientMatcher {
      * matches the `milk` row, and expansion then adds every other row sharing that category —
      * `powdered milk` included — even though direct matching correctly rejects it.
      */
-    fun isDifferentSubstance(fridge: Term, recipe: Term): Boolean {
+    fun isDifferentSubstance(fridge: Term, recipe: Term): Boolean =
+        isDifferentSubstanceSingle(fridge, recipe) || recipe.alternatives.any { isDifferentSubstanceSingle(fridge, it) }
+
+    private fun isDifferentSubstanceSingle(fridge: Term, recipe: Term): Boolean {
         val fridgeHead = fridge.head ?: return false
         val recipeHead = recipe.head ?: return false
         if (fridgeHead != recipeHead) return false
@@ -119,8 +159,8 @@ object IngredientMatcher {
     }
 
     /**
-     * True when [more] names the same thing as [less] or a more specific variant of it — same
-     * head, [more]'s words a superset of [less]'s, and whatever's extra isn't a [BLOCK_MODIFIERS]
+     * True when [more] (or any of its [Term.alternatives]) names the same thing as [less] or a
+     * more specific variant of it — same head, superset words, nothing extra a [BLOCK_MODIFIERS]
      * word. Unlike [matches], only this one direction counts; [less] being the more specific side
      * (the direction that lets a fridge item satisfy a more general recipe requirement) does not.
      *
@@ -134,7 +174,10 @@ object IngredientMatcher {
      * "chicken breast" crediting from "boneless chicken breast" (more specific, same thing) while
      * excluding "egg"/"egg yolk" (a different, more general thing "chicken egg" merely satisfies).
      */
-    fun isSpecificVariantOf(less: Term, more: Term): Boolean {
+    fun isSpecificVariantOf(less: Term, more: Term): Boolean =
+        isSpecificVariantOfSingle(less, more) || more.alternatives.any { isSpecificVariantOfSingle(less, it) }
+
+    private fun isSpecificVariantOfSingle(less: Term, more: Term): Boolean {
         val lessHead = less.head ?: return false
         val moreHead = more.head ?: return false
         if (lessHead != moreHead) return false
@@ -198,7 +241,7 @@ object IngredientMatcher {
     private fun stripDiacritics(raw: String): String =
         COMBINING_MARKS.replace(Normalizer.normalize(raw, Normalizer.Form.NFD), "")
 
-    private fun parse(raw: String, cutWords: Set<String>, dropWords: Set<String>): Term {
+    private fun parseSingle(raw: String, cutWords: Set<String>, dropWords: Set<String>): Term {
         // A parenthetical aside names something else entirely -- a note ("(optional"), a
         // unit-conversion ("(1 cup, 8 ounces"), an example list ("(e.g. onion") -- so it's cut
         // outright rather than tokenized at all (290 rows). Only when there's real content before
