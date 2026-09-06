@@ -390,6 +390,18 @@ class IngredientMatcherTest {
     }
 
     @Test
+    fun `parenthetical asides and stray single letters do not steal the head`() {
+        // 290 corpus rows have a parenthetical note or aside; without cutting there, "(optional",
+        // "(e.g", or a unit-conversion aside becomes the head. 286 more rows have a stray
+        // single-letter token ("e"/"g"/"s"/"x") that must never itself become the head.
+        assertMatches("cayenne pepper", "cayenne pepper (optional")
+        assertMatches("chile powder", "chile powder (optional")
+        assertMatches("miso", "% by volume miso (red")
+        assertMatches("vegetable", "assorted vegetables (e.g")
+        assertMatches("bell pepper", "bell peppers (red")
+    }
+
+    @Test
     fun `bone-in does not steal the head from the in-cut`() {
         // "bone-in" (108 rows) tokenizes to "bone", "in" -- the "in" cut fired immediately and
         // stranded the head on "bone" before the carve-out below. "boneless"/"skinless" are the

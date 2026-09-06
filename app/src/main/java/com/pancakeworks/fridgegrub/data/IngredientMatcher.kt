@@ -199,9 +199,21 @@ object IngredientMatcher {
         COMBINING_MARKS.replace(Normalizer.normalize(raw, Normalizer.Form.NFD), "")
 
     private fun parse(raw: String, cutWords: Set<String>, dropWords: Set<String>): Term {
+        // A parenthetical aside names something else entirely -- a note ("(optional"), a
+        // unit-conversion ("(1 cup, 8 ounces"), an example list ("(e.g. onion") -- so it's cut
+        // outright rather than tokenized at all (290 rows). Only when there's real content before
+        // the paren: a name that opens with one has nothing to lose by keeping it.
+        val parenIndex = raw.indexOf('(')
+        val beforeParen = if (parenIndex > 0) raw.substring(0, parenIndex) else raw
+
         val ordered = mutableListOf<String>()
-        for (token in stripDiacritics(raw).lowercase().split(TOKEN_SEPARATOR)) {
+        for (token in stripDiacritics(beforeParen).lowercase().split(TOKEN_SEPARATOR)) {
             if (token.isEmpty()) continue
+            // A stray single letter is never an ingredient's own word -- corpus junk like
+            // "assorted vegetables (e.g" (after the paren cut above still leaves nothing, but
+            // "beef (200 g each" -> "each", or names with a bare "e"/"g"/"s" fragment) otherwise
+            // becomes the head. "wo" ("with/without" abbreviation) is two letters and unaffected.
+            if (token.length == 1) continue
             // Only truncate once we have something to keep, so a name that opens with a
             // connective doesn't collapse to nothing.
             if (ordered.isNotEmpty() && token in cutWords) {
@@ -301,9 +313,14 @@ object IngredientMatcher {
      * Dropped from both sides: preparation participles, sizes, quality adjectives, and the unit
      * abbreviations that leak into the corpus. These describe how an ingredient was handled, not
      * what it is, so "heavy cream" and "cream" are the same thing.
+     *
+     * Single-letter tokens ("w", "x", "c", "t"...) used to be listed individually here; `parse()`
+     * now drops any single-letter token generally (a stray "e"/"g"/"s" fragment left over from a
+     * parenthetical cut is never an ingredient's own word either), so only the two-letter "wo"
+     * ("without") abbreviation still needs to be listed explicitly.
      */
     private val STOPWORDS = setOf(
-        "of", "the", "a", "an", "to", "all", "purpose", "w", "wo", "x", "c", "t",
+        "of", "the", "a", "an", "to", "all", "purpose", "wo",
         "fresh", "freshly", "frozen", "dried", "dry", "raw", "cooked", "uncooked", "chopped",
         "minced", "sliced", "diced", "grated", "shredded", "melted", "softened", "beaten",
         "peeled", "pared", "seeded", "cored", "trimmed", "rinsed", "drained", "packed", "canned",
@@ -340,7 +357,11 @@ object IngredientMatcher {
         // A cut/bone-content descriptor, not the ingredient's identity -- "skinless bone-in
         // chicken thighs and drumsticks" (108 combined rows for boneless+skinless) otherwise
         // resolves to head "skinless".
-        "boneless", "skinless"
+        "boneless", "skinless",
+        // A parenthetical note about the ingredient, not the ingredient -- appears both inside
+        // parens ("cayenne pepper (optional)", cut by the paren rule above) and without them
+        // (58 rows total either way).
+        "optional"
     )
     // Deliberately not stop words, though they look like ones: `flavoring`/`flavour` and
     // `substitute` change what a thing *is*. Dropping them made "butter flavoring" read as butter
