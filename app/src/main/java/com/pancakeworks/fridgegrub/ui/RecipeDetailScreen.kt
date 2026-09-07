@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
@@ -30,8 +31,10 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -55,6 +58,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -64,6 +68,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,8 +76,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pancakeworks.fridgegrub.data.IngredientMatcher
+import com.pancakeworks.fridgegrub.data.ReadAloudRepository
 import com.pancakeworks.fridgegrub.model.AppMode
 import com.pancakeworks.fridgegrub.model.Ingredient
+import com.pancakeworks.fridgegrub.model.ReadAloudPlaybackMode
 import com.pancakeworks.fridgegrub.model.Recipe
 import com.pancakeworks.fridgegrub.viewmodel.IngredientViewModel
 import com.pancakeworks.fridgegrub.viewmodel.RecipeViewModel
@@ -146,11 +153,13 @@ fun RecipeDetailScreen(
     // Reads Directions aloud via the platform TTS engine -- no bundled voice data, no network,
     // consistent with the rest of the app. Android's TTS API has no true pause (only stop, which
     // can't resume mid-sentence), so this is a 3-state cycle rather than a plain toggle: IDLE
-    // ("Read to me") -> tap -> SPEAKING ("Pause") -> tap (or natural completion) -> PAUSED
-    // ("Stop") -> tap -> back to IDLE. PAUSED and SPEAKING both stop at the same step boundary
-    // either way -- the distinction is what happens next: from PAUSED, resuming (Previous/Next,
-    // or IDLE's own Play) continues from currentStepIndex, while explicitly tapping "Stop"
-    // resets currentStepIndex to 0, the one place this cycle offers a real "start over."
+    // ("Read to me", or "Play next step" once currentStepIndex > 0 -- see the label logic below)
+    // -> tap -> SPEAKING ("Pause") -> tap -> PAUSED ("Stop") -> tap -> back to IDLE at step 0.
+    // Only an explicit Pause tap reaches PAUSED; a step finishing on its own goes straight back to
+    // IDLE instead (see onDone below), whether that means "ready for the next step"
+    // ([ReadAloudPlaybackMode.STEP_BY_STEP]) or "finished, ready to start over"
+    // ([ReadAloudPlaybackMode.THROUGH], last step). Tapping "Stop" is the one place this cycle
+    // resets currentStepIndex to 0 as a deliberate, explicit action.
     val context = LocalContext.current
     val mainScope = rememberCoroutineScope()
     var readAloudState by remember(recipe.id) { mutableStateOf(ReadAloudState.IDLE) }
@@ -164,6 +173,64 @@ fun RecipeDetailScreen(
     // Directions before the user has actually started playback or tapped Next/Previous).
     var hasStartedReading by remember(recipe.id) { mutableStateOf(false) }
     val textToSpeech = remember { mutableStateOf<TextToSpeech?>(null) }
+
+    // Read-aloud speed and playback mode are user preferences, not per-recipe state -- loaded
+    // once (no recipe.id key) and persisted via ReadAloudRepository, same mechanism as AppMode.
+    // Deliberately NOT keyed on recipe.id: keeping them tied to the same "once per screen
+    // instance" lifetime as the DisposableEffect(Unit) below is what lets that effect's listener
+    // read the current value directly, with no staleness across a recipe swipe (see
+    // speakFromRef/onStepDoneRef's doc for why currentStepIndex/readAloudState need a different
+    // fix for the same underlying issue).
+    val readAloudRepository = remember { ReadAloudRepository(context) }
+    var playbackMode by remember { mutableStateOf(readAloudRepository.loadMode()) }
+    var speechRate by remember { mutableStateOf(readAloudRepository.loadSpeed()) }
+
+    // Queues a single direction step, tagged with its own utteranceId so onStart/onDone below can
+    // track which one is currently playing. Deliberately queues only one at a time (unlike the
+    // old "queue everything up front" approach) so ReadAloudPlaybackMode.STEP_BY_STEP can stop
+    // between steps -- see onStepDone's doc for how THROUGH mode still chains automatically.
+    fun speakFrom(directions: List<String>, fromIndex: Int) {
+        if (!READ_ALOUD_ENABLED) return
+        if (fromIndex !in directions.indices) return
+        val engine = textToSpeech.value ?: return
+        engine.setSpeechRate(speechRate)
+        engine.speak(directions[fromIndex], TextToSpeech.QUEUE_FLUSH, null, "step_$fromIndex")
+        currentStepIndex = fromIndex
+        readAloudState = ReadAloudState.SPEAKING
+        hasStartedReading = true
+    }
+
+    // DisposableEffect(Unit) registers its listener exactly once for this screen's whole
+    // lifetime, including across a recipe swipe (recipe.id changes but this effect doesn't
+    // re-run) -- so a closure inside it can only safely read state that lives just as long
+    // (playbackMode/speechRate above, or viewModel.detailDirections.value). currentStepIndex/
+    // readAloudState are deliberately re-created per recipe.id instead (so switching recipes
+    // resets them), which means writing to them -- or calling speakFrom, which also writes them
+    // -- from inside that one-time closure would silently target the PREVIOUS recipe's now-
+    // detached state once the user has swiped. rememberUpdatedState re-points this callback at a
+    // freshly-recomposed lambda every time, so it always closes over the CURRENT recipe's
+    // speakFrom/setters rather than whichever recipe was showing when the listener was created.
+    val onStepDoneRef = rememberUpdatedState { doneIndex: Int, allDirections: List<String> ->
+        val isLastStep = doneIndex >= allDirections.lastIndex
+        when {
+            isLastStep -> {
+                // Reset the controls once the whole recipe has been read, in either mode --
+                // back to "Read to me" at step 0, not left sitting on "Stop".
+                readAloudState = ReadAloudState.IDLE
+                currentStepIndex = 0
+                hasStartedReading = false
+            }
+            playbackMode == ReadAloudPlaybackMode.THROUGH -> speakFrom(allDirections, doneIndex + 1)
+            else -> {
+                // STEP_BY_STEP: advance the "up next" pointer and highlight, but wait for another
+                // tap instead of auto-continuing. Landing on IDLE (not PAUSED) is what makes that
+                // next tap play from here rather than the explicit-Stop behavior PAUSED implies.
+                currentStepIndex = doneIndex + 1
+                readAloudState = ReadAloudState.IDLE
+            }
+        }
+    }
+
     DisposableEffect(Unit) {
         if (!READ_ALOUD_ENABLED) return@DisposableEffect onDispose {}
         val engine = TextToSpeech(context) { }
@@ -176,14 +243,12 @@ fun RecipeDetailScreen(
                 mainScope.launch(Dispatchers.Main) { currentStepIndex = index }
             }
             override fun onDone(utteranceId: String?) {
-                // Reads the live direction count (not one captured when this listener was
+                val index = utteranceId?.removePrefix("step_")?.toIntOrNull() ?: return
+                // Reads the live direction list (not one captured when this listener was
                 // created) since DisposableEffect(Unit) only runs once, before the recipe's
-                // directions have necessarily finished loading. Finishing naturally lands on
-                // PAUSED, same as an explicit Pause tap -- either way, currentStepIndex is where
-                // playback left off, and only an explicit Stop resets it.
-                val lastStepId = "step_${viewModel.detailDirections.value.size - 1}"
-                if (utteranceId == lastStepId) {
-                    mainScope.launch(Dispatchers.Main) { readAloudState = ReadAloudState.PAUSED }
+                // directions have necessarily finished loading.
+                mainScope.launch(Dispatchers.Main) {
+                    onStepDoneRef.value(index, viewModel.detailDirections.value)
                 }
             }
             @Deprecated("Deprecated in Java")
@@ -196,25 +261,6 @@ fun RecipeDetailScreen(
             engine.stop()
             engine.shutdown()
         }
-    }
-
-    // Queues every direction from [fromIndex] onward, each with its own utteranceId so
-    // onStart/onDone above can track which one is currently playing.
-    fun speakFrom(directions: List<String>, fromIndex: Int) {
-        if (!READ_ALOUD_ENABLED) return
-        val engine = textToSpeech.value ?: return
-        directions.forEachIndexed { index, step ->
-            if (index < fromIndex) return@forEachIndexed
-            engine.speak(
-                step,
-                if (index == fromIndex) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD,
-                null,
-                "step_$index"
-            )
-        }
-        currentStepIndex = fromIndex
-        readAloudState = ReadAloudState.SPEAKING
-        hasStartedReading = true
     }
 
     LaunchedEffect(recipe.id, fridgeIngredients, pantryItems) {
@@ -464,6 +510,12 @@ fun RecipeDetailScreen(
                                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                                     onClick = {
                                         when (readAloudState) {
+                                            // currentStepIndex is 0 the first time, but sits at
+                                            // whatever step just finished otherwise (natural
+                                            // completion in STEP_BY_STEP mode lands back on IDLE
+                                            // without resetting it -- see onStepDoneRef), so this
+                                            // one branch serves both "start reading" and "play the
+                                            // next step".
                                             ReadAloudState.IDLE -> speakFrom(directions, currentStepIndex)
                                             ReadAloudState.SPEAKING -> {
                                                 textToSpeech.value?.stop()
@@ -482,7 +534,8 @@ fun RecipeDetailScreen(
                                         ReadAloudState.PAUSED -> Icons.Filled.Stop
                                     }
                                     val label = when (readAloudState) {
-                                        ReadAloudState.IDLE -> "Read to me"
+                                        ReadAloudState.IDLE ->
+                                            if (currentStepIndex > 0) "Play next step" else "Read to me"
                                         ReadAloudState.SPEAKING -> "Pause"
                                         ReadAloudState.PAUSED -> "Stop"
                                     }
@@ -498,30 +551,75 @@ fun RecipeDetailScreen(
                     // Previous/Next step controls -- jump to (and read) a specific step directly,
                     // rather than only ever moving linearly through Play. The step counter
                     // doubles as feedback for what Play will read next before you've tapped
-                    // anything.
+                    // anything. Playback-mode and speed controls flank this row rather than
+                    // crowding the "Directions" header above.
                     if (READ_ALOUD_ENABLED) {
                         item {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(
-                                    enabled = currentStepIndex > 0,
-                                    onClick = { speakFrom(directions, currentStepIndex - 1) }
+                                    onClick = {
+                                        playbackMode = if (playbackMode == ReadAloudPlaybackMode.THROUGH) {
+                                            ReadAloudPlaybackMode.STEP_BY_STEP
+                                        } else {
+                                            ReadAloudPlaybackMode.THROUGH
+                                        }
+                                        readAloudRepository.saveMode(playbackMode)
+                                    }
                                 ) {
-                                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous step")
+                                    Icon(
+                                        if (playbackMode == ReadAloudPlaybackMode.THROUGH) {
+                                            Icons.AutoMirrored.Filled.PlaylistPlay
+                                        } else {
+                                            Icons.Filled.RepeatOne
+                                        },
+                                        contentDescription = if (playbackMode == ReadAloudPlaybackMode.THROUGH) {
+                                            "Reads through every step -- tap to switch to one step at a time"
+                                        } else {
+                                            "Pauses after each step -- tap to switch to reading straight through"
+                                        }
+                                    )
                                 }
-                                Text(
-                                    "Step ${currentStepIndex + 1} of ${directions.size}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                IconButton(
-                                    enabled = currentStepIndex < directions.lastIndex,
-                                    onClick = { speakFrom(directions, currentStepIndex + 1) }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(
+                                        enabled = currentStepIndex > 0,
+                                        onClick = { speakFrom(directions, currentStepIndex - 1) }
+                                    ) {
+                                        Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous step")
+                                    }
+                                    Text(
+                                        "Step ${currentStepIndex + 1} of ${directions.size}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    IconButton(
+                                        enabled = currentStepIndex < directions.lastIndex,
+                                        onClick = { speakFrom(directions, currentStepIndex + 1) }
+                                    ) {
+                                        Icon(Icons.Filled.SkipNext, contentDescription = "Next step")
+                                    }
+                                }
+                                // Cycles slowest -> fastest, wrapping back to slowest -- a tap
+                                // target labeled with the resulting speed reads clearer than a
+                                // bare icon for a control whose whole point is a numeric value.
+                                TextButton(
+                                    onClick = {
+                                        val steps = ReadAloudRepository.SPEED_STEPS
+                                        val currentIndex = steps.indexOf(speechRate).let { if (it < 0) 0 else it }
+                                        speechRate = steps[(currentIndex + 1) % steps.size]
+                                        readAloudRepository.saveSpeed(speechRate)
+                                    }
                                 ) {
-                                    Icon(Icons.Filled.SkipNext, contentDescription = "Next step")
+                                    Icon(
+                                        Icons.Filled.Speed,
+                                        contentDescription = "Read-aloud speed, tap to change",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("${speechRate}x")
                                 }
                             }
                         }
