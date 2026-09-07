@@ -84,13 +84,13 @@ import java.util.Locale
 /** The read-aloud control's 3-state cycle -- see the doc where it's declared in the composable. */
 private enum class ReadAloudState { IDLE, SPEAKING, PAUSED }
 
-// Master switch for the read-aloud (TTS) feature, off while other features are under test so
-// audio playback doesn't get exercised incidentally -- flip back to true to re-enable. When
-// false, the TTS engine is never created and the button/Previous-Next row/step highlight don't
-// render, rather than rendering disabled -- consistent with how the rest of the app treats
-// data-quality mitigations (e.g. RecipeViewModel.SUPPRESS_BLOB_RECIPES_NEW): a named, reversible
-// flag rather than deleting the feature.
-private const val READ_ALOUD_ENABLED = false
+// Master switch for the read-aloud (TTS) feature. When false, the TTS engine is never created
+// and the button/Previous-Next row/step highlight don't render, rather than rendering disabled --
+// consistent with how the rest of the app treats data-quality mitigations (e.g.
+// RecipeViewModel.SUPPRESS_BLOB_RECIPES_NEW): a named, reversible flag rather than deleting the
+// feature. Re-enabled once AndroidManifest.xml gained the <queries> declaration TextToSpeech
+// needs for reliable engine discovery on Android 11+ (see the manifest's comment).
+private const val READ_ALOUD_ENABLED = true
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -296,8 +296,10 @@ fun RecipeDetailScreen(
                     idx += 1 // "Cook this recipe" button row
                     if (isCooking) idx += 1 + cookIngredients.size // "Use from fridge" header + rows
                 }
-                if (READ_ALOUD_ENABLED) idx += 1 // read-aloud row
-                if (directions.isNotEmpty()) idx += 2 // Previous/Next row + "Directions" header
+                if (directions.isNotEmpty()) {
+                    idx += 1 // "Directions" header (includes the Read to me button when enabled)
+                    if (READ_ALOUD_ENABLED) idx += 1 // Previous/Next row
+                }
                 idx
             }
             LaunchedEffect(currentStepIndex) {
@@ -442,87 +444,89 @@ fun RecipeDetailScreen(
                     }
                 }
 
-                // Read-aloud control, sitting right below the ingredient checklist above.
-                if (READ_ALOUD_ENABLED) {
-                item {
-                    Spacer(Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // A labeled button, not a bare icon -- an icon-only control next to
-                        // another text button read as decoration rather than something tappable.
-                        OutlinedButton(
-                            enabled = directions.isNotEmpty(),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                            onClick = {
-                                when (readAloudState) {
-                                    ReadAloudState.IDLE -> speakFrom(directions, currentStepIndex)
-                                    ReadAloudState.SPEAKING -> {
-                                        textToSpeech.value?.stop()
-                                        readAloudState = ReadAloudState.PAUSED
-                                    }
-                                    ReadAloudState.PAUSED -> {
-                                        currentStepIndex = 0
-                                        readAloudState = ReadAloudState.IDLE
-                                    }
-                                }
-                            }
-                        ) {
-                            val icon = when (readAloudState) {
-                                ReadAloudState.IDLE -> Icons.Filled.PlayArrow
-                                ReadAloudState.SPEAKING -> Icons.Filled.Pause
-                                ReadAloudState.PAUSED -> Icons.Filled.Stop
-                            }
-                            val label = when (readAloudState) {
-                                ReadAloudState.IDLE -> "Read to me"
-                                ReadAloudState.SPEAKING -> "Pause"
-                                ReadAloudState.PAUSED -> "Stop"
-                            }
-                            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(label)
-                        }
-                    }
-                }
-                }
-
-                // Previous/Next step controls -- jump to (and read) a specific step directly,
-                // rather than only ever moving linearly through Play. Shown once there's
-                // something to navigate; the step counter doubles as feedback for what Play will
-                // read next before you've tapped anything.
-                if (READ_ALOUD_ENABLED && directions.isNotEmpty()) {
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(
-                                enabled = currentStepIndex > 0,
-                                onClick = { speakFrom(directions, currentStepIndex - 1) }
-                            ) {
-                                Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous step")
-                            }
-                            Text(
-                                "Step ${currentStepIndex + 1} of ${directions.size}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            IconButton(
-                                enabled = currentStepIndex < directions.lastIndex,
-                                onClick = { speakFrom(directions, currentStepIndex + 1) }
-                            ) {
-                                Icon(Icons.Filled.SkipNext, contentDescription = "Next step")
-                            }
-                        }
-                    }
-                }
-
-                // Directions section
+                // Directions section, with the read-aloud control inline in its header (rather
+                // than a separate row above) -- it's directions-specific, so it belongs to that
+                // section, not floating between Ingredients/Cook and Directions.
                 if (directions.isNotEmpty()) {
                     item {
                         Spacer(Modifier.height(4.dp))
-                        Text("Directions", style = MaterialTheme.typography.titleMedium)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Directions", style = MaterialTheme.typography.titleMedium)
+                            if (READ_ALOUD_ENABLED) {
+                                // A labeled button, not a bare icon -- an icon-only control next
+                                // to a text title read as decoration rather than something
+                                // tappable.
+                                OutlinedButton(
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                                    onClick = {
+                                        when (readAloudState) {
+                                            ReadAloudState.IDLE -> speakFrom(directions, currentStepIndex)
+                                            ReadAloudState.SPEAKING -> {
+                                                textToSpeech.value?.stop()
+                                                readAloudState = ReadAloudState.PAUSED
+                                            }
+                                            ReadAloudState.PAUSED -> {
+                                                currentStepIndex = 0
+                                                readAloudState = ReadAloudState.IDLE
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    val icon = when (readAloudState) {
+                                        ReadAloudState.IDLE -> Icons.Filled.PlayArrow
+                                        ReadAloudState.SPEAKING -> Icons.Filled.Pause
+                                        ReadAloudState.PAUSED -> Icons.Filled.Stop
+                                    }
+                                    val label = when (readAloudState) {
+                                        ReadAloudState.IDLE -> "Read to me"
+                                        ReadAloudState.SPEAKING -> "Pause"
+                                        ReadAloudState.PAUSED -> "Stop"
+                                    }
+                                    Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(label)
+                                }
+                            }
+                        }
                         HorizontalDivider(modifier = Modifier.padding(top = 4.dp))
                     }
+
+                    // Previous/Next step controls -- jump to (and read) a specific step directly,
+                    // rather than only ever moving linearly through Play. The step counter
+                    // doubles as feedback for what Play will read next before you've tapped
+                    // anything.
+                    if (READ_ALOUD_ENABLED) {
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(
+                                    enabled = currentStepIndex > 0,
+                                    onClick = { speakFrom(directions, currentStepIndex - 1) }
+                                ) {
+                                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous step")
+                                }
+                                Text(
+                                    "Step ${currentStepIndex + 1} of ${directions.size}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                IconButton(
+                                    enabled = currentStepIndex < directions.lastIndex,
+                                    onClick = { speakFrom(directions, currentStepIndex + 1) }
+                                ) {
+                                    Icon(Icons.Filled.SkipNext, contentDescription = "Next step")
+                                }
+                            }
+                        }
+                    }
+
                     itemsIndexed(directions) { index, step ->
                         val isCurrent = READ_ALOUD_ENABLED && index == currentStepIndex
                         val highlightShape = RoundedCornerShape(6.dp)
