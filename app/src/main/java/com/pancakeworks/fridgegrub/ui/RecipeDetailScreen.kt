@@ -240,10 +240,17 @@ fun RecipeDetailScreen(
         // means the engine fell back to a quieter stream (e.g. accessibility/notification)
         // instead of the media stream most users have turned up. USAGE_MEDIA + STREAM_MUSIC is
         // the loudest commonly-boosted stream on a typical device.
+        //
+        // CONTENT_TYPE_MUSIC rather than the more obviously-matching CONTENT_TYPE_SPEECH --
+        // reported clicking artifacts mid-utterance after this was first added; some engines
+        // apply extra speech-specific audio processing (noise suppression, dynamics) under
+        // CONTENT_TYPE_SPEECH that can introduce exactly this kind of glitch. Revert to
+        // CONTENT_TYPE_SPEECH if this doesn't actually fix it -- it's the more semantically
+        // correct value for what this is.
         engine.setAudioAttributes(
             AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                 .build()
         )
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
