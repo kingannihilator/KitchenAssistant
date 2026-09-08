@@ -1,5 +1,6 @@
 package com.pancakeworks.fridgegrub.ui
 
+import android.media.AudioAttributes
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.activity.compose.BackHandler
@@ -235,6 +236,16 @@ fun RecipeDetailScreen(
         if (!READ_ALOUD_ENABLED) return@DisposableEffect onDispose {}
         val engine = TextToSpeech(context) { }
         engine.language = Locale.getDefault()
+        // Explicit media/music routing -- reported as sounding quiet by default, which usually
+        // means the engine fell back to a quieter stream (e.g. accessibility/notification)
+        // instead of the media stream most users have turned up. USAGE_MEDIA + STREAM_MUSIC is
+        // the loudest commonly-boosted stream on a typical device.
+        engine.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+        )
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             // Fires on the TTS service's own callback thread, not the UI thread -- Compose state
             // must only be written from the main thread, hence the explicit dispatch throughout.
