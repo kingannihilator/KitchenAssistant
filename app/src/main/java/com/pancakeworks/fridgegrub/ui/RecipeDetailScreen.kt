@@ -241,16 +241,15 @@ fun RecipeDetailScreen(
         // instead of the media stream most users have turned up. USAGE_MEDIA + STREAM_MUSIC is
         // the loudest commonly-boosted stream on a typical device.
         //
-        // CONTENT_TYPE_MUSIC rather than the more obviously-matching CONTENT_TYPE_SPEECH --
-        // reported clicking artifacts mid-utterance after this was first added; some engines
-        // apply extra speech-specific audio processing (noise suppression, dynamics) under
-        // CONTENT_TYPE_SPEECH that can introduce exactly this kind of glitch. Revert to
-        // CONTENT_TYPE_SPEECH if this doesn't actually fix it -- it's the more semantically
-        // correct value for what this is.
+        // A reported mid-utterance clicking artifact was tested against CONTENT_TYPE_MUSIC here
+        // (on the theory that CONTENT_TYPE_SPEECH's extra engine-side audio processing was the
+        // cause) and persisted either way -- confirming the click is a characteristic of the
+        // device's selected TTS engine/voice itself, not this audio routing. Kept at
+        // CONTENT_TYPE_SPEECH, the semantically correct value for synthesized speech.
         engine.setAudioAttributes(
             AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                 .build()
         )
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
