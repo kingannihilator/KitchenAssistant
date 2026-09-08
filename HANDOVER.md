@@ -19,6 +19,10 @@ just append) whenever a work session wraps up a notable chunk of work.
   forces it; don't bump `versionCode`/`versionName` or create the `playstore-v*` tag without the
   user explicitly asking — that happens at the moment of an actual Play Console upload they
   control, not automatically.
+- `PLAY_STORE_WHATS_NEW.md` (repo root) holds the actual Play Console "What's new" text — a
+  polished, 500-character-limited public-facing draft, kept in sync with (but written very
+  differently from) CLAUDE.md's internal engineering changelog. Update its draft whenever new
+  release-worthy work lands, same trigger as updating this file.
 
 ## What just happened (most recent session)
 

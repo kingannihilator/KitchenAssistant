@@ -276,10 +276,19 @@ Unlike the last PATCH-leaning batch, the read-aloud re-enable/speed-control/step
 genuinely new user-facing feature, not just a bug fix — this batch is a MINOR-bump candidate
 (`1.1.0` → `1.2.0`) whenever the user is ready to cut that release; nothing forces it before then.
 
+**`PLAY_STORE_WHATS_NEW.md`** (repo root) holds the actual Play Console "What's new" release-notes
+text — the polished, character-limited (500 chars/language) public-facing version of the
+changelog above, not this file's internal engineering summary. **Keep it updated alongside this
+section**: whenever this changelog paragraph changes because new release-worthy work landed, add
+or revise a line in that file's draft too, so the two never drift apart before the next release
+ships. Once a release actually goes out, move its published text into that file's History section.
+
 **Proactive reminder, for whichever session is active when this becomes relevant:** if the user
 asks to commit, asks about shipping/releasing, or a work session is wrapping up, check
 `git log <last-playstore-tag>..HEAD --oneline` — if several feature-level commits (not just tiny
 fixes) have accumulated since the last `playstore-v*` tag, mention that a release/version bump
 might be due, the same way this section itself came from the user asking for exactly that. Don't
 bump the version or create the tag unilaterally — confirm with the user first, since tagging
-happens at the moment of an actual upload they control.
+happens at the moment of an actual upload they control. The same reminder applies to
+`PLAY_STORE_WHATS_NEW.md`'s draft: check it's still in sync before telling the user a release is
+ready to cut.
