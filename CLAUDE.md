@@ -244,16 +244,37 @@ ever missing or looks wrong, ask the user rather than guessing from commit dates
 **To write a changelog since the last release:** `git log <last-playstore-tag>..HEAD --oneline`
 lists every candidate commit. Write the actual changelog as a short, grouped, user-facing summary
 (by feature area, in plain language) — not a copy-paste of raw commit messages — the same way
-Play Console's "What's new" release notes should read. As of this writing, 13 commits are
-unreleased since `playstore-v1.1.0-2`: several `IngredientMatcher` head/word-list fixes (packing-
-medium names, mid-string head words, part-words for sticks/chunks/wedges/cubes), a fix for an
-empty-identity ingredient bucket and further misidentified-ingredient-row cleanup in the bundled
-recipe corpus, suppression of unit/container-word ingredient rows from scoring, a privacy-policy
-update to list Pantry data in the storage disclosures, and several doc-only consistency fixes to
-this file and `porting-reference/`. Unlike the 1.1.0 batch, none of these are new user-facing
-features — this batch leans PATCH (`1.1.0` → `1.1.1`) rather than MINOR, though the ingredient-
-matching fixes are still worth shipping since they change real recipe results; nothing forces a
-release before the user is ready to cut one.
+Play Console's "What's new" release notes should read. As of this writing, 30 commits are
+unreleased since `playstore-v1.1.0-2`, in four groups:
+
+- **Recipe matching accuracy** (~13 commits, all in `IngredientMatcher.kt`): diacritic folding
+  (`purée`/`jalapeño`), bone-in/boneless/skinless cuts, parenthetical asides, the "for"/"as"
+  connective fixes, quantity words no longer stealing the head from a part word (`whole cloves`),
+  irregular plurals (`chilies`, `cookies`), spelling/regional-name aliases (`chile`↔`chili`,
+  `aubergine`↔`eggplant`, `prawn`↔`shrimp`, ...), `pod`/`belly`/`weed` as part-words, a
+  general null-head suppression rule, and "X or Y" alternative ingredients (`butter or
+  margarine`) matching either side. Changes real recipe match percentages for a large slice of
+  the corpus; see `IngredientMatcherTest.kt` for the full list of specific cases fixed.
+- **Bundled recipe-corpus data-quality patches** (4 commits): several dozen misidentified/junk
+  `recipe_ingredients` rows fixed or excluded from scoring (comma-split misfires, section-header
+  rows, unit/container words), so recipes that could never reach 100% before now can.
+- **Read-aloud (Text-to-Speech) directions** (6 commits): re-enabled after being off since the
+  Fridge Grub rebrand (`READ_ALOUD_ENABLED`); added a `TTS_SERVICE` `<queries>` manifest
+  declaration (an Android 11+ package-visibility requirement it was missing); moved the control
+  into the Directions section header; added an adjustable speed control (defaults to 0.85x) and
+  a step-by-step playback mode (pauses after each step instead of reading straight through) that
+  both persist via a new `ReadAloudRepository`; louder default volume via explicit
+  `USAGE_MEDIA`/`CONTENT_TYPE_SPEECH` audio-stream routing. A user-reported mid-utterance
+  clicking artifact was investigated and confirmed to be the device's own TTS engine/voice, not
+  something this app controls — no code fix exists for that; a different engine/voice in system
+  settings is the only lever.
+- **Privacy policy**: added Pantry data to the storage disclosure list (1 commit).
+- Plus several doc-only consistency fixes to this file and `porting-reference/`, not
+  user-facing.
+
+Unlike the last PATCH-leaning batch, the read-aloud re-enable/speed-control/step-mode group is a
+genuinely new user-facing feature, not just a bug fix — this batch is a MINOR-bump candidate
+(`1.1.0` → `1.2.0`) whenever the user is ready to cut that release; nothing forces it before then.
 
 **Proactive reminder, for whichever session is active when this becomes relevant:** if the user
 asks to commit, asks about shipping/releasing, or a work session is wrapping up, check
