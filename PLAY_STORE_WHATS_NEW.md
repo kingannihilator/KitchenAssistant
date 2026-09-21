@@ -12,7 +12,15 @@ limit; count before publishing if you edit it (`wc -m`, or a quick `len()` in a 
 emoji/accented characters can cost more than one character depending on encoding, so measure the
 actual string, don't just eyeball it).
 
-## Draft for the next release (1.2.0, unpublished)
+## Draft for the next release (1.3.0 or 1.2.1, nothing yet)
+
+```
+(nothing release-worthy since 1.2.0 yet)
+```
+
+## History
+
+### 1.2.0 (versionCode 3, playstore-v1.2.0-3, 2026-09-21)
 
 ```
 Smarter fridge matching: fixed dozens of ingredient-recognition issues so more recipes can reach a full match (accented names, plurals, US/UK spelling like chile/chili, "butter or margarine"-style alternatives, and more).
@@ -22,17 +30,13 @@ Read-to-me directions are back, with adjustable speed and a step-by-step mode th
 Assorted recipe data fixes.
 ```
 
-(396 characters — room to spare under the 500 limit if more lands before this ships.)
-
-## History
-
-Nothing published from this file yet — `1.1.0` (`playstore-v1.1.0-2`) predates this file's
-existence, so there's no recorded "what's new" text for it here.
+`1.1.0` (`playstore-v1.1.0-2`) predates this file's existence, so there's no recorded
+"what's new" text for it here.
 
 <!--
 Template for adding an entry once a release ships:
 
-### 1.2.0 (versionCode N, playstore-vX.Y.Z-N, YYYY-MM-DD)
+### X.Y.Z (versionCode N, playstore-vX.Y.Z-N, YYYY-MM-DD)
 
 <the exact text submitted to Play Console>
 -->
