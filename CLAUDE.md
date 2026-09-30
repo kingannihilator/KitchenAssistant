@@ -220,9 +220,10 @@ All dependency versions in `gradle/libs.versions.toml`.
 
 ## Release versioning and changelog routine
 
-`versionCode`/`versionName` (`app/build.gradle.kts`) are currently `2`/`"1.1.0"` — bumped from the
-original `1`/`"1.0"` in commit `2fe2d08` ("Bump version to 1.1.0 (versionCode 2) for release") and
-shipped as tag `playstore-v1.1.0-2`. **Do not bump on every commit or every push.** `versionCode`
+`versionCode`/`versionName` (`app/build.gradle.kts`) are currently `3`/`"1.2.0"` — bumped from
+`2`/`"1.1.0"` in commit `2f425a7` ("Bump version to 1.2.0 (versionCode 3) for release") and shipped
+as tag `playstore-v1.2.0-3` (1.1.0 itself was bumped from the original `1`/`"1.0"` in `2fe2d08`
+and shipped as `playstore-v1.1.0-2`). **Do not bump on every commit or every push.** `versionCode`
 exists solely to identify distinct artifacts uploaded to Google Play Console (every upload,
 including internal/beta tracks, needs a strictly higher one than the last), so it should only
 change immediately before cutting an actual release build — treat it as the last step of a
@@ -231,21 +232,24 @@ release checklist, not a development habit. `versionName` should follow semver
 (the normal case), MAJOR reserved for a genuinely big user-visible overhaul.
 
 **The tag is the source of truth for "what shipped."** Every commit actually uploaded to Play
-Console gets tagged `playstore-v<versionName>-<versionCode>` (e.g. `playstore-v1.1.0-2`) at the
+Console gets tagged `playstore-v<versionName>-<versionCode>` (e.g. `playstore-v1.2.0-3`) at the
 moment of upload — this is the only reliable way to answer "what's changed since the last
 published version," since git history alone has no other marker for it. `playstore-v1.0-1` marks
 the commit right after "Add landing page for GitHub Pages with a brief app overview"
 (`37619f0`) — confirmed by the user as the actual last Play Store upload date before the 1.1.0
-release (2026-08-15) — and `playstore-v1.1.0-2` marks commit `2fe2d08` (2026-08-31), the version
-bump for the 1.1.0 release described in the paragraph this replaced. There was no way to
-reconstruct either tag's placement retroactively from git alone, so if a `playstore-v*` tag is
-ever missing or looks wrong, ask the user rather than guessing from commit dates.
+release (2026-08-15); `playstore-v1.1.0-2` marks commit `2fe2d08` (2026-08-31), the version bump
+for the 1.1.0 release; and `playstore-v1.2.0-3` marks commit `2f425a7` (2026-09-20 commit date,
+released 2026-09-21), the version bump for the 1.2.0 release. There was no way to
+reconstruct the first two tags' placement retroactively from git alone, so if a `playstore-v*` tag
+is ever missing or looks wrong, ask the user rather than guessing from commit dates.
 
 **To write a changelog since the last release:** `git log <last-playstore-tag>..HEAD --oneline`
 lists every candidate commit. Write the actual changelog as a short, grouped, user-facing summary
 (by feature area, in plain language) — not a copy-paste of raw commit messages — the same way
-Play Console's "What's new" release notes should read. As of this writing, 30 commits are
-unreleased since `playstore-v1.1.0-2`, in four groups:
+Play Console's "What's new" release notes should read. As of this writing, **nothing release-worthy
+has landed since `playstore-v1.2.0-3`** — the only commit after it is `ec1649d`, which moved the
+1.2.0 release notes into `PLAY_STORE_WHATS_NEW.md`'s History section (doc-only). That tag's release,
+`1.2.0`, carried 34 commits and came in four groups:
 
 - **Recipe matching accuracy** (~13 commits, all in `IngredientMatcher.kt`): diacritic folding
   (`purée`/`jalapeño`), bone-in/boneless/skinless cuts, parenthetical asides, the "for"/"as"
@@ -272,9 +276,10 @@ unreleased since `playstore-v1.1.0-2`, in four groups:
 - Plus several doc-only consistency fixes to this file and `porting-reference/`, not
   user-facing.
 
-Unlike the last PATCH-leaning batch, the read-aloud re-enable/speed-control/step-mode group is a
-genuinely new user-facing feature, not just a bug fix — this batch is a MINOR-bump candidate
-(`1.1.0` → `1.2.0`) whenever the user is ready to cut that release; nothing forces it before then.
+The read-aloud re-enable/speed-control/step-mode group was a genuinely new user-facing feature,
+not just a bug fix — that's what made this batch a MINOR bump (`1.1.0` → `1.2.0`) rather than a
+PATCH. The next release follows the same rule: PATCH if it's only fixes, MINOR for new features,
+and nothing forces it until the work has actually accumulated.
 
 **`PLAY_STORE_WHATS_NEW.md`** (repo root) holds the actual Play Console "What's new" release-notes
 text — the polished, character-limited (500 chars/language) public-facing version of the
