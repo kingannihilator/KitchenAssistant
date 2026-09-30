@@ -48,6 +48,11 @@ local.properties
 # Python bytecode cache from running the porting-reference/ scripts.
 __pycache__/
 
+# Scratch files kept in the repo root for local reference only -- not part of the app, its
+# build, or its docs. "App feedback.pdf" is an external tester-community review of the Play
+# listing (ASO/screenshots/onboarding suggestions, no bug reports).
+/App feedback.pdf
+
 # Release-signing credentials -- never committed. See app/keystore.properties.example.
 /app/keystore.properties
 *.jks

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,12 +20,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -56,8 +61,32 @@ fun LoadingScreen(onFinished: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            KitchenScene(modifier = Modifier.size(width = 380.dp, height = 440.dp))
+            // The scene is drawn art, so it is deliberately pinned to fontScale 1: every shape in
+            // it is a fraction of the canvas size, and its one drawn string -- the thought bubble
+            // near the bottom of this file -- is measured by rememberTextMeasurer against this
+            // same LocalDensity. Letting that string scale makes the bubble wrap onto more lines
+            // and grow downward until it covers the fridge; and because Canvas draws via
+            // drawBehind, it does not clip to its own bounds, so past a point it would paint over
+            // the spinner and off the canvas edge entirely. Pinning the *drawing* (the spinner
+            // below is outside this provider and still scales) keeps the composition intact at
+            // every font size. The bubble's text is decorative, so nothing is lost: a TalkBack
+            // user gets it from the contentDescription below instead.
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density = density.density, fontScale = 1f)
+            ) {
+                KitchenScene(
+                    modifier = Modifier
+                        .size(width = 380.dp, height = 440.dp)
+                        // Text drawn through Canvas/drawText produces no semantics node at all,
+                        // so without this the splash would be a screen with no accessible content
+                        // whatsoever -- this is the only description on it.
+                        .semantics { contentDescription = "What's for dinner today?" }
+                )
+            }
             Spacer(Modifier.height(24.dp))
+            // Intentionally no contentDescription: CircularProgressIndicator already publishes
+            // progress semantics of its own, and adding one would make TalkBack announce it twice.
             CircularProgressIndicator(modifier = Modifier.size(32.dp))
         }
     }

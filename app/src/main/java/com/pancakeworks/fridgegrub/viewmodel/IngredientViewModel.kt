@@ -18,7 +18,10 @@ import com.pancakeworks.fridgegrub.data.IngredientPopularityIndex
 import com.pancakeworks.fridgegrub.data.NewIngredientIndex
 import com.pancakeworks.fridgegrub.data.NewRecipeDao
 import com.pancakeworks.fridgegrub.data.NewRecipeDatabase
+import com.pancakeworks.fridgegrub.data.OnboardingRepository
 import com.pancakeworks.fridgegrub.data.PantryRepository
+import com.pancakeworks.fridgegrub.data.ReviewRepository
+import com.pancakeworks.fridgegrub.data.shouldRequestReview
 import com.pancakeworks.fridgegrub.model.AppMode
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -125,6 +128,43 @@ class IngredientViewModel(application: Application) : AndroidViewModel(applicati
     fun hasSeenPantryOnboarding(): Boolean = pantryRepository.hasSeenOnboarding()
 
     fun markPantryOnboardingSeen() = pantryRepository.markOnboardingSeen()
+
+    // --- State: first-run walkthrough ---
+    //
+    // A separate flag from the pantry one above, read by MainActivity's first-run gate -- see
+    // OnboardingRepository's doc for why the two aren't merged. Not exposed as a StateFlow: it is
+    // consulted only when deciding the initial screen, never observed for changes.
+
+    private val onboardingRepository = OnboardingRepository(application)
+
+    fun hasSeenIntro(): Boolean = onboardingRepository.hasSeenIntro()
+
+    fun markIntroSeen() = onboardingRepository.markIntroSeen()
+
+    // --- State: in-app review prompt ---
+
+    private val reviewRepository = ReviewRepository(application)
+
+    /**
+     * Records a completed cook session (see RecipeDetailScreen's "Done cooking"). Returns true on
+     * exactly one session -- the [ReviewRepository.REVIEW_TRIGGER_COUNT]th, and only if the review
+     * has never been requested -- meaning "now is the moment to ask Play for a review card".
+     *
+     * Setting the requested flag here, before the caller knows whether a card appeared, is
+     * deliberate: the API never reports that. See [ReviewRepository]'s doc.
+     *
+     * Only reachable from Quantity mode, since cook mode does not exist in Checklist mode -- so
+     * presence-only users never reach this trigger and are served by the permanent "Rate this app"
+     * entry on the About screen instead. A known limitation, not an oversight.
+     */
+    fun recordCookSession(): Boolean {
+        val count = reviewRepository.incrementCookSessionCount()
+        if (!shouldRequestReview(count, reviewRepository.hasRequestedReview())) {
+            return false
+        }
+        reviewRepository.markReviewRequested()
+        return true
+    }
 
     // --- State: app mode (Basic = presence-only, Full = quantities + cook mode) ---
 

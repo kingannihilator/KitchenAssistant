@@ -64,6 +64,9 @@ android {
     }
     buildFeatures {
         compose = true
+        // For BuildConfig.DEBUG, which MainActivity keys its testing-only "always show the
+        // first-run carousel" switch to. Off by default in this AGP version.
+        buildConfig = true
     }
 }
 
@@ -80,6 +83,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.google.play.review)
     ksp(libs.androidx.room.compiler)
 testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
