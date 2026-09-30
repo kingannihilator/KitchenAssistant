@@ -83,6 +83,14 @@ the above; this file was added and has since been brought current for the shippe
 
 ## Open TODOs / ideas (from project memory, still unresolved)
 
+- **iOS port — full plan written, nothing started.** `IOS_PORT_PLAN.md` (repo root) holds a
+  staged KMP + Compose Multiplatform migration plan: target module layout (`:core` + `:shared` +
+  `:androidApp`, plus `iosApp/`), tooling, 10 incremental stages that keep Android shipping, a
+  26-row Android-API→multiplatform substitution table, and a 17-item risk register. **Planning
+  only — no code has been written, and the user has not approved starting.** Two things to know
+  before reading it: iOS binaries cannot be built on this Windows machine (CI/macOS required), and
+  the plan's own "Suggested first move" is Stage 0 + Stage 1 only (CI setup, then an isolated
+  Kotlin bump) — ask the user before beginning either.
 - Fridge row's units button should get an editable dropdown, matching the add-ingredient flow's
   autocomplete-style unit picker.
 - Fridge delete-undo only supports one pending item at a time; user wants multi-undo considered.
