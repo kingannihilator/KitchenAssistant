@@ -5,8 +5,15 @@
     <!-- Package-visibility declaration (Android 11+/API 30+) for the TextToSpeech engine the
          read-aloud feature (RecipeDetailScreen.kt) depends on. Without this, TextToSpeech's
          engine discovery/binding can silently fail or misbehave depending on OS version and OEM
-         TTS packaging; this app has no other implicit-intent dependents, so this is the only
-         queries entry needed. -->
+         TTS packaging; this is the only queries entry needed.
+
+         The one other implicit-intent dependency, opening the Play Store listing from About
+         (ui/PlayStore.kt), deliberately needs no entry here: package visibility filters queries
+         such as resolveActivity() and queryIntentActivities(), but never startActivity()
+         dispatch, and that code calls startActivity() blindly and falls back to the https URL.
+         If a resolveActivity() guard is ever added there, this entry (or an equivalent
+         <package android:name="com.android.vending" />) becomes required, or the market://
+         branch silently becomes unreachable. Same failure class as the TTS one above. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />

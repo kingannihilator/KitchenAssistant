@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -99,6 +100,9 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextRange
@@ -255,7 +259,7 @@ fun IngredientScreen(
                         FavoritesShortcutIcon()
                     }
                     IconButton(onClick = onOpenAbout) {
-                        Icon(Icons.Default.Info, contentDescription = "Recipe sources & licenses")
+                        Icon(Icons.Default.Info, contentDescription = "About")
                     }
                 }
             )
@@ -465,6 +469,23 @@ private fun Modifier.minimumTouchTargetSize(minWidth: Dp = 0.dp, minHeight: Dp =
     }
 
 /**
+ * A visible height that survives the system font-size setting.
+ *
+ * A plain `height(dp)` clips its label once the user raises font scale -- the text grows, the
+ * box doesn't. The obvious fix, `heightIn(min = dp)`, does NOT work here: Material3's `Button`
+ * and `DropdownMenuItem` apply their own `defaultMinSize` (40dp / 48dp) *inside* the caller's
+ * modifier, so relaxing the cap just lets those win, making the control ~40dp/48dp tall even at
+ * 1.0x -- silently undoing the compact sizing the call sites deliberately chose (see the
+ * comments on the two unit buttons).
+ *
+ * Scaling the design height by the same [Density.fontScale] the label is measured against keeps
+ * the 1.0x rendering exactly as-is while letting the box grow in step with its text.
+ */
+@Composable
+private fun Modifier.fontScaleAwareHeight(designHeight: Dp): Modifier =
+    height(designHeight * LocalDensity.current.fontScale)
+
+/**
  * A just-deleted ingredient still eligible for undo, tracked by [IngredientScreen] so
  * [restoreIngredient] can put it back at [index] -- the position it was removed from -- if the
  * user taps Undo on [DeleteUndoBar].
@@ -490,6 +511,12 @@ private fun DeleteUndoBar(ingredientName: String, onUndo: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                // This bar appears on its own after a delete, with the row it refers to already
+                // gone. Without a live region it arrives silently and a screen-reader user has no
+                // way to know a removal happened or that an Undo is still available -- they'd have
+                // to re-swipe the whole list to find it. Polite, not Assertive: it's feedback, not
+                // an error, so it shouldn't interrupt whatever is being read.
+                .semantics { liveRegion = LiveRegionMode.Polite }
                 .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -721,7 +748,16 @@ private fun QuickAddThumbnail(item: QuickAddItem, onSelect: (String) -> Unit) {
                 item.name,
                 style = MaterialTheme.typography.labelSmall,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
+                // Two lines, not one: at a raised system font size a longer label like
+                // "Bell Pepper" no longer fits the fixed 64dp column on one line, and truncating
+                // to an ellipsis would leave the user guessing which thumbnail is which. The
+                // column has no fixed height, so the second line just makes the row's thumbnails
+                // taller. 1.0x is unaffected -- no label in QUICK_ADD_ITEMS needs two lines.
+                //
+                // The column's width stays a fixed 64dp on purpose: this row is horizontally
+                // scrollable, so its max width constraint is unbounded, and an intrinsic-width
+                // Text here would lay out on one line at any length instead of wrapping.
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -967,9 +1003,12 @@ private fun AddIngredientCard(
                             // still a real improvement over the original 28dp with much less
                             // height cost; widened well past the "units" label's own width too,
                             // so the tap target isn't just barely wider than the text.
+                            // Applied through fontScaleAwareHeight rather than height() so a
+                            // raised system font size grows the button instead of clipping its
+                            // label -- unchanged at 1.0x.
                             modifier = Modifier
                                 .minimumTouchTargetSize(minWidth = 64.dp, minHeight = 40.dp)
-                                .height(28.dp)
+                                .fontScaleAwareHeight(28.dp)
                         ) {
                             Text(selectedUnit, style = MaterialTheme.typography.labelMedium)
                         }
@@ -983,7 +1022,7 @@ private fun AddIngredientCard(
                                         text = { Text(unit, style = MaterialTheme.typography.bodyMedium) },
                                         onClick = { selectedUnit = unit; unitDropdownExpanded = false },
                                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                        modifier = Modifier.height(40.dp)
+                                        modifier = Modifier.fontScaleAwareHeight(40.dp)
                                     )
                                 }
                             }
@@ -1241,9 +1280,11 @@ private fun IngredientItem(
                         // carries more rows on screen at once than the add-form ever does.
                         // OutlinedButton (not TextButton) so this row's unit control gets the
                         // same visible outline as the add form's, signaling it's tappable/changeable.
+                        // Also via fontScaleAwareHeight, for the same clipping reason as the
+                        // add-form button above.
                         modifier = Modifier
                             .minimumTouchTargetSize(minWidth = 64.dp, minHeight = 36.dp)
-                            .height(20.dp)
+                            .fontScaleAwareHeight(20.dp)
                     ) {
                         Text(
                             text = ingredient.unit,
@@ -1261,7 +1302,7 @@ private fun IngredientItem(
                                     text = { Text(unit, style = MaterialTheme.typography.bodyMedium) },
                                     onClick = { onSetUnit(unit); unitDropdownExpanded = false },
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                    modifier = Modifier.height(40.dp)
+                                    modifier = Modifier.fontScaleAwareHeight(40.dp)
                                 )
                             }
                         }
@@ -1383,7 +1424,7 @@ internal fun CountStepper(
                     color = MaterialTheme.colorScheme.onSurface
                 ),
                 modifier = Modifier
-                    .width(40.dp)
+                    .widthIn(min = 40.dp)
                     .clip(editingShape)
                     .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f), editingShape)
                     .border(2.dp, MaterialTheme.colorScheme.primary, editingShape)

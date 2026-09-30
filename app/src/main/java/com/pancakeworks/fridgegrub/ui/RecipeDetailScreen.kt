@@ -74,6 +74,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pancakeworks.fridgegrub.data.IngredientMatcher
@@ -116,6 +119,10 @@ fun RecipeDetailScreen(
     // scallion actually one of my checked pantry items?") check or edit it without backing all
     // the way out to the fridge screen first -- same motivation as RecipeScreen's own pantry icon.
     onOpenPantry: () -> Unit = {},
+    // Fired when a cook session is deliberately finished (tapping "Done cooking"), which is the
+    // only signal the app has for "the user actually cooked this". Hosted by MainActivity, which
+    // owns the review-trigger decision and the Activity the Play review flow needs.
+    onCookSessionCompleted: () -> Unit = {},
     viewModel: RecipeViewModel = viewModel(),
     ingredientViewModel: IngredientViewModel = viewModel()
 ) {
@@ -415,7 +422,11 @@ fun RecipeDetailScreen(
                 if (ingredients.isNotEmpty()) {
                     item {
                         Spacer(Modifier.height(4.dp))
-                        Text("Ingredients", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Ingredients",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.semantics { heading() }
+                        )
                         HorizontalDivider(modifier = Modifier.padding(top = 4.dp))
                     }
                     itemsIndexed(ingredients) { index, detail ->
@@ -437,6 +448,25 @@ fun RecipeDetailScreen(
                                 .fillMaxWidth()
                                 .background(baseColor, RoundedCornerShape(4.dp))
                                 .padding(4.dp)
+                                .then(
+                                    // The green Check / red Close is the ONLY signal for whether
+                                    // this ingredient is in the fridge, and Text(detail.line)
+                                    // carries nothing about it -- so a screen-reader user hears
+                                    // "2 cups flour" and has no way to tell the two apart. Merging
+                                    // the row into a single node and putting the verdict in
+                                    // stateDescription makes TalkBack say "2 cups flour, Missing
+                                    // from your fridge", and as a bonus the signal no longer
+                                    // depends on colour alone. Deliberately not applied to the
+                                    // canonical == null branch below, which is neither in nor out.
+                                    if (detail.canonical != null) {
+                                        Modifier.semantics(mergeDescendants = true) {
+                                            stateDescription =
+                                                if (inFridge) "In your fridge" else "Missing from your fridge"
+                                        }
+                                    } else {
+                                        Modifier
+                                    }
+                                )
                         ) {
                             if (detail.canonical == null) {
                                 // A section heading or a line the corpus couldn't parse. It can't
@@ -461,14 +491,28 @@ fun RecipeDetailScreen(
                 if (mode == AppMode.QUANTITY) {
                     item {
                         Spacer(Modifier.height(4.dp))
-                        OutlinedButton(onClick = { isCooking = !isCooking }) {
+                        OutlinedButton(
+                            onClick = {
+                                isCooking = !isCooking
+                                // !isCooking is the value just written: cooking just ended, i.e.
+                                // "Done cooking" was the button pressed. Firing only on this
+                                // transition means opening the cook section and swiping away (which
+                                // resets isCooking, since it's remember(recipe.id)) never counts as
+                                // a completed session -- deliberately, that's not a cook.
+                                if (!isCooking) onCookSessionCompleted()
+                            }
+                        ) {
                             Text(if (isCooking) "Done cooking" else "Cook this recipe")
                         }
                     }
                     if (isCooking) {
                         item {
                             Spacer(Modifier.height(4.dp))
-                            Text("Use from fridge", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Use from fridge",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.semantics { heading() }
+                            )
                             HorizontalDivider(modifier = Modifier.padding(top = 4.dp))
                         }
                         if (cookIngredients.isEmpty()) {
@@ -518,7 +562,11 @@ fun RecipeDetailScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Directions", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Directions",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.semantics { heading() }
+                            )
                             if (READ_ALOUD_ENABLED) {
                                 // A labeled button, not a bare icon -- an icon-only control next
                                 // to a text title read as decoration rather than something
