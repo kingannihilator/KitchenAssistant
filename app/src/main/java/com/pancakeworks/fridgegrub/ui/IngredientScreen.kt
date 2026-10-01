@@ -241,7 +241,11 @@ fun IngredientScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Kitchen Assistant") },
+                // "Fridge Grub", not the pre-rebrand "Kitchen Assistant". Keep this in step with
+                // `app_name` (res/values/strings.xml): internal names like KitchenAssistantTheme
+                // were left alone deliberately after the rebrand, but a user-visible title is not
+                // an internal name.
+                title = { Text("Fridge Grub") },
                 actions = {
                     IconButton(onClick = { showModeDialog = true }) {
                         Icon(
