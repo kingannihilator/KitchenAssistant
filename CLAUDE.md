@@ -253,10 +253,11 @@ All dependency versions in `gradle/libs.versions.toml`.
 
 ## Release versioning and changelog routine
 
-`versionCode`/`versionName` (`app/build.gradle.kts`) are currently `3`/`"1.2.0"` — bumped from
-`2`/`"1.1.0"` in commit `2f425a7` ("Bump version to 1.2.0 (versionCode 3) for release") and shipped
-as tag `playstore-v1.2.0-3` (1.1.0 itself was bumped from the original `1`/`"1.0"` in `2fe2d08`
-and shipped as `playstore-v1.1.0-2`). **Do not bump on every commit or every push.** `versionCode`
+`versionCode`/`versionName` (`app/build.gradle.kts`) are currently `4`/`"1.3.0"` — bumped from
+`3`/`"1.2.0"` in commit `55e08b6` ("Bump version to 1.3.0 (versionCode 4) for release") and tagged
+`playstore-v1.3.0-4` (`1.2.0` was bumped in `2f425a7` and shipped as `playstore-v1.2.0-3`; 1.1.0
+itself was bumped from the original `1`/`"1.0"` in `2fe2d08` and shipped as
+`playstore-v1.1.0-2`). **Do not bump on every commit or every push.** `versionCode`
 exists solely to identify distinct artifacts uploaded to Google Play Console (every upload,
 including internal/beta tracks, needs a strictly higher one than the last), so it should only
 change immediately before cutting an actual release build — treat it as the last step of a
@@ -272,16 +273,21 @@ the commit right after "Add landing page for GitHub Pages with a brief app overv
 (`37619f0`) — confirmed by the user as the actual last Play Store upload date before the 1.1.0
 release (2026-08-15); `playstore-v1.1.0-2` marks commit `2fe2d08` (2026-08-31), the version bump
 for the 1.1.0 release; and `playstore-v1.2.0-3` marks commit `2f425a7` (2026-09-20 commit date,
-released 2026-09-21), the version bump for the 1.2.0 release. There was no way to
+released 2026-09-21), the version bump for the 1.2.0 release. `playstore-v1.3.0-4` marks `55e08b6`
+(cut 2026-09-30) — the one case where the tag went on *before* the Play Console upload: the machine
+that cut it has no `app/keystore.properties`, so the release build there is unsigned and the actual
+upload happens elsewhere, deliberately deferred by the user. So for 1.3.0 the tag marks the freeze,
+not the upload. There was no way to
 reconstruct the first two tags' placement retroactively from git alone, so if a `playstore-v*` tag
 is ever missing or looks wrong, ask the user rather than guessing from commit dates.
 
 **To write a changelog since the last release:** `git log <last-playstore-tag>..HEAD --oneline`
 lists every candidate commit. Write the actual changelog as a short, grouped, user-facing summary
 (by feature area, in plain language) — not a copy-paste of raw commit messages — the same way
-Play Console's "What's new" release notes should read. **Two things have landed since
-`playstore-v1.2.0-3`, both release-worthy, so the next release is `1.3.0` (MINOR) when the user
-cuts it:**
+Play Console's "What's new" release notes should read. As of `playstore-v1.3.0-4` there is **nothing
+unreleased**.
+
+`1.3.0` came in two groups:
 
 - **`9ac1d2a` — About menu, first-run walkthrough, in-app review prompt** (the tester-community
   review work; see `HANDOVER.md` for the detail and the two accepted limitations). User-visible
@@ -291,8 +297,8 @@ cuts it:**
   counting matched rows rather than fridge entries. Both are in the "Recipe matching" section above;
   `HANDOVER.md` records the measured before/after.
 
-Before that tag, `ec1649d` (doc-only) moved the 1.2.0 release notes into `PLAY_STORE_WHATS_NEW.md`'s
-History section. That tag's release, `1.2.0`, carried 34 commits and came in four groups:
+Before that, `ec1649d` (doc-only) moved the 1.2.0 release notes into `PLAY_STORE_WHATS_NEW.md`'s
+History section. `1.2.0` carried 34 commits and came in four groups:
 
 - **Recipe matching accuracy** (~13 commits, all in `IngredientMatcher.kt`): diacritic folding
   (`purée`/`jalapeño`), bone-in/boneless/skinless cuts, parenthetical asides, the "for"/"as"

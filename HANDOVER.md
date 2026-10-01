@@ -7,27 +7,27 @@ just append) whenever a work session wraps up a notable chunk of work.
 
 ## Current release state
 
+- **Cut, not yet uploaded: `versionCode 4` / `versionName "1.3.0"`**, tagged `playstore-v1.3.0-4` on
+  commit `55e08b6` (2026-09-30). See the caveat below — this is the first release where the tag
+  precedes the upload.
 - Shipped: `versionCode 3` / `versionName "1.2.0"`, tagged `playstore-v1.2.0-3` (tag on commit
   `2f425a7`, which carries a 2026-09-20 commit date; released 2026-09-21, per the notes move in
   `ec1649d`).
 - Previous releases: `1.1.0`/`versionCode 2` (`playstore-v1.1.0-2`, commit `2fe2d08`, 2026-08-31) and
   `1.0`/`versionCode 1` (`playstore-v1.0-1`, commit `37619f0`, the last upload before 1.1.0 —
   2026-08-15).
-- Unreleased since `1.2.0`: **two things, and together they're release-worthy.** (1) `9ac1d2a`
-  ("Add About menu, first-run walkthrough, and in-app review prompt") — the four-item
-  tester-community review work: a real About screen with a permanent "Rate this app" entry, a
-  first-run walkthrough carousel (reopenable as Help from About), system font-size survival, and a
-  TalkBack pass, plus the Play In-App Review trigger after the 3rd completed cook. (2) The
-  matching/ranking accuracy fix described below (uncommitted at the time this was written; see that
-  section). Because (1) is user-visible features, the next release is **`1.3.0` (MINOR)**, not a
-  PATCH — don't bump `versionCode`/`versionName` or create the `playstore-v*` tag without the user
-  explicitly asking, since tagging happens at the moment of an actual Play Console upload they
-  control. `PLAY_STORE_WHATS_NEW.md` has a draft for it.
+- **The 1.3.0 caveat — read before trusting the tag.** Normally the tag goes on at the moment of the
+  Play Console upload, so `playstore-v*` means "this is what shipped". For 1.3.0 the machine that cut
+  it has no `app/keystore.properties`, so `assembleRelease`/`bundleRelease` produce **unsigned**
+  artifacts (`app-release-unsigned.apk`; `signingConfig` is null, see `app/build.gradle.kts`) and
+  cannot be uploaded. The user elected to tag now and upload later from the machine holding
+  `kitchen-assistant-release.jks`, so the 1.3.0 tag marks the freeze, not the upload. **Nothing
+  release-worthy is left unreleased** — the next release after 1.3.0 starts empty.
 - `PLAY_STORE_WHATS_NEW.md` (repo root) holds the actual Play Console "What's new" text — a
   polished, 500-character-limited public-facing draft for the *next* release, kept in sync with
-  (but written very differently from) CLAUDE.md's internal engineering changelog. The 1.2.0 text is
-  in its History section; the draft for 1.3.0 covers both items above. Add a line to the draft
-  whenever new release-worthy work lands, same trigger as updating this file.
+  (but written very differently from) CLAUDE.md's internal engineering changelog. The draft is back
+  to a stub and 1.3.0's text has moved into History. Add a line to the draft whenever new
+  release-worthy work lands, same trigger as updating this file.
 
 ## What shipped in 1.2.0 (the work behind the current release)
 
@@ -73,7 +73,12 @@ the app can fix, and not worth further code changes. Also added a persisted spee
 **Docs.** `CLAUDE.md`'s "Recipe matching" and "Release versioning" sections were updated to match
 the above; this file was added and has since been brought current for the shipped 1.2.0 release.
 
-## Unreleased work (after `playstore-v1.2.0-3`)
+## What 1.3.0 carried (`playstore-v1.2.0-3`..`playstore-v1.3.0-4`)
+
+Both halves of this are now released — it's history, kept here because it's the most recent
+substantive context for a new session. The whole of it was written *and* cut in two work sessions,
+and the last two commits on the way to the tag were a version bump (`55e08b6`) and the doc
+corrections described at the end of this section.
 
 **The tester-community review items — commit `9ac1d2a`.** The whole plan lives at the user's
 `~/.claude/plans/graceful-soaring-scott.md` (not in this repo) and is implemented: About broadened
@@ -130,7 +135,8 @@ wrongly reject `boneless skinless chicken breasts`.
 
 **Docs updated for this work:** `CLAUDE.md`'s "Query strategy", "Ranking", and "Category taxonomy"
 sections (the ranking key list there had drifted out of date — it now matches `recipeOrder`), plus
-`PLAY_STORE_WHATS_NEW.md`'s 1.3.0 draft and this file.
+`PLAY_STORE_WHATS_NEW.md`'s 1.3.0 text and this file, and the release-state sections of both once
+the version bump landed.
 
 ## Known non-issues (don't re-investigate these)
 
@@ -159,10 +165,12 @@ sections (the ranking key list there had drifted out of date — it now matches 
 - Fridge delete-undo only supports one pending item at a time; user wants multi-undo considered.
 - Obscure/non-food autocomplete entries (e.g. "dexpanthenol") can outrank common food words when
   both have zero recipe-corpus popularity signal — no clean fix identified yet.
-- **Unverified: `assembleRelease` under R8.** `9ac1d2a` added the `com.google.android.play:review`
-  dependency, and `proguard-rules.pro` is still an empty template, so whether Play Core survives
-  minification has never been checked. The plan's own acceptance step for this is a release-build
-  smoke test of the review entry. Not a suspected bug — just never run.
+- **Resolved: `assembleRelease` under R8.** Checked during the 1.3.0 cut — `assembleRelease` and
+  `bundleRelease` both build clean with `com.google.android.play:review` in the graph and
+  `proguard-rules.pro` still the empty template, so Play Core survives minification. The artifacts
+  are unsigned on this machine (no `app/keystore.properties`), which is a signing matter, not an R8
+  one. What has *not* been verified is the review *entry* working in a release build on a device —
+  only that the build produces.
 - **Two UI issues spotted during the accessibility pass, both unfixed and unconfirmed:**
   `ui/IngredientScreen.kt` hard-codes the header string "Kitchen Assistant" while `app_name` is
   "Fridge Grub" (leftover from the rebrand); and the read-aloud control row in
@@ -173,14 +181,15 @@ sections (the ranking key list there had drifted out of date — it now matches 
 
 ## Suggested next steps
 
-- **A release is now due whenever the user wants one**: `9ac1d2a` (About/walkthrough/review, all
-  user-visible) plus the matching/ranking fix above. Next version is `1.3.0` (MINOR, per CLAUDE.md's
-  rule — new features, not fixes only). Follow CLAUDE.md's routine: version bump → Play Console
-  upload → tag → move the "What's new" draft into `PLAY_STORE_WHATS_NEW.md`'s History. **Do not
-  bump or tag until the user says so** — tagging happens at their upload.
-- Before that release, worth doing: the `assembleRelease` R8 smoke test above, and a manual pass on
-  the onboarding/About/rate flows the previous session never got device-verified (`9ac1d2a` was
-  committed with the carousel still gated off for testing).
+- **The 1.3.0 upload still has to happen** — from the machine with the release keystore, since this
+  one has none. After it's up, confirm `PLAY_STORE_WHATS_NEW.md`'s 1.3.0 History text matches what
+  was actually published (the draft was frozen at the tag; Play Console edits, if any, make that
+  entry stale). Nothing else is pending release-wise.
+- **Device passes that were never done**, and should happen before or soon after that upload: the
+  onboarding carousel, About, and the rate entry (`9ac1d2a` was committed with
+  `FORCE_ONBOARDING_FOR_TESTING = false`, so a normal launch goes straight to the fridge), and the
+  review prompt after three completed cooks — note Play enforces its own quota, so the dialog not
+  appearing proves nothing.
 - Spot-check the ingredient-matching fixes' net effect on real recipe results if there's ever
   reason to doubt them — `IngredientMatcherTest.kt` covers each fix in isolation but nothing
   currently asserts on aggregate match-rate movement across the whole corpus.

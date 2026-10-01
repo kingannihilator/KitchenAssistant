@@ -12,7 +12,15 @@ limit; count before publishing if you edit it (`wc -m`, or a quick `len()` in a 
 emoji/accented characters can cost more than one character depending on encoding, so measure the
 actual string, don't just eyeball it).
 
-## Draft for the next release (1.3.0)
+## Draft for the next release (nothing yet)
+
+```
+(nothing release-worthy since 1.3.0 yet)
+```
+
+## History
+
+### 1.3.0 (versionCode 4, playstore-v1.3.0-4, cut 2026-09-30)
 
 ```
 New: a short guided tour on first launch, a proper About menu, and a "Rate this app" link.
@@ -20,7 +28,10 @@ New: a short guided tour on first launch, a proper About menu, and a "Rate this 
 Recipe ranking fixes: a recipe that uses one of your starred ingredients twice no longer outranks a better match, and category matching no longer credits your fridge with things you don't have.
 ```
 
-## History
+The upload followed the tag here: the machine that cut 1.3.0 has no
+`app/keystore.properties`, so its release build is unsigned and the Play Console
+upload happens from wherever the release keystore lives. If the text above gets
+edited before that upload, correct this entry to match what actually shipped.
 
 ### 1.2.0 (versionCode 3, playstore-v1.2.0-3, 2026-09-21)
 
