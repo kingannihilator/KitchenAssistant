@@ -634,6 +634,93 @@ class IngredientMatcherTest {
     }
 
     // -----------------------------------------------------------------------------------------
+    // canSeedCategoryExpansion: which matches may pull in a whole category
+    // -----------------------------------------------------------------------------------------
+
+    private fun assertCanSeed(fridge: String, canonical: String) =
+        assertTrue(
+            "expected fridge \"$fridge\" to be able to seed category expansion from \"$canonical\"",
+            IngredientMatcher.canSeedCategoryExpansion(
+                IngredientMatcher.parseFridge(fridge),
+                IngredientMatcher.parseRecipe(canonical)
+            )
+        )
+
+    private fun assertCannotSeed(fridge: String, canonical: String) =
+        assertFalse(
+            "expected fridge \"$fridge\" NOT to seed category expansion from \"$canonical\"",
+            IngredientMatcher.canSeedCategoryExpansion(
+                IngredientMatcher.parseFridge(fridge),
+                IngredientMatcher.parseRecipe(canonical)
+            )
+        )
+
+    @Test
+    fun `an X or Y row never seeds its category, even when the fridge item names its primary side`() {
+        // The reported bug: with fridge "Chicken Breast", "chicken or beef" (Meat/Beef, 138 rows)
+        // seeded the whole Beef category -- as did "chicken or fish" (55), "chicken or pork"
+        // (65), "chicken or beef broth" (18) and "chicken or vegetable broth" (18). 461 of the
+        // corpus's 8,215 ingredients were credited to one starred fridge item, 330 of them
+        // beef/pork/fish/broth rows the head-matching step had already rejected.
+        assertCannotSeed("chicken breast", "chicken or beef")
+        assertCannotSeed("chicken breast", "chicken or fish")
+        assertCannotSeed("chicken breast", "chicken or pork")
+        assertCannotSeed("chicken breast", "chicken or beef broth")
+        assertCannotSeed("chicken breast", "chicken or vegetable broth")
+        // Ambiguity alone is enough to disqualify it: here the fridge item names the primary side
+        // exactly, and the row is still not evidence about which category the fridge item is in.
+        assertCannotSeed("butter", "butter or margarine")
+        // Every one of them is still a *match* -- this only refuses the category claim.
+        assertMatches("chicken breast", "chicken or beef")
+        assertMatches("butter", "butter or margarine")
+    }
+
+    @Test
+    fun `a row more specific than the fridge item never seeds its category`() {
+        // "sun-dried tomatoes in oil" matches fridge "tomato" (a tomato is a tomato) but is filed
+        // under Oils/Cooking Oil, which is how all 189 Cooking Oil rows -- "palm oil", "bacon
+        // grease" -- were credited to a fridge holding only tomatoes.
+        assertCannotSeed("tomato", "sun-dried tomatoes in oil")
+        assertMatches("tomato", "sun-dried tomatoes in oil")
+        // Same shape without a category misfiling: the row is a narrower thing than the fridge
+        // item, so it says nothing about what that item is. Harmless in practice, since the plain
+        // "beef" row seeds that category anyway. ("ground" is a NEVER_HEAD word, not a stopword, so
+        // it stays in the word set -- this is a genuine same-head, more-specific pair, unlike e.g.
+        // "beef brisket", which the head check already rejects before seeding is ever asked.)
+        assertCannotSeed("beef", "ground beef")
+        assertMatches("beef", "ground beef")
+    }
+
+    @Test
+    fun `the same substance, or a coarser name for it, still seeds`() {
+        // The behavior the expansion pass exists for: "beef" -> ribeye/chuck/sirloin, none of
+        // which share a word with it.
+        assertCanSeed("beef", "beef")
+        assertCanSeed("onion", "onion")
+        // A coarser row for the same substance, which is how fridge "chicken breast" still reaches
+        // the Meat/Chicken category.
+        assertCanSeed("chicken breast", "chicken")
+        assertCanSeed("cherry tomato", "tomato")
+        // Not "more specific" in any sense the rule can see: "boneless"/"skinless" are STOPWORDS, so
+        // this parses to exactly the fridge item's own words and is the same substance at the same
+        // granularity. Asserting the opposite is what this test caught on its first run.
+        assertCanSeed("chicken breast", "boneless skinless chicken breasts")
+    }
+
+    @Test
+    fun `a name whose modifiers all parse away seeds as if it were the plain ingredient`() {
+        // Pinning a known, accepted residual rather than leaving it untested: STOPWORDS drops
+        // preparation/quality words, so a row like "canned diced tomatoes in juice" parses down to
+        // exactly the fridge item's word set and *does* vouch for its category. That row is filed
+        // under one of the corpus's catch-all "Other" categories, which is how ~26 juice/nectar
+        // rows still attach to a fridge tomato (down from 217 before this rule). Closing it would
+        // mean comparing raw names instead of parsed terms -- a bigger change than the residue it
+        // would remove, so it stays, documented, here.
+        assertCanSeed("tomato", "canned diced tomatoes in juice")
+        assertCanSeed("tomato", "canned tomatoes")
+    }
+
+    // -----------------------------------------------------------------------------------------
     // Diacritics
     // -----------------------------------------------------------------------------------------
 

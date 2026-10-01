@@ -3,9 +3,11 @@ package com.pancakeworks.fridgegrub
 import com.pancakeworks.fridgegrub.model.Recipe
 import com.pancakeworks.fridgegrub.viewmodel.RecipeMatch
 import com.pancakeworks.fridgegrub.viewmodel.chunkIntLiterals
+import com.pancakeworks.fridgegrub.viewmodel.distinctOriginCount
 import com.pancakeworks.fridgegrub.viewmodel.isEffectivelyFullMatch
 import com.pancakeworks.fridgegrub.viewmodel.matchOrder
 import com.pancakeworks.fridgegrub.viewmodel.matchTier
+import com.pancakeworks.fridgegrub.viewmodel.prioritizedOriginCount
 import com.pancakeworks.fridgegrub.viewmodel.ratioScore
 import com.pancakeworks.fridgegrub.viewmodel.recipeOrder
 import com.pancakeworks.fridgegrub.viewmodel.recipeOrderMostComplete
@@ -124,6 +126,98 @@ class RecipeRankingTest {
         assertEquals(emptyList<List<Int>>(), chunkIntLiterals(emptyList()))
     }
 
+    // --- distinctOriginCount / prioritizedOriginCount ---
+
+    /** The `originKeyOf` a real search passes in: an id -> fridge-entry key lookup that returns
+     * `null` for an id the caller doesn't know. */
+    private fun origins(vararg pairs: Pair<Int, String>): (Int) -> String? {
+        val byId = pairs.toMap()
+        return { byId[it] }
+    }
+
+    @Test
+    fun `distinctOriginCount collapses several ingredient names onto one fridge entry`() {
+        // One generic fridge "cheese" satisfying both "cheddar cheese" and "mozzarella cheese" is
+        // one credit, not two -- the same collapse NewIngredientIndex.matchOrigins does for the
+        // main ratio.
+        assertEquals(1, distinctOriginCount(setOf(10, 11), origins(10 to "cheese", 11 to "cheese")))
+    }
+
+    @Test
+    fun `distinctOriginCount counts genuinely different fridge entries separately`() {
+        assertEquals(2, distinctOriginCount(setOf(10, 11), origins(10 to "cheese", 11 to "milk")))
+    }
+
+    @Test
+    fun `distinctOriginCount treats an id with no known origin as its own entry`() {
+        // A real search can't produce this (every id counted came out of the origin map), but if it
+        // ever did, two unknowns must still count as two rather than collapsing into one.
+        assertEquals(2, distinctOriginCount(setOf(10, 99), origins(10 to "cheese")))
+    }
+
+    @Test
+    fun `distinctOriginCount is zero for no matches`() {
+        assertEquals(0, distinctOriginCount(emptySet(), origins()))
+    }
+
+    @Test
+    fun `prioritizedOriginCount scores one starred entry once, however many rows name it`() {
+        // The corpus case behind this key being origin-deduped: a starred chicken breast, and a
+        // recipe listing both "chicken or beef" and "chicken or beef broth" -- two rows, one fridge
+        // entry, one thing the user actually has. Counting rows scored it 2.
+        assertEquals(
+            1,
+            prioritizedOriginCount(
+                setOf(10, 11), setOf(10, 11),
+                origins(10 to "breast chicken", 11 to "breast chicken")
+            )
+        )
+    }
+
+    @Test
+    fun `prioritizedOriginCount counts a second starred entry separately`() {
+        assertEquals(
+            2,
+            prioritizedOriginCount(
+                setOf(10, 20), setOf(10, 20),
+                origins(10 to "breast chicken", 20 to "onion")
+            )
+        )
+    }
+
+    @Test
+    fun `prioritizedOriginCount ignores matched ids that aren't starred`() {
+        assertEquals(
+            1,
+            prioritizedOriginCount(
+                setOf(10, 20), setOf(10),
+                origins(10 to "breast chicken", 20 to "onion")
+            )
+        )
+    }
+
+    @Test
+    fun `prioritizedOriginCount ignores a starred id the recipe doesn't use`() {
+        assertEquals(
+            1,
+            prioritizedOriginCount(
+                setOf(10), setOf(10, 20),
+                origins(10 to "breast chicken", 20 to "onion")
+            )
+        )
+    }
+
+    @Test
+    fun `prioritizedOriginCount is zero when nothing starred is matched`() {
+        assertEquals(
+            0,
+            prioritizedOriginCount(
+                setOf(20), setOf(10),
+                origins(10 to "breast chicken", 20 to "onion")
+            )
+        )
+    }
+
     // --- matchOrder / recipeOrder ---
 
     @Test
@@ -132,6 +226,18 @@ class RecipeRankingTest {
         val prioritized = RecipeMatch(id = 2, matched = 2, total = 4, prioritized = 1)
         val ranked = listOf(plain, prioritized).sortedWith(matchOrder)
         assertEquals(listOf(prioritized, plain), ranked)
+    }
+
+    @Test
+    fun `a recipe naming one starred entry twice no longer outranks a full match`() {
+        // What a row-counted `prioritized` bought, on the real numbers it was caught with: a 7/15
+        // (tier 0) ranked above a genuine 5/5 (tier 2) purely on prioritized = 2 vs 1. Deduped,
+        // both score 1 and the match tier decides -- this is why prioritizedOriginCount counts
+        // origins rather than rows.
+        val doubleNamed = RecipeMatch(id = 1, matched = 7, total = 15, prioritized = 1)
+        val fullMatch = RecipeMatch(id = 2, matched = 5, total = 5, prioritized = 1)
+        val ranked = listOf(doubleNamed, fullMatch).sortedWith(matchOrder)
+        assertEquals(fullMatch, ranked.first())
     }
 
     @Test
