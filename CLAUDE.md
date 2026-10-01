@@ -110,11 +110,15 @@ Matching is **word-level and head-anchored**, not substring. A name reduces to a
 
 The word lists (`PART_WORDS`, `NEVER_HEAD`, `STOPWORDS`, `RECIPE_ONLY_STOPWORDS`, `RECIPE_CUT`, `FRIDGE_CUT`, `BLOCK_MODIFIERS`, `TOKEN_ALIASES`) are tuned against the real corpus and guarded by `app/src/test/java/.../IngredientMatcherTest.kt`. **Change a list only alongside that test** — `IngredientMatcher` has no Android imports specifically so it runs under plain JUnit. `TOKEN_ALIASES` is deliberately narrow (single-word spelling/regional-name variants like `chile`/`chilli` → `chili`, `aubergine` → `eggplant`); it skips ambiguous pairs (`cilantro`/`coriander`, since this corpus uses them to distinguish leaf from seed) and every multi-word phrase (`spring onion` → `scallion`), which would need whole-name matching before tokenizing rather than a per-token map — see the map's doc for the full list of what's deliberately excluded and why.
 
-**Query strategy:** `NewIngredientIndex` resolves the fridge+pantry to the set of `ingredient_id`s they can supply (head-word matching plus category-taxonomy expansion — see "Category taxonomy" below), and `searchRecipes` scores every recipe in one `GROUP BY recipe_id` pass over `recipe_ingredients` using inline SQL literals — bound parameters can't be used, the matched set can be far past SQLite's 999-parameter limit (`RecipeViewModel.chunkIntLiterals` splits it into multiple queries if needed). `COUNT(DISTINCT ingredient_id)` is used for both numerator and denominator across every tier including `SEASONING` (see "Schema differences that matter" below for why that changed) — a recipe whose only gap is an unmatched `SEASONING`-tier ingredient still scores below 100% and shows a small "missing N seasonings" indicator on its card (`Recipe.unmatchedSeasoningCount`) rather than being silently treated as a full match.
+**Query strategy:** `NewIngredientIndex` resolves the fridge+pantry to the set of `ingredient_id`s they can supply (head-word matching plus category-taxonomy expansion — see "Category taxonomy" below), and `searchRecipes` scores every recipe in one `GROUP BY recipe_id` pass over `recipe_ingredients` using inline SQL literals — bound parameters can't be used, the matched set can be far past SQLite's 999-parameter limit (`RecipeViewModel.chunkIntLiterals` splits it into multiple queries if needed). Every tier counts toward both sides of the ratio including `SEASONING` (see "Schema differences that matter" below for why that changed) — a recipe whose only gap is an unmatched `SEASONING`-tier ingredient still scores below 100% and shows a small "missing N seasonings" indicator on its card (`Recipe.unmatchedSeasoningCount`) rather than being silently treated as a full match.
+
+The two sides of the ratio are counted differently on purpose, and the distinction matters whenever a count is read: the denominator (`total`) is per-*row* — `COUNT(DISTINCT ingredient_id)` over the recipe's own ingredients — while the matched side comes back from SQL as the matched **ids** (not an aggregate) and is collapsed app-side to distinct *fridge origins* (`RecipeRanking.distinctOriginCount`, keyed off `NewIngredientIndex.matchOrigins`). One fridge `cheese` satisfying a recipe's cheddar, parmesan and mozzarella rows is one credit toward `matched`, not three, so a 3-row cheese board can't out-score having three genuinely different things. `matched`, `defining`, `prioritized` and `unmatchedSeasoningCount` all go through that same collapse; nothing that counts matched ingredients should be computed in SQL as `COUNT(DISTINCT ingredient_id)`, because SQL only sees rows and can't know two rows came from one fridge entry.
 
 **Pantry items and search-result relevance:** pantry-checked items (`data/PantryRepository.kt`) are merged into the same matched-ingredient set as real fridge items for scoring — but a recipe only appears in results at all if at least one matched ingredient traces back to a *real* fridge item (`RecipeMatch`/`Recipe.usesRealFridgeItem`, computed via `IngredientMatcher.parseFridge` origin-key membership). Without this gate, a handful of common pantry staples (garlic, onion, butter, olive oil) are common enough as `Supportive`/`Defining` ingredients that pantry alone qualified ~80% of the whole corpus for inclusion, regardless of what was actually in the fridge (measured directly against the corpus during this feature's development, not estimated) — so the gate applies to inclusion in `RecipeViewModel.searchRecipesNew`, not just ranking. Favorited recipes are exempt from the gate, same as the `MAX_RESULTS` cut. `usesRealFridgeItem` is also ranked above every other key in `recipeOrder`/`matchOrder` (but below favorites), so even an exempted favorite that's pantry-only sinks below any real-fridge match.
 
-**Ranking** (`recipeOrder`/`matchOrder`, which must stay in sync — the cut to `MAX_RESULTS` happens before favorites are known): favorites, then `prioritizedCount`, then a *smoothed* ratio `matched / (total + 2)`, then `matchedCount`, then title. The smoothing is what stops trivial one-ingredient recipes from monopolizing the first page at a perfect 1.0. Card tier colors deliberately use the **unsmoothed** ratio so a real 3/3 still shows green.
+**Ranking** (`recipeOrder`/`matchOrder`, which must stay in sync — the cut to `MAX_RESULTS` happens before favorites are known, which is why `matchOrder` has no favorites key): `usesRealFridgeItem`, then favorites, then `usesDirectMatch`, then `prioritizedCount`, then the match tier (`RecipeRanking.matchTier`: 2 for a full match, 1 at ≥75%, else 0 — with a promotion to 2 for a recipe that is merely *effectively* full, per `isEffectivelyFullMatch`: ≥75% with exactly 1–2 missing, complete on every DEFINING ingredient, and using at least two real fridge items covering half the fridge), then four ratio tiebreaks in order — real-fridge utilization, the *smoothed* `matched / (total + 2)`, defining coverage, and raw `matchedCount` — then title. The smoothing is what stops trivial one-ingredient recipes from monopolizing the first page at a perfect 1.0. Card tier colors deliberately use the **unsmoothed** ratio so a real 3/3 still shows green.
+
+`prioritizedCount` (the "starred ingredients" boost) counts distinct *starred fridge entries* a recipe uses, not matched rows — same origin collapse as `matched`, computed app-side by `RecipeRanking.prioritizedOriginCount` rather than as a SQL aggregate. It has to be: a starred chicken breast used to score 2 against a recipe listing both `chicken or beef` and `chicken or beef broth` (two rows, one fridge entry, the same "I have chicken" fact), which was enough to lift that 7/15 above a genuine 5/5 full match. The rule the key exists to express is "how many of the things you starred does this recipe actually use", and one thing used twice is still one thing.
 
 **Recipe match-tier coloring** (`RecipeScreen.kt`, `RecipeCard`): `matchRatio = matchedCount / totalCount` (unsmoothed, unlike the ranking) → 100% uses `FullMatchContainer*`, ≥75% uses `PartialMatchContainer*`, below 75% falls back to the default `surfaceVariant` theme color. Both card background and ingredient-count text switch per tier, with separate light/dark values from `ui/theme/Color.kt`.
 
@@ -193,6 +197,35 @@ is added too. An ingredient with `category_id = NULL` (blob name, or a head not 
 taxonomy — see `NEW_CORPUS_DATA_QUALITY.md` for the coverage numbers) just falls back to plain
 string matching; nothing is ever removed by having no category, only possibly not boosted.
 
+**Which matches may seed that expansion is narrower than which ones count as matches**
+(`IngredientMatcher.canSeedCategoryExpansion`, checked in `NewIngredientIndex`'s pass 1). Matching
+asks "would this fridge item do for this recipe row" and is deliberately generous; seeding asks
+"does this row tell us what the fridge item *is*", because a category describes a substance —
+that's the whole premise of the pass. So a row only vouches for its category when it names the same
+substance as the fridge item at the same or a coarser granularity: fridge `chicken breast` still
+seeds the plain `chicken` row and with it `Meat/Chicken` (the intended cross-head behavior, and
+what reaches `chicken thighs`), fridge `beef` still seeds `beef` and with it `ribeye`. Two shapes
+that used to seed and no longer do, both measured against the bundled corpus:
+
+- **Any "X or Y" row** — its `Term.alternatives` mean the taxonomy filed it under one reading of an
+  ambiguous name, which is not evidence about the fridge item. `chicken or beef` is filed under
+  `Meat/Beef` and matches fridge `chicken breast` through its `chicken` side; seeding it credited
+  all 138 `Meat/Beef` rows (`beef`, `chuck`, `ribeye`, `lean ground beef` …) to a fridge holding no
+  beef. Same shape cost `chicken or fish`/`chicken or pork`/`chicken or beef broth` their Fish, Pork
+  and Broth categories.
+- **A row more specific than the fridge item** — `sun-dried tomatoes in oil` matches fridge
+  `tomato`, but it is filed under `Oils/Cooking Oil`, so seeding credited all 189 Cooking Oil rows,
+  `palm oil` and `bacon grease` among them, to a fridge holding only tomatoes.
+
+One residual is accepted rather than closed: the test is on *parsed* words, and parsing drops the
+`STOPWORDS` (`canned`, `diced`, `fresh`, `dried`, `boneless`, `skinless` …), so a row whose every
+extra word is one of those parses down to exactly the fridge item's words and does seed.
+`canned diced tomatoes in juice` sits in one of the corpus's catch-all `Other` categories and still
+vouches for it (~26 juice/nectar rows from a fridge `tomato`, down from 217). Blocking that would
+mean comparing raw names, which would also reject `boneless skinless chicken breasts` — the same
+substance as fridge `chicken breast`, and a row that *should* seed. The residue is the cheaper
+error; it is pinned in `IngredientMatcherTest` rather than left untested.
+
 **Data-quality mitigation:** `SUPPRESS_BLOB_RECIPES_NEW` (~0.64% of `recipe_ingredients` rows in
 the current corpus are un-stripped raw text — the pattern itself, and the older corpus's much
 higher ~2.7% rate, are described in `NEW_CORPUS_DATA_QUALITY.md`) suppresses affected *recipes*
@@ -246,10 +279,20 @@ is ever missing or looks wrong, ask the user rather than guessing from commit da
 **To write a changelog since the last release:** `git log <last-playstore-tag>..HEAD --oneline`
 lists every candidate commit. Write the actual changelog as a short, grouped, user-facing summary
 (by feature area, in plain language) — not a copy-paste of raw commit messages — the same way
-Play Console's "What's new" release notes should read. As of this writing, **nothing release-worthy
-has landed since `playstore-v1.2.0-3`** — the only commit after it is `ec1649d`, which moved the
-1.2.0 release notes into `PLAY_STORE_WHATS_NEW.md`'s History section (doc-only). That tag's release,
-`1.2.0`, carried 34 commits and came in four groups:
+Play Console's "What's new" release notes should read. **Two things have landed since
+`playstore-v1.2.0-3`, both release-worthy, so the next release is `1.3.0` (MINOR) when the user
+cuts it:**
+
+- **`9ac1d2a` — About menu, first-run walkthrough, in-app review prompt** (the tester-community
+  review work; see `HANDOVER.md` for the detail and the two accepted limitations). User-visible
+  features, which is what makes the bump MINOR rather than PATCH.
+- **The matching/ranking accuracy fix** — two search-correctness bugs: category expansion seeded by
+  every matched row (one fridge chicken credited all 138 `Meat/Beef` rows), and `prioritizedCount`
+  counting matched rows rather than fridge entries. Both are in the "Recipe matching" section above;
+  `HANDOVER.md` records the measured before/after.
+
+Before that tag, `ec1649d` (doc-only) moved the 1.2.0 release notes into `PLAY_STORE_WHATS_NEW.md`'s
+History section. That tag's release, `1.2.0`, carried 34 commits and came in four groups:
 
 - **Recipe matching accuracy** (~13 commits, all in `IngredientMatcher.kt`): diacritic folding
   (`purée`/`jalapeño`), bone-in/boneless/skinless cuts, parenthetical asides, the "for"/"as"

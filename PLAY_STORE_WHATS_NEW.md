@@ -12,10 +12,12 @@ limit; count before publishing if you edit it (`wc -m`, or a quick `len()` in a 
 emoji/accented characters can cost more than one character depending on encoding, so measure the
 actual string, don't just eyeball it).
 
-## Draft for the next release (1.3.0 or 1.2.1, nothing yet)
+## Draft for the next release (1.3.0)
 
 ```
-(nothing release-worthy since 1.2.0 yet)
+New: a short guided tour on first launch, a proper About menu, and a "Rate this app" link.
+
+Recipe ranking fixes: a recipe that uses one of your starred ingredients twice no longer outranks a better match, and category matching no longer credits your fridge with things you don't have.
 ```
 
 ## History
