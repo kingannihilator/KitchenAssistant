@@ -159,6 +159,56 @@ object IngredientMatcher {
     }
 
     /**
+     * True when a confirmed [matches] result may seed [NewIngredientIndex]'s category expansion —
+     * i.e. when [recipe] is *the same substance as* [fridge] at the same or a coarser granularity,
+     * rather than merely a row that the fridge item happens to satisfy.
+     *
+     * Call only alongside a true [matches]: on its own this says nothing about whether the two
+     * match at all. The split exists because matching and seeding want different questions
+     * answered. Matching asks "would this fridge item do for this recipe row" and is deliberately
+     * generous. Seeding asks "does this row tell us what the fridge item *is*" — and the whole
+     * point of the category pass is that a category describes a substance (`Meat/Beef` is what
+     * `beef` is, which is how `ribeye` gets reached despite sharing no word with it). A row that
+     * only *contains* the fridge word, or that accepts it as one of several alternatives, has not
+     * established that the fridge item belongs to the row's category, and letting it say so
+     * credits the fridge item with an entire unrelated category.
+     *
+     * Two real corpus cases, both measured against the bundled database:
+     * - `chicken or beef` is filed under `Meat/Beef` (the taxonomy went by the phrase, and the row
+     *   accepts either meat). Its primary side is plain `chicken`, so fridge `chicken breast`
+     *   matches it — and seeding would then credit the whole `Meat/Beef` category (138 rows:
+     *   `beef`, `chuck`, `ribeye`, `lean ground beef` …) to a fridge holding no beef at all. The
+     *   same shape costs `chicken or fish`/`chicken or pork`/`chicken or beef broth` their Fish,
+     *   Pork and Broth categories. Any "X or Y" row is excluded here for exactly this reason: its
+     *   [Term.alternatives] mean the taxonomy filed it under one reading of an ambiguous name,
+     *   which is not evidence about what the fridge item is.
+     * - `sun-dried tomatoes in oil` matches fridge `tomato` (a tomato is a tomato, and the extra
+     *   words are descriptive rather than a [BLOCK_MODIFIERS] rejection), but it is filed under
+     *   `Oils/Cooking Oil` — so seeding it credited all 189 Cooking Oil rows, `palm oil` and
+     *   `bacon grease` among them, to a fridge holding only tomatoes.
+     *
+     * The surviving requirement is the word-subset test: [fridge]'s words contain all of [recipe]'s.
+     * Fridge `chicken breast` still seeds `chicken` (a coarser name for the same thing, filed under
+     * `Meat/Chicken`, which is what reaches `chicken thighs` — the intended cross-head behavior),
+     * and fridge `beef` still seeds plain `beef` and with it `ribeye`. What it no longer does is
+     * seed from a row that is a *more specific* thing than the fridge item, which is the direction
+     * the corpus mis-files most (any `something in oil`, any `canned`/`condensed`/`salted` variant
+     * whose category was assigned to the preserving medium or the finished product).
+     *
+     * Known residual: the test is on *parsed* words, and parsing drops [STOPWORDS] — `canned`,
+     * `diced`, `fresh`, `dried`, `boneless`, `skinless` among them. A row whose every extra word is
+     * a stopword therefore parses down to exactly [fridge]'s own word set and does seed: `canned
+     * diced tomatoes in juice` is filed under one of the corpus's catch-all `Other` categories, and
+     * it still vouches for it (~26 juice/nectar rows reach a fridge `tomato`, down from 217 before
+     * this rule). Closing that would mean comparing raw names instead of parsed terms, and a
+     * name-level check would reject `boneless skinless chicken breasts` — a row that names the very
+     * same substance as fridge `chicken breast` and *should* seed `Meat/Chicken`. The residue is
+     * the cheaper error on both sides; it is pinned in `IngredientMatcherTest`.
+     */
+    fun canSeedCategoryExpansion(fridge: Term, recipe: Term): Boolean =
+        recipe.alternatives.isEmpty() && fridge.words.containsAll(recipe.words)
+
+    /**
      * True when [more] (or any of its [Term.alternatives]) names the same thing as [less] or a
      * more specific variant of it — same head, superset words, nothing extra a [BLOCK_MODIFIERS]
      * word. Unlike [matches], only this one direction counts; [less] being the more specific side

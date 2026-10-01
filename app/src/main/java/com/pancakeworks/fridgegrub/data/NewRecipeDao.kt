@@ -44,7 +44,6 @@ data class NewRecipeMatchRow(
     @ColumnInfo(name = "recipe_id") val recipeId: Int,
     val total: Int,
     @ColumnInfo(name = "matched_ids") val matchedIds: String?,
-    val prioritized: Int,
     @ColumnInfo(name = "defining_ids") val definingIds: String?,
     /** How many DEFINING-tier ingredients this recipe calls for in total -- not chunk-dependent,
      * same rationale as [total]. Feeds [com.pancakeworks.fridgegrub.model.Recipe.definingTotalCount],
@@ -167,12 +166,14 @@ interface NewRecipeDao {
 
     /**
      * Tier-aware scoring aggregate for one chunk of matched ingredient ids -- mirrors
-     * `RecipeViewModel.queryChunk`'s role for the old corpus. `SEASONING` tier rows are excluded
-     * from both numerator and denominator, per the tier-folding design (see
-     * `porting-reference/INGREDIENT_MATCHING_CONCEPTS.md`). [query] must be built with inline
-     * integer literals for the matched/prioritized `IN` lists, not bound params -- the ids are
-     * trusted (sourced from our own index, never user text), and a well-stocked fridge can exceed
-     * SQLite's 999 bound-parameter limit.
+     * `RecipeViewModel.queryChunk`'s role for the old corpus. Every tier counts toward both
+     * numerator and denominator, `SEASONING` included -- it is only *also* tracked separately
+     * (`seasoning_total`/`seasoning_matched_ids`) to power `Recipe.unmatchedSeasoningCount`'s
+     * card indicator. Prioritized matches are deliberately **not** an aggregate here: the ranking
+     * key counts distinct fridge entries, which needs the matched ids and the origin map, so
+     * `scoreRecipesNew` derives it. [query] must be built with inline integer literals for the
+     * matched `IN` lists, not bound params -- the ids are trusted (sourced from our own index,
+     * never user text), and a well-stocked fridge can exceed SQLite's 999 bound-parameter limit.
      */
     @RawQuery
     suspend fun scoreChunk(query: SupportSQLiteQuery): List<NewRecipeMatchRow>

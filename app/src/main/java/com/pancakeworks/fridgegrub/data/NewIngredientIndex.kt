@@ -28,6 +28,12 @@ package com.pancakeworks.fridgegrub.data
  * whose head no fridge item shares (the actual "ribeye is beef" case) is untouched by this check
  * and expands exactly as before.
  *
+ * Which matches are allowed to *seed* the expansion at all is narrower than which ones count as
+ * matches: see [IngredientMatcher.canSeedCategoryExpansion]. A row the fridge item merely happens
+ * to satisfy -- `chicken or beef` (filed under `Meat/Beef`, matched through its `chicken` side),
+ * `sun-dried tomatoes in oil` (filed under `Oils/Cooking Oil`) -- no longer drags its whole
+ * category in behind it.
+ *
  * Pantry entries ([matching]/[matchOrigins]'s `pantryNames` parameter) participate in direct
  * string-matching exactly like fridge entries, but never *seed* category expansion -- user-
  * confirmed: the pantry checklist (`data/PantryRepository.kt`) is a coarse, literal "do you
@@ -123,8 +129,9 @@ class NewIngredientIndex private constructor(
         // Indices into the parallel arrays, not ingredient_ids yet -- resolved at the end.
         val matchedIndices = LinkedHashSet<Int>()
         val origin = HashMap<Int, String>()
-        // Indices whose match is allowed to seed category expansion -- i.e. traces to a fridge
-        // term, not a pantry-only one.
+        // Indices whose match is allowed to seed category expansion -- traces to a fridge term (not
+        // a pantry-only one) *and* names the same substance as that term, per
+        // [IngredientMatcher.canSeedCategoryExpansion].
         val expandableIndices = HashSet<Int>()
         // Pass-1 matches where the recipe ingredient is the same thing or more specific than the
         // fridge item -- see MatchOrigin.direct's doc for why this is narrower than "matched in
@@ -143,7 +150,15 @@ class NewIngredientIndex private constructor(
                 if (IngredientMatcher.matches(fridgeTerm, candidateTerm)) {
                     matchedIndices.add(i)
                     origin[i] = key
-                    if (tagged.expandable) expandableIndices.add(i)
+                    // Seeding is deliberately narrower than matching: a row only vouches for its
+                    // category when it names the same substance as the fridge item -- see
+                    // canSeedCategoryExpansion's doc for the two corpus cases that made the
+                    // difference matter.
+                    if (tagged.expandable &&
+                        IngredientMatcher.canSeedCategoryExpansion(fridgeTerm, candidateTerm)
+                    ) {
+                        expandableIndices.add(i)
+                    }
                     if (IngredientMatcher.isSpecificVariantOf(fridgeTerm, candidateTerm)) {
                         exactIndices.add(i)
                     }

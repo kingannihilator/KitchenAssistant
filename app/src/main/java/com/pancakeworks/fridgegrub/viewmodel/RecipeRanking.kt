@@ -12,9 +12,9 @@ import com.pancakeworks.fridgegrub.model.Recipe
 
 // Matched ingredient ids go into the scoring query as inline literals rather than bound
 // parameters — SQLite's host-parameter limit is 999 and a full fridge can match thousands of
-// them. SQLITE_MAX_SQL_LENGTH is 1,000,000 on Android; the prioritized list is a subset of the
-// matched one, so budgeting the matched literal at 350k keeps the whole statement comfortably
-// under half the limit. Fridges large enough to exceed it fall back to scoring in chunks (see
+// them. SQLITE_MAX_SQL_LENGTH is 1,000,000 on Android; the matched set is the only literal list
+// that grows with the fridge, so budgeting it at 350k keeps the whole statement comfortably under
+// half the limit. Fridges large enough to exceed it fall back to scoring in chunks (see
 // chunkIntLiterals).
 internal const val MAX_LITERAL_CHARS = 350_000
 
@@ -89,6 +89,44 @@ private const val RATIO_PRIOR = 2
  */
 internal fun ratioScore(matched: Int, total: Int): Float =
     if (total <= 0) 0f else matched.toFloat() / (total + RATIO_PRIOR)
+
+/**
+ * How many distinct fridge entries a set of matched ingredient_ids traces back to.
+ *
+ * [originKeyOf] is the `NewIngredientIndex.matchOrigins` key for an id -- which fridge/pantry entry
+ * satisfied it -- or `null` for an id that map doesn't know, which a real search can't produce
+ * (every id counted here came out of that same map). The `?: id.toString()` fallback is there so an
+ * unknown id degrades to counting as its own origin rather than collapsing several unknowns into
+ * one bucket or throwing the count away.
+ *
+ * This collapse is what keeps a recipe calling for several kinds of cheese from being credited once
+ * per *name* when the fridge holds one generic "cheese" -- see `NewIngredientIndex.matchOrigins`'s
+ * doc. It takes a lookup function rather than the map itself so this file stays free of the `data`
+ * package: this is the pure math, the caller owns the index.
+ */
+internal fun distinctOriginCount(ids: Set<Int>, originKeyOf: (Int) -> String?): Int =
+    ids.mapTo(HashSet()) { originKeyOf(it) ?: it.toString() }.size
+
+/**
+ * The `prioritized` ranking key: how many distinct *starred* fridge entries a recipe uses.
+ *
+ * Deliberately a count of origins, not of matched rows. Counting rows let one starred item earn a
+ * double credit from a recipe that names it twice under different surnames -- a real case from the
+ * bundled corpus: a starred "chicken breast" scored 2 against a recipe listing both `chicken or
+ * beef` and `chicken or beef broth` (two rows, one fridge entry, the same "I have chicken" fact),
+ * which was enough to lift that 7/15 above a genuine 5/5 full match. Deduped, both rows score 1 and
+ * the key reads what it was always meant to: how many of the things you starred this recipe
+ * actually uses.
+ *
+ * [prioritizedIds] is the id set the starred ingredients resolve to (see
+ * `RecipeViewModel.searchRecipesNew`), so intersecting with [matchedIds] is also what keeps an id
+ * the recipe doesn't use from contributing anything.
+ */
+internal fun prioritizedOriginCount(
+    matchedIds: Set<Int>,
+    prioritizedIds: Set<Int>,
+    originKeyOf: (Int) -> String?
+): Int = distinctOriginCount(matchedIds.filterTo(HashSet()) { it in prioritizedIds }, originKeyOf)
 
 /**
  * The match-tier bucket a recipe falls into, on the same *unsmoothed* ratio the recipe card uses
