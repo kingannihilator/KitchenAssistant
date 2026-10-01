@@ -26,12 +26,17 @@ actual string, don't just eyeball it).
 New: a short guided tour on first launch, a proper About menu, and a "Rate this app" link.
 
 Recipe ranking fixes: a recipe that uses one of your starred ingredients twice no longer outranks a better match, and category matching no longer credits your fridge with things you don't have.
+
+Fixed: the app's name now appears correctly in the title bar.
 ```
 
-The upload followed the tag here: the machine that cut 1.3.0 has no
-`app/keystore.properties`, so its release build is unsigned and the Play Console
-upload happens from wherever the release keystore lives. If the text above gets
-edited before that upload, correct this entry to match what actually shipped.
+Two notes on this entry. The upload followed the tag: the machine that cut
+1.3.0 has no `app/keystore.properties`, so its release build is unsigned and the
+Play Console upload happens from wherever the release keystore lives. And the
+tag was **moved** from the version-bump commit to `bf745b7` after the title-bar
+fix landed, before anything was uploaded — which is why the fix is in this text
+at all. If the text gets edited again before that upload, correct this entry to
+match what actually shipped.
 
 ### 1.2.0 (versionCode 3, playstore-v1.2.0-3, 2026-09-21)
 

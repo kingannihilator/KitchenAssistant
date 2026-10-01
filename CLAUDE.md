@@ -273,13 +273,15 @@ the commit right after "Add landing page for GitHub Pages with a brief app overv
 (`37619f0`) — confirmed by the user as the actual last Play Store upload date before the 1.1.0
 release (2026-08-15); `playstore-v1.1.0-2` marks commit `2fe2d08` (2026-08-31), the version bump
 for the 1.1.0 release; and `playstore-v1.2.0-3` marks commit `2f425a7` (2026-09-20 commit date,
-released 2026-09-21), the version bump for the 1.2.0 release. `playstore-v1.3.0-4` marks `55e08b6`
+released 2026-09-21), the version bump for the 1.2.0 release. `playstore-v1.3.0-4` marks `bf745b7`
 (cut 2026-09-30) — the one case where the tag went on *before* the Play Console upload: the machine
 that cut it has no `app/keystore.properties`, so the release build there is unsigned and the actual
 upload happens elsewhere, deliberately deferred by the user. So for 1.3.0 the tag marks the freeze,
-not the upload. There was no way to
-reconstruct the first two tags' placement retroactively from git alone, so if a `playstore-v*` tag
-is ever missing or looks wrong, ask the user rather than guessing from commit dates.
+not the upload. That tag was also **moved** after it was first pushed (from the version-bump commit
+`55e08b6` to `bf745b7`), because a user-visible fix landed between cutting and uploading and
+nothing had been uploaded yet, so re-pointing it kept "the tag is what shipped" true rather than
+leaving a stale title in the tagged build. Both are unusual — if a `playstore-v*` tag is ever
+missing or looks wrong, ask the user rather than guessing from commit dates.
 
 **To write a changelog since the last release:** `git log <last-playstore-tag>..HEAD --oneline`
 lists every candidate commit. Write the actual changelog as a short, grouped, user-facing summary
@@ -287,7 +289,7 @@ lists every candidate commit. Write the actual changelog as a short, grouped, us
 Play Console's "What's new" release notes should read. As of `playstore-v1.3.0-4` there is **nothing
 unreleased**.
 
-`1.3.0` came in two groups:
+`1.3.0` came in three groups:
 
 - **`9ac1d2a` — About menu, first-run walkthrough, in-app review prompt** (the tester-community
   review work; see `HANDOVER.md` for the detail and the two accepted limitations). User-visible
@@ -296,6 +298,9 @@ unreleased**.
   every matched row (one fridge chicken credited all 138 `Meat/Beef` rows), and `prioritizedCount`
   counting matched rows rather than fridge entries. Both are in the "Recipe matching" section above;
   `HANDOVER.md` records the measured before/after.
+- **The fridge screen's title (`bf745b7`)** — it still said "Kitchen Assistant" from before the
+  rebrand, and had been visible in every screenshot since. A one-line fix, but user-visible, and the
+  reason the tag was moved (see above).
 
 Before that, `ec1649d` (doc-only) moved the 1.2.0 release notes into `PLAY_STORE_WHATS_NEW.md`'s
 History section. `1.2.0` carried 34 commits and came in four groups:

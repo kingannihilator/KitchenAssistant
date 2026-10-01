@@ -8,21 +8,24 @@ just append) whenever a work session wraps up a notable chunk of work.
 ## Current release state
 
 - **Cut, not yet uploaded: `versionCode 4` / `versionName "1.3.0"`**, tagged `playstore-v1.3.0-4` on
-  commit `55e08b6` (2026-09-30). See the caveat below — this is the first release where the tag
-  precedes the upload.
+  commit `bf745b7` (2026-09-30). See the caveat below — this is the first release where the tag
+  precedes the upload, and the first where the tag was moved after being pushed.
 - Shipped: `versionCode 3` / `versionName "1.2.0"`, tagged `playstore-v1.2.0-3` (tag on commit
   `2f425a7`, which carries a 2026-09-20 commit date; released 2026-09-21, per the notes move in
   `ec1649d`).
 - Previous releases: `1.1.0`/`versionCode 2` (`playstore-v1.1.0-2`, commit `2fe2d08`, 2026-08-31) and
   `1.0`/`versionCode 1` (`playstore-v1.0-1`, commit `37619f0`, the last upload before 1.1.0 —
   2026-08-15).
-- **The 1.3.0 caveat — read before trusting the tag.** Normally the tag goes on at the moment of the
+- **The 1.3.0 caveats — read before trusting the tag.** Normally the tag goes on at the moment of the
   Play Console upload, so `playstore-v*` means "this is what shipped". For 1.3.0 the machine that cut
   it has no `app/keystore.properties`, so `assembleRelease`/`bundleRelease` produce **unsigned**
   artifacts (`app-release-unsigned.apk`; `signingConfig` is null, see `app/build.gradle.kts`) and
   cannot be uploaded. The user elected to tag now and upload later from the machine holding
-  `kitchen-assistant-release.jks`, so the 1.3.0 tag marks the freeze, not the upload. **Nothing
-  release-worthy is left unreleased** — the next release after 1.3.0 starts empty.
+  `kitchen-assistant-release.jks`, so the 1.3.0 tag marks the freeze, not the upload. It was then
+  **moved** (force-pushed, `55e08b6` → `bf745b7`) when the fridge-screen title fix landed after
+  cutting but before any upload — nothing was invalidated by that, since no artifact had shipped
+  yet. A new session on a machine that fetched the tag earlier would still have the old one.
+  **Nothing release-worthy is left unreleased** — the next release after 1.3.0 starts empty.
 - `PLAY_STORE_WHATS_NEW.md` (repo root) holds the actual Play Console "What's new" text — a
   polished, 500-character-limited public-facing draft for the *next* release, kept in sync with
   (but written very differently from) CLAUDE.md's internal engineering changelog. The draft is back
@@ -167,17 +170,21 @@ the version bump landed.
   both have zero recipe-corpus popularity signal — no clean fix identified yet.
 - **Resolved: `assembleRelease` under R8.** Checked during the 1.3.0 cut — `assembleRelease` and
   `bundleRelease` both build clean with `com.google.android.play:review` in the graph and
-  `proguard-rules.pro` still the empty template, so Play Core survives minification. The artifacts
-  are unsigned on this machine (no `app/keystore.properties`), which is a signing matter, not an R8
-  one. What has *not* been verified is the review *entry* working in a release build on a device —
-  only that the build produces.
-- **Two UI issues spotted during the accessibility pass, both unfixed and unconfirmed:**
-  `ui/IngredientScreen.kt` hard-codes the header string "Kitchen Assistant" while `app_name` is
-  "Fridge Grub" (leftover from the rebrand); and the read-aloud control row in
-  `RecipeDetailScreen.kt` is reported to collide/overlap at ~3× font scale. Neither has been
-  verified on a device — they're candidates, not findings.
-- (Resolved, no longer open: the "cook button + fridge deduction" idea from memory is now built —
-  see "Cook this recipe" in `RecipeDetailScreen.kt`, gated to Quantity mode.)
+  `proguard-rules.pro` still the empty template, so Play Core survives minification. Also verified
+  *running*: the release APK was signed with `~/.android/debug.keystore` and installed on
+  `emulator-5554` (`apksigner sign --ks ~/.android/debug.keystore --ks-pass pass:android
+  --key-pass pass:android --ks-key-alias androiddebugkey --out <out> <unsigned-apk>`, then
+  `adb install -r`), cold-started clean, no `FATAL`/`ClassNotFound` in logcat. **That's the recipe
+  for smoke-testing a release build locally** — the debug key's signature also matches the debug
+  build, so it installs in place over one and keeps app data. It cannot be uploaded to Play, and a
+  Play-signed install on the same device would need an uninstall first. What is still unverified is
+  the review *entry* actually working in a release build, not just the build producing.
+- **One UI issue still unfixed and unconfirmed:** the read-aloud control row in
+  `RecipeDetailScreen.kt` is reported to collide/overlap at ~3× font scale. Not verified on a
+  device — a candidate, not a finding.
+- (Resolved: the fridge screen's "Kitchen Assistant" title, fixed in `bf745b7` and confirmed on the
+  release build. Resolved, no longer open: the "cook button + fridge deduction" idea from memory is
+  now built — see "Cook this recipe" in `RecipeDetailScreen.kt`, gated to Quantity mode.)
 
 ## Suggested next steps
 
