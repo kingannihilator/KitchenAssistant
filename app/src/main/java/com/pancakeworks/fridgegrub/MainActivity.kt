@@ -98,8 +98,15 @@ internal fun firstRunDestination(introSeen: Boolean, hasSeenPantry: Boolean): Sc
  * this one would push a first-run carousel at every existing user on update. Tied to the build
  * type there is nothing to remember and nothing to revert: release builds -- which is what reaches
  * Play Console, internal-testing and closed tracks included -- always take the real path.
+ *
+ * That Debug keying has since been flipped off (it was `BuildConfig.DEBUG`, now plain false) once
+ * the carousel itself had been through a round of on-device verification: the cost of it being on
+ * is paid on *every* debug launch during unrelated work, which at this point is a lot of swiping
+ * past slides to reach the fridge. The release guarantee above is unaffected -- false is simply the
+ * real rule -- so the only thing reintroduced is the thing that was never load-bearing for
+ * shipping: remembering to put it back if the carousel needs another pass.
  */
-internal val FORCE_ONBOARDING_FOR_TESTING: Boolean = BuildConfig.DEBUG
+internal val FORCE_ONBOARDING_FOR_TESTING: Boolean = false
 
 /**
  * The screen to open with. Separate from [firstRunDestination] rather than folded into it so the
