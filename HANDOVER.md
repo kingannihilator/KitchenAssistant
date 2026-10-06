@@ -13,8 +13,9 @@ just append) whenever a work session wraps up a notable chunk of work.
     `release/1.3.0`): About menu, first-run walkthrough, in-app review prompt, a11y pass.
   - `versionCode 5` / `versionName "1.4.0"`, tag `playstore-v1.4.0-5` on commit `916ba96` (branch
     `release/1.4.0`): the recipe matching/ranking accuracy fix.
-  - `versionCode 6` / `versionName "1.5.0"`, tag `playstore-v1.5.0-6` on commit `0e8a069` (branch
-    `release/1.5.0`): the fridge-screen title fix.
+  - `versionCode 6` / `versionName "1.4.1"`, tag `playstore-v1.4.1-6` on commit `9c5db0e` (branch
+    `release/1.5.0`): the fridge-screen title fix. Bumped as `1.5.0` (`0e8a069`) first, then renamed
+    to `1.4.1` in a follow-up commit (`9c5db0e`) since `0e8a069` was already pushed.
 - Shipped: `versionCode 3` / `versionName "1.2.0"`, tagged `playstore-v1.2.0-3` (tag on commit
   `2f425a7`, which carries a 2026-09-20 commit date; released 2026-09-21, per the notes move in
   `ec1649d`).
@@ -33,7 +34,7 @@ just append) whenever a work session wraps up a notable chunk of work.
   not the upload — a new session on a machine that fetched an older tag would still have it.
   **Unlike the earlier note, this machine has `app/keystore.properties`**, so the three AABs were
   built and signed here (`app/build/release-artifacts/fridgegrub-…-vc{4,5,6}.aab`) and the upload can
-  happen from here. **Nothing release-worthy is left unreleased** — the next release after 1.5.0
+  happen from here. **Nothing release-worthy is left unreleased** — the next release after 1.4.1
   starts empty.
 - `PLAY_STORE_WHATS_NEW.md` (repo root) holds the actual Play Console "What's new" text — polished,
   500-character-limited public-facing drafts kept in sync with (but written very differently from)
@@ -86,11 +87,11 @@ the app can fix, and not worth further code changes. Also added a persisted spee
 **Docs.** `CLAUDE.md`'s "Recipe matching" and "Release versioning" sections were updated to match
 the above; this file was added and has since been brought current for the shipped 1.2.0 release.
 
-## What the three 9/30 releases carry (`playstore-v1.2.0-3`..`playstore-v1.5.0-6`)
+## What the three 9/30 releases carry (`playstore-v1.2.0-3`..`playstore-v1.4.1-6`)
 
 Written in two work sessions and originally cut as one `1.3.0`, then split into the three releases
 listed under "Current release state": `1.3.0` carries the tester-community review items, `1.4.0` the
-matching/ranking fix, `1.5.0` the title fix. All three are **cut but not uploaded**, kept here
+matching/ranking fix, `1.4.1` the title fix. All three are **cut but not uploaded**, kept here
 because they're the most recent substantive context for a new session.
 
 **The tester-community review items — commit `9ac1d2a` (ships in `1.3.0`).** The whole plan lives at the user's
@@ -198,7 +199,7 @@ the version bump landed.
 
 ## Suggested next steps
 
-- **The three uploads still have to happen**, in order (`1.3.0` → `1.4.0` → `1.5.0`) — Play holds
+- **The three uploads still have to happen**, in order (`1.3.0` → `1.4.0` → `1.4.1`) — Play holds
   only one production release at a time. The AABs are already built and signed in
   `app/build/release-artifacts/`; to rebuild, check out each `release/*` branch and run
   `bundleRelease` (this machine has the keystore). After each goes up, move that release's draft

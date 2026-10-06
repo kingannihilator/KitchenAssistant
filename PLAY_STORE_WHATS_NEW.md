@@ -32,7 +32,7 @@ Also improves screen-reader support and survives larger system font sizes throug
 Recipe matching fixes: a recipe that uses one of your starred ingredients twice no longer outranks a better match, and category matching no longer credits your fridge with ingredients you don't actually have.
 ```
 
-### 1.5.0 (versionCode 6, playstore-v1.5.0-6)
+### 1.4.1 (versionCode 6, playstore-v1.4.1-6)
 
 ```
 Fixed: the app's name now appears correctly in the title bar.

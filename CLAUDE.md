@@ -253,7 +253,7 @@ All dependency versions in `gradle/libs.versions.toml`.
 
 ## Release versioning and changelog routine
 
-`versionCode`/`versionName` (`app/build.gradle.kts`) are currently `6`/`"1.5.0"` — the last of the
+`versionCode`/`versionName` (`app/build.gradle.kts`) are currently `6`/`"1.4.1"` — the last of the
 three sequential releases the 9/30 work ships as (below). **Do not bump on every commit or every
 push.** `versionCode`
 exists solely to identify distinct artifacts uploaded to Google Play Console (every upload,
@@ -273,12 +273,15 @@ its own group's commits on top of the previous release and adds its own version 
 | --- | --- | --- | --- | --- |
 | `1.3.0` | `release/1.3.0` | `5adaeb2` | 4 | About menu, first-run walkthrough, in-app review prompt, a11y pass (`9ac1d2a`, `ba71b5f`) |
 | `1.4.0` | `release/1.4.0` | `916ba96` | 5 | recipe matching/ranking accuracy fix (`c38de99`) |
-| `1.5.0` | `release/1.5.0` | `0e8a069` | 6 | fridge screen title fix (`bf745b7`) |
+| `1.4.1` | `release/1.5.0` | `9c5db0e` | 6 | fridge screen title fix (`bf745b7`) |
 
-`1.3.0` is the only MINOR bump (it carries the new features); `1.4.0` and `1.5.0` are PATCH
-(fixes only). `master` was then merged with `release/1.5.0` (`eeddb02`), so its code now equals the
-final release branch's — the merge's only conflict was `app/build.gradle.kts` (master still held
-the single `4`/`"1.3.0"` bump), resolved to `6`/`"1.5.0"`.
+`1.3.0` is the only MINOR bump (it carries the new features); `1.4.0` and `1.4.1` are PATCH
+(fixes only). The third release was bumped as `1.5.0` (`0e8a069`) and then renamed to `1.4.1` by a
+follow-up commit (`9c5db0e`) rather than amending the already-pushed bump — only the display label
+moved, so `versionCode` stays 6. `master` was then merged with `release/1.5.0` (`eeddb02`), so its
+code now equals the final release branch's; the merge's only conflict was `app/build.gradle.kts`
+(master still held the single `4`/`"1.3.0"` bump), resolved to `6`/`"1.5.0"` and later updated to
+`6`/`"1.4.1"`.
 
 **The tag is the source of truth for "what shipped."** Every commit actually uploaded to Play
 Console gets tagged `playstore-v<versionName>-<versionCode>` (e.g. `playstore-v1.2.0-3`) at the
@@ -293,7 +296,7 @@ original `playstore-v1.3.0-4` pointed at the single-release bump `55e08b6`, was 
 title fix `bf745b7` when that landed before any upload, and was then **moved again** to `5adaeb2`
 (the 1.3.0 bump on `release/1.3.0`) once the work was split into three releases — nothing had been
 uploaded, and a build containing all three groups was no longer what "1.3.0" meant. The other two
-are `playstore-v1.4.0-5` → `916ba96` and `playstore-v1.5.0-6` → `0e8a069`. So, like the original
+are `playstore-v1.4.0-5` → `916ba96` and `playstore-v1.4.1-6` → `9c5db0e`. So, like the original
 cut, they mark the freeze rather than the upload. (The three release builds were produced and signed
 locally — `app/keystore.properties` is present in this working copy, so `assembleRelease` signs
 there; the earlier "the cutting machine builds unsigned" note no longer describes this machine.)
@@ -303,7 +306,7 @@ from commit dates.
 **To write a changelog since the last release:** `git log <last-playstore-tag>..HEAD --oneline`
 lists every candidate commit. Write the actual changelog as a short, grouped, user-facing summary
 (by feature area, in plain language) — not a copy-paste of raw commit messages — the same way
-Play Console's "What's new" release notes should read. As of the `1.5.0` cut there is **nothing
+Play Console's "What's new" release notes should read. As of the `1.4.1` cut there is **nothing
 unreleased**: everything from 9/30 is accounted for in the three releases above, and the only
 commits since `playstore-v1.2.0-3` beyond them are doc-only (`ec1649d`, `4012ac4`, `700b9c6`,
 `834156c`, `7df35ea`, `a6a6804`).
@@ -318,7 +321,7 @@ The three releases, in upload order:
   seeded by every matched row (one fridge chicken credited all 138 `Meat/Beef` rows), and
   `prioritizedCount` counting matched rows rather than fridge entries. Both are in the "Recipe
   matching" section above; `HANDOVER.md` records the measured before/after.
-- **`1.5.0` — the fridge screen's title**: it still said "Kitchen Assistant" from before the
+- **`1.4.1` — the fridge screen's title**: it still said "Kitchen Assistant" from before the
   rebrand, and had been visible in every screenshot since. A one-line fix, but user-visible.
 
 Before that, `ec1649d` (doc-only) moved the 1.2.0 release notes into `PLAY_STORE_WHATS_NEW.md`'s
