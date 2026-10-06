@@ -7,36 +7,38 @@ release actually ships, move the published version into the History section and 
 back to a stub for the next cycle. See `CLAUDE.md`'s "Release versioning and changelog routine"
 for how this relates to `versionCode`/`versionName` and the `playstore-v*` git tags.
 
-**Google Play's limit is 500 characters per language.** The draft below is checked against that
+**Google Play's limit is 500 characters per language.** Each draft below is checked against that
 limit; count before publishing if you edit it (`wc -m`, or a quick `len()` in a scratch script —
 emoji/accented characters can cost more than one character depending on encoding, so measure the
 actual string, don't just eyeball it).
 
-## Draft for the next release (nothing yet)
+## Drafts — next three releases (none shipped yet)
 
-```
-(nothing release-worthy since 1.3.0 yet)
-```
+The 9/30 work was originally cut as a single 1.3.0. It never reached Play Console, so it is going
+out as **three sequential uploads** instead; each has its own text below. Move each block to
+History as its upload actually happens, and correct the text there if it gets edited first.
 
-## History
-
-### 1.3.0 (versionCode 4, playstore-v1.3.0-4, cut 2026-09-30)
+### 1.3.0 (versionCode 4, playstore-v1.3.0-4)
 
 ```
 New: a short guided tour on first launch, a proper About menu, and a "Rate this app" link.
 
-Recipe ranking fixes: a recipe that uses one of your starred ingredients twice no longer outranks a better match, and category matching no longer credits your fridge with things you don't have.
+Also improves screen-reader support and survives larger system font sizes throughout the app.
+```
 
+### 1.4.0 (versionCode 5, playstore-v1.4.0-5)
+
+```
+Recipe matching fixes: a recipe that uses one of your starred ingredients twice no longer outranks a better match, and category matching no longer credits your fridge with ingredients you don't actually have.
+```
+
+### 1.5.0 (versionCode 6, playstore-v1.5.0-6)
+
+```
 Fixed: the app's name now appears correctly in the title bar.
 ```
 
-Two notes on this entry. The upload followed the tag: the machine that cut
-1.3.0 has no `app/keystore.properties`, so its release build is unsigned and the
-Play Console upload happens from wherever the release keystore lives. And the
-tag was **moved** from the version-bump commit to `bf745b7` after the title-bar
-fix landed, before anything was uploaded — which is why the fix is in this text
-at all. If the text gets edited again before that upload, correct this entry to
-match what actually shipped.
+## History
 
 ### 1.2.0 (versionCode 3, playstore-v1.2.0-3, 2026-09-21)
 

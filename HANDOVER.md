@@ -7,30 +7,40 @@ just append) whenever a work session wraps up a notable chunk of work.
 
 ## Current release state
 
-- **Cut, not yet uploaded: `versionCode 4` / `versionName "1.3.0"`**, tagged `playstore-v1.3.0-4` on
-  commit `bf745b7` (2026-09-30). See the caveat below — this is the first release where the tag
-  precedes the upload, and the first where the tag was moved after being pushed.
+- **Cut, not yet uploaded — three releases, in upload order** (the 9/30 work, originally one 1.3.0,
+  split into three before any upload at the user's request):
+  - `versionCode 4` / `versionName "1.3.0"`, tag `playstore-v1.3.0-4` on commit `5adaeb2` (branch
+    `release/1.3.0`): About menu, first-run walkthrough, in-app review prompt, a11y pass.
+  - `versionCode 5` / `versionName "1.4.0"`, tag `playstore-v1.4.0-5` on commit `916ba96` (branch
+    `release/1.4.0`): the recipe matching/ranking accuracy fix.
+  - `versionCode 6` / `versionName "1.5.0"`, tag `playstore-v1.5.0-6` on commit `0e8a069` (branch
+    `release/1.5.0`): the fridge-screen title fix.
 - Shipped: `versionCode 3` / `versionName "1.2.0"`, tagged `playstore-v1.2.0-3` (tag on commit
   `2f425a7`, which carries a 2026-09-20 commit date; released 2026-09-21, per the notes move in
   `ec1649d`).
 - Previous releases: `1.1.0`/`versionCode 2` (`playstore-v1.1.0-2`, commit `2fe2d08`, 2026-08-31) and
   `1.0`/`versionCode 1` (`playstore-v1.0-1`, commit `37619f0`, the last upload before 1.1.0 —
   2026-08-15).
-- **The 1.3.0 caveats — read before trusting the tag.** Normally the tag goes on at the moment of the
-  Play Console upload, so `playstore-v*` means "this is what shipped". For 1.3.0 the machine that cut
-  it has no `app/keystore.properties`, so `assembleRelease`/`bundleRelease` produce **unsigned**
-  artifacts (`app-release-unsigned.apk`; `signingConfig` is null, see `app/build.gradle.kts`) and
-  cannot be uploaded. The user elected to tag now and upload later from the machine holding
-  `kitchen-assistant-release.jks`, so the 1.3.0 tag marks the freeze, not the upload. It was then
-  **moved** (force-pushed, `55e08b6` → `bf745b7`) when the fridge-screen title fix landed after
-  cutting but before any upload — nothing was invalidated by that, since no artifact had shipped
-  yet. A new session on a machine that fetched the tag earlier would still have the old one.
-  **Nothing release-worthy is left unreleased** — the next release after 1.3.0 starts empty.
-- `PLAY_STORE_WHATS_NEW.md` (repo root) holds the actual Play Console "What's new" text — a
-  polished, 500-character-limited public-facing draft for the *next* release, kept in sync with
-  (but written very differently from) CLAUDE.md's internal engineering changelog. The draft is back
-  to a stub and 1.3.0's text has moved into History. Add a line to the draft whenever new
-  release-worthy work lands, same trigger as updating this file.
+- **The three-release caveats — read before trusting the tags.** Normally the tag goes on at the
+  moment of the Play Console upload, so `playstore-v*` means "this is what shipped". Here the work
+  was cut as one `1.3.0` (versionCode 4) first, tagged `playstore-v1.3.0-4` on `bf745b7`, with
+  nothing uploaded; it was then re-cut as three short-lived release branches (`release/1.3.0`,
+  `release/1.4.0`, `release/1.5.0`) off `700b9c6`, each cherry-picking only its own commits and
+  adding its own version bump, and `master` was merged with `release/1.5.0` (`eeddb02`). So
+  `playstore-v1.3.0-4` was **moved a second time**, from `bf745b7` to the new 1.3.0 bump `5adaeb2`
+  (nothing had been uploaded, and a build containing all three groups was no longer what 1.3.0
+  meant). All three tags were created **before** their uploads, so as before they mark the freeze,
+  not the upload — a new session on a machine that fetched an older tag would still have it.
+  **Unlike the earlier note, this machine has `app/keystore.properties`**, so the three AABs were
+  built and signed here (`app/build/release-artifacts/fridgegrub-…-vc{4,5,6}.aab`) and the upload can
+  happen from here. **Nothing release-worthy is left unreleased** — the next release after 1.5.0
+  starts empty.
+- `PLAY_STORE_WHATS_NEW.md` (repo root) holds the actual Play Console "What's new" text — polished,
+  500-character-limited public-facing drafts kept in sync with (but written very differently from)
+  CLAUDE.md's internal engineering changelog. Because of the three-way split there are **three
+  pending drafts**, one per release, instead of the usual single stub; 1.2.0's published text is
+  already in History. Move each draft into History as its upload actually happens, and add a line to
+  a draft whenever new release-worthy work lands (same trigger as updating this file).
 
 ## What shipped in 1.2.0 (the work behind the current release)
 
@@ -76,14 +86,14 @@ the app can fix, and not worth further code changes. Also added a persisted spee
 **Docs.** `CLAUDE.md`'s "Recipe matching" and "Release versioning" sections were updated to match
 the above; this file was added and has since been brought current for the shipped 1.2.0 release.
 
-## What 1.3.0 carried (`playstore-v1.2.0-3`..`playstore-v1.3.0-4`)
+## What the three 9/30 releases carry (`playstore-v1.2.0-3`..`playstore-v1.5.0-6`)
 
-Both halves of this are now released — it's history, kept here because it's the most recent
-substantive context for a new session. The whole of it was written *and* cut in two work sessions,
-and the last two commits on the way to the tag were a version bump (`55e08b6`) and the doc
-corrections described at the end of this section.
+Written in two work sessions and originally cut as one `1.3.0`, then split into the three releases
+listed under "Current release state": `1.3.0` carries the tester-community review items, `1.4.0` the
+matching/ranking fix, `1.5.0` the title fix. All three are **cut but not uploaded**, kept here
+because they're the most recent substantive context for a new session.
 
-**The tester-community review items — commit `9ac1d2a`.** The whole plan lives at the user's
+**The tester-community review items — commit `9ac1d2a` (ships in `1.3.0`).** The whole plan lives at the user's
 `~/.claude/plans/graceful-soaring-scott.md` (not in this repo) and is implemented: About broadened
 into a three-item menu with a permanent "Rate this app" entry, a first-run walkthrough carousel
 reachable later as Help from About, hard-coded-height fixes for raised system font sizes, a
@@ -96,7 +106,7 @@ covers them. `FORCE_ONBOARDING_FOR_TESTING` (`MainActivity.kt`) is currently **`
 `BuildConfig.DEBUG` during verification and was turned off afterward so debug launches don't walk
 the carousel every time; flip it back to `BuildConfig.DEBUG` if the carousel needs another pass.
 
-**The matching/ranking accuracy fix (the work this section was written for).** Two independent
+**The matching/ranking accuracy fix — commit `c38de99` (ships in `1.4.0`).** Two independent
 search-correctness bugs, found by the user asking why a specific fridge's results were wrong, then
 measured — not theorized about:
 
@@ -188,10 +198,12 @@ the version bump landed.
 
 ## Suggested next steps
 
-- **The 1.3.0 upload still has to happen** — from the machine with the release keystore, since this
-  one has none. After it's up, confirm `PLAY_STORE_WHATS_NEW.md`'s 1.3.0 History text matches what
-  was actually published (the draft was frozen at the tag; Play Console edits, if any, make that
-  entry stale). Nothing else is pending release-wise.
+- **The three uploads still have to happen**, in order (`1.3.0` → `1.4.0` → `1.5.0`) — Play holds
+  only one production release at a time. The AABs are already built and signed in
+  `app/build/release-artifacts/`; to rebuild, check out each `release/*` branch and run
+  `bundleRelease` (this machine has the keystore). After each goes up, move that release's draft
+  text into `PLAY_STORE_WHATS_NEW.md`'s History and correct it if Play Console edits differed.
+  Nothing else is pending release-wise.
 - **Device passes that were never done**, and should happen before or soon after that upload: the
   onboarding carousel, About, and the rate entry (`9ac1d2a` was committed with
   `FORCE_ONBOARDING_FOR_TESTING = false`, so a normal launch goes straight to the fridge), and the
